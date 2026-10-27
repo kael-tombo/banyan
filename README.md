@@ -176,5 +176,12 @@ npm test        # 32 unit tests across state machines, formats, learning,
   collaboration are not implemented; the rate limiter is in-process (single node).
 - Legal pages are templates, not reviewed legal documents.
 
-See [`docs/IMPLEMENTATION_REPORT.md`](docs/IMPLEMENTATION_REPORT.md) for the full,
-factual status report.
+## Project documents
+
+| Document | What it holds |
+| --- | --- |
+| [`vision.md`](vision.md) | Why the product exists, who it is for, milestones and non-goals |
+| [`philosophy.md`](philosophy.md) | Product and engineering beliefs, and where each is enforced in code |
+| [`progress.md`](progress.md) | Living status board: done, partial, not started, next up |
+| [`worklog.md`](worklog.md) | Chronological record of changes |
+| [`docs/IMPLEMENTATION_REPORT.md`](docs/IMPLEMENTATION_REPORT.md) | Full factual status report |
