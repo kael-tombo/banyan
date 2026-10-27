@@ -78,6 +78,17 @@ a {
 .fade-up-2 { animation-delay: 0.08s; }
 .fade-up-3 { animation-delay: 0.16s; }
 
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+
+/* Anchored landing sections clear the sticky header when jumped to. */
+section[id] {
+  scroll-margin-top: 5rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .fade-up { animation: none; }

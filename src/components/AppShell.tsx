@@ -1,25 +1,47 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
 import { BanyanMark } from "@/components/BanyanMark";
 import {
   LayoutDashboard, Package, Users2, Megaphone, PenLine, CheckCircle2, CalendarDays,
-  Share2, LineChart, FlaskConical, Settings, LogOut, Sprout,
+  Share2, LineChart, FlaskConical, Settings, LogOut, Sprout, Menu, X,
 } from "lucide-react";
 
-const NAV = [
-  { href: "/app", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/app/workspace", label: "Workspace", icon: Package },
-  { href: "/app/audience", label: "Audience", icon: Users2 },
-  { href: "/app/campaigns", label: "Campaigns", icon: Megaphone },
-  { href: "/app/content", label: "Content", icon: PenLine },
-  { href: "/app/approvals", label: "Approvals", icon: CheckCircle2 },
-  { href: "/app/calendar", label: "Calendar", icon: CalendarDays },
-  { href: "/app/publishing", label: "Publishing", icon: Share2 },
-  { href: "/app/analytics", label: "Analytics", icon: LineChart },
-  { href: "/app/experiments", label: "Experiments", icon: FlaskConical },
+type NavItem = { href: string; label: string; icon: typeof LayoutDashboard };
+
+/**
+ * Navigation is grouped by the job it does — plan, distribute, measure — so a
+ * long flat list does not have to be scanned to find one page.
+ */
+const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
+  {
+    label: "Plan",
+    items: [
+      { href: "/app", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/app/workspace", label: "Workspace", icon: Package },
+      { href: "/app/audience", label: "Audience", icon: Users2 },
+    ],
+  },
+  {
+    label: "Distribute",
+    items: [
+      { href: "/app/campaigns", label: "Campaigns", icon: Megaphone },
+      { href: "/app/content", label: "Content", icon: PenLine },
+      { href: "/app/approvals", label: "Approvals", icon: CheckCircle2 },
+      { href: "/app/calendar", label: "Calendar", icon: CalendarDays },
+      { href: "/app/publishing", label: "Publishing", icon: Share2 },
+    ],
+  },
+  {
+    label: "Measure",
+    items: [
+      { href: "/app/analytics", label: "Analytics", icon: LineChart },
+      { href: "/app/experiments", label: "Experiments", icon: FlaskConical },
+    ],
+  },
 ];
 
 export function AppShell({
@@ -39,6 +61,10 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // Collapse the mobile menu whenever navigation happens.
+  useEffect(() => setMenuOpen(false), [pathname]);
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST", body: JSON.stringify({}) });
@@ -48,52 +74,80 @@ export function AppShell({
 
   const isActive = (href: string) => (href === "/app" ? pathname === "/app" : pathname.startsWith(href));
 
+  const linkClass = (href: string, compact = false) =>
+    `flex items-center gap-2 ${compact ? "px-2 py-1.5 text-sm" : "px-2 py-1.5 text-sm"} rounded-md ${
+      isActive(href)
+        ? "bg-forest/10 font-medium text-forest-deep"
+        : "text-charcoal-soft hover:bg-forest/5 hover:text-forest-deep"
+    }`;
+
   return (
     <div className="flex min-h-screen bg-ivory">
-      {/* Sidebar */}
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-bark/10 bg-white px-3 py-4 md:flex" aria-label="Main navigation">
+      {/* Let keyboard users jump past the navigation. */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-forest focus:px-3 focus:py-2 focus:text-sm focus:text-ivory"
+      >
+        Skip to content
+      </a>
+
+      {/* Desktop sidebar */}
+      <aside
+        className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col overflow-y-auto border-r border-bark/10 bg-white px-3 py-4 md:flex"
+        aria-label="Main navigation"
+      >
         <Link href="/app" className="mb-1 flex items-center gap-2 px-2">
           <BanyanMark size={22} />
           <span className="font-serif text-base text-forest-deep">
             Banyan<span className="text-moss">.ai</span>
           </span>
         </Link>
-        <div className="mb-2 rounded-md bg-ivory px-3 py-2">
+        <div className="mb-3 rounded-md bg-ivory px-3 py-2">
           <p className="truncate text-sm font-medium text-charcoal">{product || "No product yet"}</p>
-          <p className="truncate text-xs text-charcoal-soft">{workspace.name}{workspace.isSelf ? " · self-distribution" : ""}</p>
+          <p className="truncate text-xs text-charcoal-soft">
+            {workspace.name}
+            {workspace.isSelf ? " · self-distribution" : ""}
+          </p>
           {goal && <p className="mt-1 text-xs text-moss">{goal.replace(/_/g, " ")} goal</p>}
         </div>
-        {workspace.isSelf && (
-          <Link
-            href="/app/growth"
-            className={`mb-2 flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium ${isActive("/app/growth") ? "bg-forest/10 text-forest-deep" : "text-clay hover:bg-clay/5"}`}
-          >
-            <Sprout size={16} aria-hidden={true} /> Growth: distributing itself
-          </Link>
-        )}
-        <nav className="flex flex-1 flex-col gap-0.5" role="list">
-          {NAV.map((n) => (
-            <Link
-              key={n.href}
-              href={n.href}
-              aria-current={isActive(n.href) ? "page" : undefined}
-              className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
-                isActive(n.href) ? "bg-forest/10 font-medium text-forest-deep" : "text-charcoal-soft hover:bg-forest/5 hover:text-forest-deep"
-              }`}
-            >
-              <n.icon size={16} aria-hidden="true" /> {n.label}
-            </Link>
+
+        <nav className="flex flex-1 flex-col gap-3" role="list">
+          {NAV_GROUPS.map((group) => (
+            <div key={group.label} role="listitem">
+              <p className="px-2 pb-1 text-[11px] font-semibold text-bark/45">{group.label}</p>
+              <div className="flex flex-col gap-0.5">
+                {group.items.map((n) => (
+                  <Link key={n.href} href={n.href} aria-current={isActive(n.href) ? "page" : undefined} className={linkClass(n.href)}>
+                    <n.icon size={16} aria-hidden="true" /> {n.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
           ))}
+
           <div className="mt-auto flex flex-col gap-0.5 border-t border-bark/10 pt-2">
+            {workspace.isSelf && (
+              <Link
+                href="/app/growth"
+                aria-current={isActive("/app/growth") ? "page" : undefined}
+                className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium ${
+                  isActive("/app/growth") ? "bg-forest/10 text-forest-deep" : "text-clay hover:bg-clay/5"
+                }`}
+              >
+                <Sprout size={16} aria-hidden="true" /> Growth: distributing itself
+              </Link>
+            )}
             <Link
               href="/app/settings"
               aria-current={isActive("/app/settings") ? "page" : undefined}
-              className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm ${isActive("/app/settings") ? "bg-forest/10 font-medium text-forest-deep" : "text-charcoal-soft hover:bg-forest/5 hover:text-forest-deep"}`}
+              className={linkClass("/app/settings")}
             >
               <Settings size={16} aria-hidden="true" /> Settings
             </Link>
             <div className="flex items-center justify-between gap-2 px-2 py-1.5">
-              <span className="truncate text-xs text-charcoal-soft" title={user.email}>{user.email}</span>
+              <span className="truncate text-xs text-charcoal-soft" title={user.email}>
+                {user.email}
+              </span>
               <Button variant="ghost" size="sm" onClick={logout} aria-label="Log out">
                 <LogOut size={14} aria-hidden="true" />
               </Button>
@@ -102,28 +156,63 @@ export function AppShell({
         </nav>
       </aside>
 
-      {/* Mobile top bar */}
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="sticky top-0 z-30 flex items-center justify-between border-b border-bark/10 bg-ivory/95 px-4 py-2 backdrop-blur md:hidden">
-          <Link href="/app" className="flex items-center gap-2">
+        {/* Mobile top bar */}
+        <div className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-bark/10 bg-ivory/95 px-4 py-2 backdrop-blur md:hidden">
+          <Link href="/app" className="flex items-center gap-2" aria-label="Banyan.ai dashboard">
             <BanyanMark size={20} />
             <span className="font-serif text-forest-deep">Banyan.ai</span>
           </Link>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-charcoal-soft">{product || workspace.name}</span>
-            <Button variant="ghost" size="sm" onClick={logout} aria-label="Log out"><LogOut size={14} aria-hidden="true" /></Button>
+          <div className="flex items-center gap-1">
+            <span className="max-w-[9rem] truncate text-xs text-charcoal-soft">{product || workspace.name}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-expanded={menuOpen}
+              aria-controls="mobile-nav"
+              aria-label={menuOpen ? "Close navigation" : "Open navigation"}
+            >
+              {menuOpen ? <X size={16} aria-hidden="true" /> : <Menu size={16} aria-hidden="true" />}
+            </Button>
           </div>
         </div>
-        <div className="overflow-x-auto border-b border-bark/10 bg-white md:hidden" role="navigation" aria-label="Sections">
-          <nav className="flex gap-1 px-2 py-2">
-            {[...NAV, { href: "/app/settings", label: "Settings", icon: Settings }].map((n) => (
-              <Link key={n.href} href={n.href} aria-current={isActive(n.href) ? "page" : undefined}
-                className={`whitespace-nowrap rounded-md px-2 py-1 text-xs ${isActive(n.href) ? "bg-forest/10 font-medium text-forest-deep" : "text-charcoal-soft"}`}>
-                {n.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
+
+        {/* Mobile menu */}
+        {menuOpen && (
+          <div id="mobile-nav" className="border-b border-bark/10 bg-white px-2 py-2 md:hidden">
+            <nav className="flex flex-col gap-2" aria-label="Sections">
+              {NAV_GROUPS.map((group) => (
+                <div key={group.label}>
+                  <p className="px-2 pb-1 text-[11px] font-semibold text-bark/45">{group.label}</p>
+                  <div className="flex flex-col gap-0.5">
+                    {group.items.map((n) => (
+                      <Link key={n.href} href={n.href} aria-current={isActive(n.href) ? "page" : undefined} className={linkClass(n.href, true)}>
+                        <n.icon size={16} aria-hidden="true" /> {n.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <div className="flex flex-col gap-0.5 border-t border-bark/10 pt-2">
+                {workspace.isSelf && (
+                  <Link href="/app/growth" className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-clay">
+                    <Sprout size={16} aria-hidden="true" /> Growth: distributing itself
+                  </Link>
+                )}
+                <Link href="/app/settings" aria-current={isActive("/app/settings") ? "page" : undefined} className={linkClass("/app/settings")}>
+                  <Settings size={16} aria-hidden="true" /> Settings
+                </Link>
+                <button
+                  onClick={logout}
+                  className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-charcoal-soft hover:bg-forest/5"
+                >
+                  <LogOut size={16} aria-hidden="true" /> Log out ({user.email})
+                </button>
+              </div>
+            </nav>
+          </div>
+        )}
 
         {!onboardingComplete && (
           <div className="border-b border-clay/25 bg-clay/5">

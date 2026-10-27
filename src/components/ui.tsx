@@ -1,6 +1,9 @@
 "use client";
 
-import { ReactNode, ButtonHTMLAttributes, InputHTMLAttributes, TextareaHTMLAttributes, SelectHTMLAttributes, forwardRef } from "react";
+import {
+  ReactNode, ButtonHTMLAttributes, InputHTMLAttributes, TextareaHTMLAttributes, SelectHTMLAttributes,
+  forwardRef, isValidElement, cloneElement, useId,
+} from "react";
 import Link from "next/link";
 
 // UI primitives. Honest by default: EmptyState explains, never fabricates.
@@ -87,12 +90,23 @@ export function Select({ className = "", children, ...rest }: SelectHTMLAttribut
 }
 
 export function Field({ label, hint, required, children, htmlFor }: { label: string; hint?: string; required?: boolean; children: ReactNode; htmlFor?: string }) {
+  const generatedId = useId();
+  const controlId = htmlFor ?? generatedId;
+  // Associate the label with its control (and carry `required`) so clicking the
+  // label focuses the field and screen readers announce it, without every call
+  // site having to hand-wire ids. Non-element children are left untouched.
+  const control = isValidElement(children)
+    ? cloneElement(children as React.ReactElement<Record<string, unknown>>, {
+        id: controlId,
+        ...(required ? { required: true } : {}),
+      })
+    : children;
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={htmlFor} className="text-sm font-medium text-charcoal">
-        {label} {required && <span className="text-clay">*</span>}
+      <label htmlFor={controlId} className="text-sm font-medium text-charcoal">
+        {label} {required && <span className="text-clay" aria-hidden="true">*</span>}
       </label>
-      {children}
+      {control}
       {hint && <p className="text-xs text-charcoal-soft">{hint}</p>}
     </div>
   );

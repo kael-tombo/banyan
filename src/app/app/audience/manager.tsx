@@ -48,6 +48,7 @@ export function AudienceManager({ insights }: { insights: Insight[] }) {
   }
 
   async function remove(id: string) {
+    if (!window.confirm("Delete this insight? This cannot be undone.")) return;
     setBusy(true); setError(null);
     try {
       const res = await fetch(`/api/audience/${id}`, { method: "DELETE", body: JSON.stringify({}) });

@@ -56,7 +56,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       )}
       <label className="flex flex-col gap-1 text-sm font-medium text-charcoal">
         Email
-        <Input name="email" type="email" autoComplete="email" required placeholder="you@company.com" />
+        <Input name="email" type="email" autoComplete="email" spellCheck={false} required placeholder="you@company.com" />
       </label>
       <label className="flex flex-col gap-1 text-sm font-medium text-charcoal">
         Password
