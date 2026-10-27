@@ -6,8 +6,10 @@ import { AppShell } from "@/components/AppShell";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await getSessionUser(await readSessionToken());
   if (!user) redirect("/login?next=%2Fapp");
-  if (!user.onboardingCompletedAt) redirect("/onboarding");
 
+  // Onboarding is optional, not a gate: it is only required to create the
+  // workspace (which signup already did). Anyone with a workspace can use the
+  // app immediately; an in-app prompt guides them until setup is finished.
   const membership = await prisma.membership.findFirst({
     where: { userId: user.id },
     include: { workspace: { include: { profile: true } } },
@@ -21,6 +23,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       workspace={{ id: membership.workspace.id, name: membership.workspace.name, isSelf: membership.workspace.isSelf }}
       product={membership.workspace.profile?.name ?? ""}
       goal={membership.workspace.profile?.goal ?? ""}
+      onboardingComplete={Boolean(user.onboardingCompletedAt)}
     >
       {children}
     </AppShell>

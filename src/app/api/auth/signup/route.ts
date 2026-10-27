@@ -72,7 +72,8 @@ export async function POST(req: NextRequest) {
   });
 
   const { token } = await createSession(user.id);
-  const res = NextResponse.json({ ok: true, next: "/onboarding" }, { status: 201 });
+  // Straight into the app — setup is guided, never forced.
+  const res = NextResponse.json({ ok: true, next: "/app" }, { status: 201 });
   res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
   return res;
 }

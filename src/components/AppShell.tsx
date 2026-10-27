@@ -27,12 +27,14 @@ export function AppShell({
   workspace,
   product,
   goal,
+  onboardingComplete,
   children,
 }: {
   user: { name: string; email: string };
   workspace: { id: string; name: string; isSelf: boolean };
   product: string;
   goal: string;
+  onboardingComplete: boolean;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -123,7 +125,27 @@ export function AppShell({
           </nav>
         </div>
 
-        <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
+        {!onboardingComplete && (
+          <div className="border-b border-clay/25 bg-clay/5">
+            <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+              <p className="text-sm text-charcoal">
+                <span className="font-medium">Finish setting up your workspace.</span>{" "}
+                Add your product, audience and goal so generation is grounded in your real context — the rest of the app
+                works either way.
+              </p>
+              <Link
+                href="/onboarding"
+                className="shrink-0 rounded-md bg-forest px-3 py-1.5 text-sm font-medium text-ivory transition-colors hover:bg-forest-deep"
+              >
+                Finish setup
+              </Link>
+            </div>
+          </div>
+        )}
+
+        <main id="main" className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">
+          {children}
+        </main>
       </div>
     </div>
   );

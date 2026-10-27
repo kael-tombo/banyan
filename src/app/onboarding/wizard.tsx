@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, FormEvent, useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Badge, Button, Card, ErrorNote, Field, Input, Select, Textarea, EmptyState } from "@/components/ui";
 import { BanyanMark } from "@/components/BanyanMark";
@@ -129,8 +130,18 @@ export function OnboardingWizard({ workspaceName, initialSteps }: { workspaceNam
               Banyan<span className="text-moss">.ai</span>
             </span>
           </div>
-          <Badge variant="warm">{workspaceName}</Badge>
+          <div className="flex items-center gap-3">
+            <Badge variant="warm">{workspaceName}</Badge>
+            <Link href="/app" className="text-sm text-charcoal-soft hover:text-forest-deep">
+              Skip for now
+            </Link>
+          </div>
         </div>
+
+        <p className="mt-4 text-sm text-charcoal-soft">
+          Optional — your workspace is already created and usable. Finish these steps whenever you like to ground
+          generation in your real product.
+        </p>
 
         <ProgressTrack current={stepIdx} labels={steps} />
 

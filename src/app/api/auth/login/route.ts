@@ -26,8 +26,9 @@ export async function POST(req: NextRequest) {
   }
 
   const { token } = await createSession(user.id);
-  const onboarded = !!user.onboardingCompletedAt;
-  const res = NextResponse.json({ ok: true, next: onboarded ? "/app" : "/onboarding" });
+  // Onboarding is not a gate: everyone lands in the app, where a setup prompt
+  // guides accounts that have not finished configuring their workspace.
+  const res = NextResponse.json({ ok: true, next: "/app" });
   res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
   return res;
 }
