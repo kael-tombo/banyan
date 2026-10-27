@@ -1,0 +1,342 @@
+// Banyan.ai data model — SQLite via Prisma.
+// Enums are represented as validated strings (SQLite lacks native enums);
+// validation lives in src/lib/state-machines.ts and zod schemas.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String    @id @default(cuid())
+  email                 String    @unique
+  name                  String
+  passwordHash          String
+  createdAt             DateTime  @default(now())
+  onboardingCompletedAt DateTime?
+  // Attribution recorded at signup when a tracked visitor cookie exists (observed, not inferred).
+  attributedLinkId      String?
+  attributedCampaignId  String?
+  attributedSource      String?
+  sessions              Session[]
+  memberships           Membership[]
+  approvals             ContentItem[] @relation("approvals")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  // The seeded Banyan.ai self-distribution workspace is its own first customer.
+  isSelf    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  memberships   Membership[]
+  profile       ProductProfile?
+  insights      AudienceInsight[]
+  campaigns     Campaign[]
+  contentItems  ContentItem[]
+  connections   ChannelConnection[]
+  trackedLinks  TrackedLink[]
+  metrics       CampaignMetric[]
+  events        MetricEvent[]
+  experiments   Experiment[]
+  activity      ActivityEvent[]
+}
+
+model Membership {
+  id          String    @id @default(cuid())
+  userId      String
+  workspaceId String
+  role        String    @default("owner")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, workspaceId])
+  @@index([workspaceId])
+}
+
+model ProductProfile {
+  id          String   @id @default(cuid())
+  workspaceId String   @unique
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  name         String
+  description  String
+  website      String?
+  stage        String // idea | building | launched | growing
+  problem      String
+  valueProp    String
+  // Audience
+  audience     String?
+  audiencePain String?
+  audienceOutcome String?
+  market       String?
+  // Distribution goal
+  goal         String? // first_users | launch | audience | leads | activation | conversions
+  goalTarget   Int?
+  goalMetric   String?
+  positioning  String?
+  // JSON: array of channel keys
+  channels     String  @default("[]")
+  // JSON: { tone, language, themes, avoid, cta, approvalPreference }
+  brandVoice   String  @default("{}")
+  timezone     String  @default("UTC")
+  updatedAt    DateTime @updatedAt
+}
+
+model AudienceInsight {
+  id          String   @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  title       String
+  body        String
+  // assumption | interview | research | observed
+  source      String   @default("assumption")
+  confidence  String   @default("low") // low | medium | high
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([workspaceId])
+}
+
+model Campaign {
+  id          String   @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  objective   String
+  targetAudience String
+  keyMessage  String
+  evidence    String   @default("")
+  cta         String
+  // JSON arrays
+  channels    String  @default("[]")
+  formats     String  @default("[]")
+  // JSON: { startDate?, cadence?, notes? }
+  schedule    String  @default("{}")
+  successMetric String
+  // draft | planned | in_progress | completed | archived
+  status      String   @default("draft")
+  startedAt   DateTime?
+  completedAt DateTime?
+  isSelfCampaign Boolean @default(false)
+  selfTheme   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  items       ContentItem[]
+  metrics     CampaignMetric[]
+  experiments Experiment[]
+  links       TrackedLink[]
+
+  @@index([workspaceId, status])
+}
+
+model ContentItem {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  campaignId  String?
+  campaign    Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  channel String // x | linkedin | shortvideo
+  format  String
+  title   String
+  body    String
+  // draft | ready_for_review | approved | scheduled | publishing | published | failed | rejected | archived
+  status       String    @default("draft")
+  scheduledFor DateTime?
+  approvedById String?
+  approvedBy   User?     @relation("approvals", fields: [approvedById], references: [id])
+  approvedAt   DateTime?
+  rejectionReason String?
+  publishedAt  DateTime?
+  // JSON: { provider, model, isFallback, note, promptTokens?, completionTokens? }
+  generationMeta String @default("{}")
+  // JSON: { hook, scenes: [...], onScreenText, caption, cta } for short-form video
+  videoExtras  String @default("{}")
+  sourceRef    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  revisions    ContentRevision[]
+  publications Publication[]
+
+  @@index([workspaceId, status])
+  @@index([campaignId])
+}
+
+model ContentRevision {
+  id            String   @id @default(cuid())
+  contentItemId String
+  contentItem   ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  title         String
+  body          String
+  note          String   @default("")
+  authorType    String   @default("user") // ai | user
+  meta          String   @default("{}")
+  createdAt     DateTime @default(now())
+
+  @@index([contentItemId])
+}
+
+model ChannelConnection {
+  id          String   @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  // The channel this connection publishes to: x | linkedin | shortvideo
+  channel     String
+  // Publishing adapter provider: postiz | manual
+  adapter     String   @default("postiz")
+  label       String
+  // AES-256-GCM encrypted JSON config { baseUrl, apiKey, integrationIds }
+  configEncrypted String
+  // configured | verified | error
+  status      String   @default("configured")
+  lastCheckedAt DateTime?
+  lastError   String?
+  createdAt   DateTime @default(now())
+
+  publications Publication[]
+
+  @@index([workspaceId])
+}
+
+model Publication {
+  id            String   @id @default(cuid())
+  contentItemId String
+  contentItem   ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  connectionId  String?
+  connection    ChannelConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  provider      String
+  // scheduled | attempting | published | failed | blocked
+  status        String   @default("scheduled")
+  externalId    String?
+  externalUrl   String?
+  // Raw provider response (audit trail)
+  providerResponse String @default("{}")
+  attempts      Int      @default(0)
+  lastError     String?
+  scheduledFor  DateTime?
+  publishedAt   DateTime?
+  idempotencyKey String  @unique
+  manual        Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([contentItemId])
+  @@index([status, scheduledFor])
+}
+
+model TrackedLink {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  campaignId    String?
+  campaign      Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  contentItemId String?
+  slug          String   @unique
+  targetUrl     String
+  utm           String   @default("{}")
+  clicks        Int      @default(0)
+  createdAt     DateTime @default(now())
+  lastClickAt   DateTime?
+
+  events MetricEvent[]
+
+  @@index([workspaceId])
+  @@index([campaignId])
+}
+
+model CampaignMetric {
+  id          String   @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  campaignId  String
+  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  // provider | manual
+  source      String
+  metric      String // e.g. impressions, engagements, link_clicks, signups
+  value       Float
+  recordedAt  DateTime @default(now())
+  note        String?
+
+  @@index([workspaceId, campaignId])
+}
+
+// First-party funnel events: visit | signup | onboarding_complete
+model MetricEvent {
+  id          String       @id @default(cuid())
+  workspaceId String
+  workspace   Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  type        String
+  campaignId  String?
+  linkId      String?
+  link        TrackedLink? @relation(fields: [linkId], references: [id], onDelete: SetNull)
+  visitorId   String?
+  userId      String?
+  meta        String       @default("{}")
+  createdAt   DateTime     @default(now())
+
+  @@index([workspaceId, type, createdAt])
+}
+
+model Experiment {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  campaignId  String?
+  campaign    Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  title       String
+  hypothesis  String
+  audience    String?
+  channel     String?
+  variable    String
+  successMetric String
+  // planned | running | complete | abandoned
+  status      String    @default("planned")
+  results     String?
+  interpretation String?
+  limitations String?
+  nextAction  String?
+  // JSON snapshot of actual observed numbers taken when conclusions were drafted
+  metricsSnapshot String @default("{}")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  decidedAt   DateTime?
+
+  @@index([workspaceId])
+}
+
+model ActivityEvent {
+  id          String   @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  // publication_attempt | publication_success | publication_failed | approval | content_created | signup | visit | experiment_update | connection | campaign | metric
+  type        String
+  // user | system | ai
+  actorType   String   @default("user")
+  actorSummary String?
+  summary     String
+  meta        String   @default("{}")
+  createdAt   DateTime @default(now())
+
+  @@index([workspaceId, createdAt])
+}

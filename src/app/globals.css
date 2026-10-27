@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ivory: #faf7f0;
+  --color-ivory-deep: #f2ecdf;
+  --color-forest: #1e4d3a;
+  --color-forest-deep: #123227;
+  --color-moss: #5d8a76;
+  --color-bark: #3d3428;
+  --color-charcoal: #23281f;
+  --color-charcoal-soft: #575d4f;
+  --color-clay: #c06a3c;
+  --color-sage: #cfe0d4;
+
+  --font-sans: "Avenir Next", Avenir, "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-serif: Charter, "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Menlo, Consolas, monospace;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-ivory);
+  color: var(--color-charcoal);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-forest);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+::selection {
+  background: var(--color-sage);
+}
+
+.serif {
+  font-family: var(--font-serif);
+}
+
+.grain {
+  position: relative;
+}
+.grain::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image:
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(30, 77, 58, 0.06), transparent),
+    radial-gradient(ellipse 60% 50% at 85% 80%, rgba(61, 52, 40, 0.05), transparent);
+}
+
+a {
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+.card-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -12px rgba(18, 50, 39, 0.35);
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-up {
+  animation: fade-up 0.5s ease both;
+}
+.fade-up-2 { animation-delay: 0.08s; }
+.fade-up-3 { animation-delay: 0.16s; }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .fade-up { animation: none; }
+  .card-lift:hover { transform: none; }
+}
