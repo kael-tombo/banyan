@@ -48,7 +48,7 @@ export async function PATCH(req: NextRequest) {
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
 
-  const raw = await req.json();
+  const raw = await req.json().catch(() => ({}));
   // Brand-voice-only updates are also supported on this endpoint.
   const voiceOnly = raw && typeof raw === "object" && "brandVoice" in raw && Object.keys(raw).length === 1;
   const parsed = parseJson(voiceOnly ? brandVoiceUpdate : schema, raw);

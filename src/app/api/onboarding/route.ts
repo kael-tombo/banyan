@@ -150,7 +150,7 @@ export async function GET() {
       actorType: "ai",
       actorSummary: result.label,
       summary: `Draft distribution plan generated (${planId}). All items are hypotheses pending human review.`,
-      meta: { plan: result.plan, planId, isFallback: result.isFallback },
+      meta: JSON.stringify({ plan: result.plan, planId, isFallback: result.isFallback }),
     },
   });
 

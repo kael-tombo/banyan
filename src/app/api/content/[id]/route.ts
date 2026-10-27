@@ -48,6 +48,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const restartFlow = ["approved", "scheduled"].includes(item.status);
 
   const channel = item.channel;
+  if (!isChannel(channel)) return apiError(`Unsupported channel "${channel}".`, 400);
   const bodySchema = contentBodySchema(channel);
   const body = parsed.data.body ?? item.body;
   const bodyCheck = bodySchema.safeParse(body);

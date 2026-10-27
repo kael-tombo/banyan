@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   const limited = guardRate(req, "signup", 10, 60_000);
   if (limited) return limited;
 
-  const parsed = await parseJson(schema, req);
+  const parsed = parseJson(schema, await req.json().catch(() => ({})));
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
 
   const email = parsed.data.email.toLowerCase();

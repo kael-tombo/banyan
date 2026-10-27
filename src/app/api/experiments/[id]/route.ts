@@ -25,7 +25,7 @@ async function collectObservations(workspaceId: string, campaignId: string | nul
   });
   const publications = campaignId
     ? await prisma.publication.count({ where: { contentItem: { campaignId, workspaceId }, status: "published" } })
-    : await prisma.publication.count({ where: { workspaceId, status: "published" } });
+    : await prisma.publication.count({ where: { contentItem: { workspaceId }, status: "published" } });
   const metrics = campaignId
     ? await prisma.campaignMetric.findMany({ where: { campaignId, workspaceId }, orderBy: { recordedAt: "desc" }, take: 10 })
     : [];

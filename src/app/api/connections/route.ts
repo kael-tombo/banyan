@@ -12,7 +12,7 @@ const createSchema = z.object({
   label: z.string().trim().max(120).default(""),
   baseUrl: z.string().trim().url().max(300),
   apiKey: z.string().trim().min(4).max(400),
-  integrationIds: z.record(z.string()).default({}),
+  integrationIds: z.record(z.string(), z.array(z.string())).default({}),
 });
 
 export async function GET() {

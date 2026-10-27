@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   const limited = guardRate(req, "login", 10, 60_000);
   if (limited) return limited;
 
-  const parsed = await parseJson(schema, req);
+  const parsed = parseJson(schema, await req.json().catch(() => ({})));
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
 
   const user = await prisma.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });

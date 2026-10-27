@@ -20,7 +20,7 @@ export default async function DashboardPage() {
       prisma.contentItem.findMany({ where: { workspaceId: wid, status: "scheduled" }, orderBy: { scheduledFor: "asc" }, take: 5 }),
       prisma.activityEvent.findMany({ where: { workspaceId: wid }, orderBy: { createdAt: "desc" }, take: 8 }),
       prisma.experiment.findMany({ where: { workspaceId: wid, status: { in: ["planned", "running"] } }, orderBy: { updatedAt: "desc" }, take: 3 }),
-      prisma.publication.findMany({ where: { workspaceId: wid, status: "published" }, orderBy: { publishedAt: "desc" }, take: 5, include: { contentItem: true } }),
+      prisma.publication.findMany({ where: { contentItem: { workspaceId: wid }, status: "published" }, orderBy: { publishedAt: "desc" }, take: 5, include: { contentItem: true } }),
       prisma.trackedLink.aggregate({ where: { workspaceId: wid }, _sum: { clicks: true } }),
     ]);
 

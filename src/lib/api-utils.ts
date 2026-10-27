@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ZodError, ZodSchema } from "zod";
+import { ZodError, ZodTypeAny, z } from "zod";
 import { prisma } from "@/lib/db";
 import { getSessionUser, readSessionToken } from "@/lib/auth/session";
 import { rateLimit } from "@/lib/ratelimit";
@@ -57,21 +57,6 @@ export async function requireWorkspace(): Promise<ApiContext | null> {
 
 export type ParseResult<T> = { ok: true; data: T } | { ok: false; status: number; message: string };
 
-export function parseBody<T>(schema: ZodSchema<T>, raw: unknown): ParseResult<T> {
-  try {
-    return { ok: true, data: schema.parse(raw) };
-  } catch (err) {
-    if (err instanceof ZodError) {
-      return {
-        ok: false,
-        status: 400,
-        message: err.issues.map((i) => `${i.path.join(".") || "body"}: ${i.message}`).join("; "),
-      };
-    }
-    throw err;
-  }
-}
-
 export function guardRate(req: NextRequest, bucket: string, limit: number, windowMs: number): NextResponse | null {
   const key = `${bucket}:${clientIp(req)}`;
   const res = rateLimit(key, limit, windowMs);
@@ -84,8 +69,25 @@ export function guardRate(req: NextRequest, bucket: string, limit: number, windo
   return null;
 }
 
-export function parseJson<T>(schema: ZodSchema<T>, req: NextRequest): Promise<ParseResult<T>> {
-  return req.json().then((raw) => parseBody(schema, raw));
+/**
+ * Validate a request body against a schema. Routes read the JSON body
+ * themselves (`await req.json()`), so this accepts the already-parsed value;
+ * that also keeps the raw body available for checks such as partial updates.
+ * Returns a 400 result on validation failure instead of throwing.
+ */
+export function parseJson<S extends ZodTypeAny>(schema: S, raw: unknown): ParseResult<z.output<S>> {
+  try {
+    return { ok: true, data: schema.parse(raw) };
+  } catch (err) {
+    if (err instanceof ZodError) {
+      return {
+        ok: false,
+        status: 400,
+        message: err.issues.map((i) => `${i.path.join(".") || "body"}: ${i.message}`).join("; "),
+      };
+    }
+    throw err;
+  }
 }
 
 /** Retry wrapper for transient failures with a labeled number of attempts. */

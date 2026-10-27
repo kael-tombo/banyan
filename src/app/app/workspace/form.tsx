@@ -4,6 +4,7 @@ import { useState, FormEvent } from "react";
 import { Badge, Button, Card, ErrorNote, Field, Input, Select, StatusBadge, Textarea, Loading } from "@/components/ui";
 import { CHANNEL_META } from "@/lib/formats";
 import { useRouter } from "next/navigation";
+import { CheckCircle2 } from "lucide-react";
 
 const STAGE_OPTIONS = [
   ["idea", "Idea"], ["building", "Building"], ["private_beta", "Private beta"],
@@ -16,9 +17,9 @@ const GOAL_OPTIONS = [
 ];
 
 type ProfileShape = {
-  name: string; description: string; website: string; stage: string; problem: string; valueProp: string;
-  audience: string; goal: string; goalTarget: number | null; goalMetric: string; timezone: string;
-  positioning: string; channels: string; brandVoice: string;
+  name: string; description: string; website: string | null; stage: string; problem: string; valueProp: string;
+  audience: string | null; goal: string | null; goalTarget: number | null; goalMetric: string | null; timezone: string;
+  positioning: string | null; channels: string; brandVoice: string;
 } | null;
 
 function safeChannelMeta(channel: string) {

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { completeValidated, AIError, extractJSON } from "@/lib/ai/provider";
+import { CHANNEL_META, isChannel, isFormatFor, type Channel } from "@/lib/formats";
 
 export const videoExtrasSchema = z.object({
   hook: z.string().min(3),
@@ -68,7 +69,7 @@ export async function generateDraftPlan(input: {
   ].join("\n");
 
   try {
-    const { data, usage } = await completeValidated<unknown>({
+    const { data, usage } = await completeValidated<string>({
       system,
       user,
       maxTokens: 1200,
@@ -105,6 +106,11 @@ function templatePlan(input: { productName: string; audience: string; audiencePa
         hypothesis: "Hypothesis: posts that open with the audience's problem get more engagement than posts that open with the product.",
         variable: "Opening angle (problem vs product)",
       },
+    ],
+    assumptions: [
+      `Assumption: ${input.audience || "our audience"} is reachable on the selected channels.`,
+      `Assumption: the stated pain (${input.audiencePain || "unvalidated"}) is the one worth leading with — confirm in real conversations.`,
+      "Assumption: this plan is a hypothesis-driven starting point, not a validated strategy.",
     ],
   };
 }
@@ -173,7 +179,7 @@ export async function generateContent(req: ContentGenRequest): Promise<{ body: s
     req.instruction ? `Special instruction: ${req.instruction}` : "",
   ].filter(Boolean).join("\n");
 
-  const { data, usage } = await completeValidated<unknown>({
+  const { data, usage } = await completeValidated<string>({
     system,
     user: context,
     maxTokens: req.channel === "shortvideo" ? 1600 : 800,

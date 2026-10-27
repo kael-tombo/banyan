@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { type ZodSchema } from "zod";
 import { env } from "@/lib/env";
 
 /**
@@ -222,5 +222,3 @@ export function extractJSON(text: string): unknown {
     throw new AIError("Model output did not contain valid JSON.");
   }
 }
-
-export { AIError };

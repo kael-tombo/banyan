@@ -267,7 +267,7 @@ function GoalStep({ state, setState }: { state: StepState; setState: (fn: (s: St
             placeholder="e.g. 25"
           />
         </Field>
-        <Field label="Target metric (optional)" id="onb-goalMetric">
+        <Field label="Target metric (optional)" htmlFor="onb-goalMetric">
           <Input
             value={g.goalMetric}
             onChange={(e) => setState((s) => ({ ...s, goal: { ...s.goal, goalMetric: e.target.value } }))}
@@ -354,7 +354,7 @@ type PlanShape = {
   channelFocus: string[];
   initialCampaign: { name: string; keyMessage: string; cta: string };
   experiments: { title: string; hypothesis: string; variable: string }[];
-} | null;
+};
 
 function PlanStep({ plan, planError }: { plan: { plan: PlanShape; isFallback: boolean; label: string } | null; planError: string | null }) {
   if (planError) {

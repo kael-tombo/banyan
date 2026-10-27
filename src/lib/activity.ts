@@ -14,6 +14,7 @@ export type ActivityType =
   | "onboarding_complete"
   | "experiment_update"
   | "connection"
+  | "metric"
   | "campaign";
 
 export async function recordActivity(input: {
