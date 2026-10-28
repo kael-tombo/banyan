@@ -67,6 +67,35 @@ docker run -p 3000:3000 --env-file .env -v banyan-data:/app/db banyan
 Note: the Docker build has not been executed in this environment (no docker
 daemon) — treat the first `docker build` as part of deployment validation.
 
+### Vercel alternative (serverless)
+
+`npm run build` (`prisma generate && next build`) succeeds on Vercel with
+**zero** project env vars configured: during the build phase (`NEXT_PHASE=phase-production-build`)
+the env validator fills required values with inert placeholders, and no
+build-time code path queries the database. Verified on a clean-room clone
+(2026-10-28): fresh `npm ci` → `next build` compiles and collects page data
+without secrets.
+
+For a **working** deployment, set in the Vercel project settings:
+
+| Variable | Value |
+| --- | --- |
+| `DATABASE_URL` | Prisma SQLite URL (see caveat below) |
+| `APP_SECRET` | `openssl rand -hex 32` |
+| `WORKER_SECRET` | strong unique value (runtime fail-fast rejects the dev default) |
+| `NEXT_PUBLIC_APP_URL` | the deployed URL, e.g. `https://banyan.vercel.app` |
+
+**Honest caveat — SQLite on serverless is ephemeral.** Every serverless
+instance gets its own throwaway filesystem (`/tmp`); data written there does
+not survive cold starts and is not shared between instances. Pointing
+`DATABASE_URL` at `file:/tmp/banyan.db` yields a build that deploys and serves,
+but any persisted data (accounts, campaigns, publications) is per-instance and
+disappears on scale-up/cold start. For a durable deployment use the Node host
+or Docker procedure above (persistent volume), or migrate Prisma to a hosted
+database provider — which is a schema/provider change, out of current scope.
+Deploying to Vercel is therefore suitable for a UI/product demo, not for
+persistent use.
+
 ## 5. First public settings
 
 - Sign up the real admin account, change/remove the seeded founder account if seeded.

@@ -60,4 +60,38 @@ describe("environment validation", () => {
     withEnv({ APP_SECRET: "too-short", WORKER_SECRET: "prod-secret-9f8a7b" });
     await expect(import("@/lib/env")).rejects.toThrow(/APP_SECRET/);
   });
+
+  it("build phase succeeds with zero secrets — build machines evaluate page modules without runtime config", async () => {
+    // Simulates a Vercel/CI build machine: production NODE_ENV, NEXT_PHASE
+    // set, and none of DATABASE_URL / APP_SECRET / WORKER_SECRET present.
+    process.env = {
+      ...REAL_ENV,
+      NODE_ENV: "production",
+      NEXT_PHASE: "phase-production-build",
+    } as NodeJS.ProcessEnv;
+    delete process.env.DATABASE_URL;
+    delete process.env.APP_SECRET;
+    delete process.env.WORKER_SECRET;
+    const mod = await import("@/lib/env");
+    expect(mod.env.DATABASE_URL).toBe("file:./build-placeholder.db");
+    expect(mod.env.APP_SECRET).toBe("0".repeat(64));
+  });
+
+  it("build phase tolerates the dev-default WORKER_SECRET (it is a runtime-only guard)", async () => {
+    withEnv({ WORKER_SECRET: "banyan-worker-dev-secret", NEXT_PHASE: "phase-production-build" });
+    const mod = await import("@/lib/env");
+    expect(mod.env.WORKER_SECRET).toBe("banyan-worker-dev-secret");
+  });
+
+  it("production runtime without DATABASE_URL still fails fast (no silent placeholder leaks out of build)", async () => {
+    process.env = {
+      ...REAL_ENV,
+      NODE_ENV: "production",
+      APP_SECRET: HEX64,
+      WORKER_SECRET: "prod-secret-9f8a7b",
+    } as NodeJS.ProcessEnv;
+    delete process.env.DATABASE_URL;
+    delete process.env.NEXT_PHASE;
+    await expect(import("@/lib/env")).rejects.toThrow(/DATABASE_URL/);
+  });
 });

@@ -27,7 +27,21 @@ const envSchema = z.object({
 });
 
 function readEnv() {
-  const parsed = envSchema.safeParse(process.env);
+  // `next build` collects page data on CI/build machines that are not the
+  // runtime host — runtime-only secrets cannot be required there. Build
+  // machines (Vercel, Docker builder, CI) evaluate every page module, which
+  // executes this module-level validator without any project secrets. Fill
+  // required values with inert placeholders for that phase only: no build-
+  // time code path queries the database or derives real keys from APP_SECRET.
+  // Real production runtime (`next start` / serverless invocation) never has
+  // NEXT_PHASE set, so it still fails fast below until real values exist.
+  const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
+  const source: Record<string, string | undefined> = { ...process.env };
+  if (isBuildPhase) {
+    source.DATABASE_URL ||= "file:./build-placeholder.db";
+    source.APP_SECRET ||= "0".repeat(64); // schema-valid hex; never used for real work at build time
+  }
+  const parsed = envSchema.safeParse(source);
   if (!parsed.success) {
     const issues = parsed.error.issues
       .map((i) => `${i.path.join(".")}: ${i.message}`)
@@ -35,10 +49,6 @@ function readEnv() {
     throw new Error(`Invalid environment configuration — ${issues}`);
   }
   const data = parsed.data;
-  // `next build` collects page data on CI/build machines that are not the
-  // runtime host — runtime-only secrets cannot be required there. The guard
-  // applies at real production runtime (`next start`), not build phase.
-  const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
   if (
     data.NODE_ENV === "production" &&
     !isBuildPhase &&

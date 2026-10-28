@@ -25,6 +25,22 @@ follow [Keep a Changelog](https://keepachangelog.com); commit hashes refer to
   `docs/SECURITY.md` (posture + gaps), this changelog, and
   `CONTRIBUTING.md`.
 
+### Fixed
+- **Vercel/serverless build failure** — `next build` aborted during
+  "Collecting page data" with `Invalid environment configuration —
+  DATABASE_URL: Required; APP_SECRET: Required` on any machine without
+  project secrets (reproduced on a clean-room clone, 2026-10-28). Fix:
+  `src/lib/env.ts` now fills required values with inert placeholders during
+  the build phase only (`NEXT_PHASE=phase-production-build`); production
+  runtime still fails fast without real values (pinned by new tests in
+  `tests/env.test.ts`). `npm run build` now runs `prisma generate` first
+  (deterministic client generation on fresh installs, mirroring the
+  Dockerfile). `allowScripts` entries aligned to the actual locked prisma
+  chain versions (6.12.0), so prisma install scripts are no longer silently
+  skipped by npm's script approval. Runbook §4 gained a "Vercel alternative"
+  section with the required runtime env vars and the honest SQLite-on-
+  serverless ephemerality caveat; README gained a "Deploying" section.
+
 ### Pending (needs a scoped token)
 - `.github/workflows/ci.yml` is written and committed-ready but **not yet
   pushed** — pushing workflow files requires a PAT with `workflow` scope.
