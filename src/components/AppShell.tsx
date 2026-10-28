@@ -7,7 +7,7 @@ import { Button } from "@/components/ui";
 import { BanyanMark } from "@/components/BanyanMark";
 import {
   LayoutDashboard, Package, Users2, Megaphone, PenLine, CheckCircle2, CalendarDays,
-  Share2, LineChart, FlaskConical, Settings, LogOut, Sprout, Menu, X, Target, BookOpen, Compass,
+  Share2, LineChart, FlaskConical, Settings, LogOut, Sprout, Menu, X, Target, BookOpen, Compass, Link2,
 } from "lucide-react";
 
 type NavItem = { href: string; label: string; icon: typeof LayoutDashboard };
@@ -43,6 +43,12 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     items: [
       { href: "/app/analytics", label: "Analytics", icon: LineChart },
       { href: "/app/experiments", label: "Experiments", icon: FlaskConical },
+    ],
+  },
+  {
+    label: "System",
+    items: [
+      { href: "/app/connections", label: "Connections", icon: Link2 },
     ],
   },
 ];

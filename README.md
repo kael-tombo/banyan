@@ -44,7 +44,7 @@ These rules are enforced in the code, not just documented:
 | AI | Model router over OpenAI-compatible endpoints + usage ledger + quotas |
 | Publishing | Postiz adapter (HTTP) behind a provider-neutral interface |
 | Capabilities | Provider-independent registry (publishing, creative, research, analytics) |
-| Tests | Vitest (181 unit tests) + 42-check live E2E acceptance script |
+| Tests | Vitest (200 unit tests) + 42-check live E2E acceptance script |
 
 ## Quick start
 
@@ -232,7 +232,7 @@ template that is always labelled — it is never presented as live model output.
 ## Tests
 
 ```bash
-npm test        # 181 unit tests across 15 files: state machines,
+npm test        # 200 unit tests across 16 files: state machines,
                 # orchestration graph, failure recovery, verification,
                 # NL goal parsing, quotas, SSRF guard, body caps, env
                 # guards, capabilities honesty, recommendation evidence,

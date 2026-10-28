@@ -11,7 +11,7 @@ Living status board. Updated as work lands. Companion to
 | # | Milestone | State | Evidence |
 | --- | --- | --- | --- |
 | 1 | **Capability** — the product can run the whole loop | Met | goal → plan → campaign → content → approval → publish → measure → learn is implemented and reachable; 48 routes build |
-| 2 | **Reliability** — behaves correctly under real conditions | In progress | approvals, idempotency, rate limiting, bounded publication retries, fail-fast env guards, SSRF choke point, uniform body caps enforced server-side; **181 unit tests + 42-check live E2E acceptance (42/42 PASS)**; real publishing still unverified against live Postiz credentials |
+| 2 | **Reliability** — behaves correctly under real conditions | In progress | approvals, idempotency, rate limiting, bounded publication retries, fail-fast env guards, SSRF choke point, uniform body caps enforced server-side; **200 unit tests + 42-check live E2E acceptance (42/42 PASS)**; real publishing still unverified against live Postiz credentials |
 | 3 | **Growth** — real campaigns produce measurable outcomes | Not started | requires real attributed signups; none observed |
 
 Milestone 3 is deliberately not claimed. Capability and reliability do not imply it.
@@ -31,7 +31,7 @@ Milestone 3 is deliberately not claimed. Capability and reliability do not imply
 - **Experiments** — create, run, draft evidence-based conclusions.
 - **Growth** — Banyan's own self-distribution view with honest milestones.
 - **Measurement loop** — `/t/[slug]` records clicks and attributes later signups.
-- **Tooling** — `npm run setup` (migrate + seed), `npm run worker`, 173 unit tests, 42-check E2E acceptance script, Dockerfile + CI workflow.
+- **Tooling** — `npm run setup` (migrate + seed), `npm run worker`, 200 unit tests, 42-check E2E acceptance script, Dockerfile + CI workflow.
 
 ## Partial
 
@@ -63,7 +63,7 @@ npm install
 cp .env.example .env      # set APP_SECRET
 npm run setup             # migrate + seed
 npm run typecheck         # 0 errors
-npm test                  # 173 passing
+npm test                  # 200 passing
 npm run build             # production build green
 BASE_URL=http://localhost:3000 bash scripts/e2e-acceptance.sh   # 42 checks
 npm run dev               # sign in: SEED_USER_EMAIL / SEED_USER_PASSWORD
@@ -105,3 +105,10 @@ npm run dev               # sign in: SEED_USER_EMAIL / SEED_USER_PASSWORD
 
 **Documentation set completed (2026-10-28)**
 - docs/ARCHITECTURE.md, docs/DATA_MODEL.md, docs/API.md, docs/TESTING.md, docs/SECURITY.md, CHANGELOG.md, CONTRIBUTING.md; README refreshed (173 tests, full document index)
+
+## Vision application — second pass (2026-10-28)
+
+**Done**
+- Connections page (growth loop setup N-of-5, data flow pipeline with flowing/stalled health, data quality panel, access & data use trust section) under nav "System"
+- Dashboard Agent team panel (6 roles, live status from the AgentTask audit trail) + Recent activity feed (ActivityEvent rendered with evidence links) + attribution coverage signal
+- `src/lib/growth-loop.ts` pure helpers + 19 tests → 200/200 unit tests, E2E 42/42, build green, browser-checked 1440/390px

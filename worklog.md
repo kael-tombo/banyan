@@ -275,3 +275,44 @@ rendered is recorded data; the landing mockup is labeled illustrative.
 - scripts/seed-visual-check.js: idempotent visual-check seed (backdated
   first-party events, tracked link, scheduled/manual publications) used to
   exercise the data-rich dashboard states; dev database only, gitignored.
+
+## 2026-10-28 — Vision gaps closed: agent team, activity feed, Connections page
+
+Second pass over the three reference screenshots, this time auditing for what
+was still missing rather than re-doing what shipped in the previous commit.
+Gap analysis found four gaps; all closed.
+
+- New **Connections page** (`src/app/app/connections/`, nav group "System"):
+  Growth loop setup (N-of-5 real slots: product profile, context & audience,
+  publishing, link tracking, experiment loop — each slot's status is a recorded
+  state with a per-slot fix CTA, manual recording called out as the honest
+  publishing fallback); Data flow pipeline (approved asset → published →
+  tracked visit → attributed signup → activation → experiment learning) with
+  real 14-day counts and flowing/stalled/not_started health where "stalled"
+  means upstream activity but zero local events; Your connections list
+  (status/adapter/last-checked/last-error) + Data quality panel (connection
+  errors, configured-but-unverified, signups missing campaign source, blocked
+  agent tasks, recent publication failures — recorded issues only); Access &
+  data use trust section (AES-256-GCM credentials, minimal permissions, user
+  control, workspace boundaries, server-side approval gates).
+- Dashboard: **Agent team panel** — six real agent roles (planner, researcher,
+  strategist, creator, publisher, analyst) with live status derived from the
+  AgentTask audit trail (working / awaiting your review / blocked / queued /
+  idle / no runs yet), latest action verbatim, relative time, deep link to the
+  goal; **Recent activity feed** — the ActivityEvent table finally rendered
+  (actor You/System/Agent, timeAgo, evidence links resolved from recorded meta
+  keys contentItemId/experimentId/campaignId/goalId/publicationId/connectionId/
+  taskId/planId/factId); **Attribution coverage** — share of 14-day signups
+  traceable to a tracked source, with the not-enough-data state instead of a
+  fabricated percentage and an unattributed-signups hint linking to the
+  Connections page.
+- New shared lib `src/lib/growth-loop.ts` (pure, unit-tested): computeLoopSetup,
+  computeDataFlow, attributionCoverage, resolveActivityEvidence, timeAgo,
+  computeAgentTeam + AGENT_META. 19 new tests (200 total).
+- Nav: "System" group with Connections (matches the reference IA where
+  connections is system-level).
+- Verified: typecheck clean; 200/200 unit tests; production build green; E2E
+  acceptance 42/42; browser-checked dashboard + Connections + landing at
+  1440/390px including the data-rich seeded workspace (loop 3/5 connected,
+  stalled learning step detected correctly, agent roles with awaiting/queued
+  statuses, activity evidence links).

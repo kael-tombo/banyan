@@ -4,8 +4,12 @@ import { requireWorkspaceServer } from "@/lib/workspace";
 import { Badge, Card, EmptyState, PageHeader, StatusBadge, LinkButton } from "@/components/ui";
 import { Sparkline } from "@/components/Sparkline";
 import {
+  computeAgentTeam, attributionCoverage, resolveActivityEvidence, timeAgo,
+  AGENT_META, type AgentRoleStatus,
+} from "@/lib/growth-loop";
+import {
   ArrowRight, AlertTriangle, CheckCircle2, FlaskConical, Lightbulb, Play,
-  Share2, Sparkles, Target, TrendingUp, TrendingDown,
+  Share2, Sparkles, Target, TrendingUp, TrendingDown, Bot, Activity,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +56,9 @@ export default async function DashboardPage() {
     visitEvents,
     runningExperiment,
     latestExperiment,
+    agentTasks,
+    activityEvents,
+    attributedSignups,
   ] = await Promise.all([
     prisma.productProfile.findUnique({ where: { workspaceId: wid } }),
     prisma.goal.findMany({ where: { workspaceId: wid, status: { in: ["planning", "awaiting_approval", "active", "paused"] } }, orderBy: { updatedAt: "desc" }, take: 3 }),
@@ -67,6 +74,9 @@ export default async function DashboardPage() {
     prisma.metricEvent.findMany({ where: { workspaceId: wid, type: "visit", createdAt: { gte: d14 } }, select: { createdAt: true } }),
     prisma.experiment.findFirst({ where: { workspaceId: wid, status: "running" }, orderBy: { updatedAt: "desc" } }),
     prisma.experiment.findFirst({ where: { workspaceId: wid }, orderBy: { updatedAt: "desc" } }),
+    prisma.agentTask.findMany({ where: { workspaceId: wid }, orderBy: { updatedAt: "desc" }, take: 120, select: { agentRole: true, status: true, title: true, goalId: true, updatedAt: true } }),
+    prisma.activityEvent.findMany({ where: { workspaceId: wid }, orderBy: { createdAt: "desc" }, take: 8, select: { id: true, type: true, actorType: true, actorSummary: true, summary: true, meta: true, createdAt: true } }),
+    prisma.metricEvent.count({ where: { workspaceId: wid, type: "signup", createdAt: { gte: d14 }, OR: [{ linkId: { not: null } }, { campaignId: { not: null } }] } }),
   ]);
 
   const activeGoal = goals.find((g) => g.status === "active") ?? goals[0] ?? null;
@@ -145,6 +155,10 @@ export default async function DashboardPage() {
     });
   }
   const focusItems = focus.slice(0, 5);
+
+  // ————— Agent team + activity feed + attribution coverage (from records only) —————
+  const agentTeam = computeAgentTeam(agentTasks);
+  const coverage = attributionCoverage(countNow("signup"), attributedSignups);
 
   const experiment = runningExperiment ?? null;
   const experimentDay = experiment ? Math.max(1, Math.floor((now.getTime() - experiment.createdAt.getTime()) / DAY) + 1) : 0;
@@ -324,6 +338,23 @@ export default async function DashboardPage() {
               <Sparkline points={visitSeries} label="Tracked visits per day over the last 14 days" />
             </div>
           )}
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-bark/10 pt-3">
+            <p className="text-xs text-charcoal-soft">Attribution coverage — signups traceable to a tracked source</p>
+            {coverage != null ? (
+              <p className="flex items-center gap-2 text-sm">
+                <span className="font-serif text-lg text-forest-deep">{coverage}%</span>
+                <span className="text-[11px] text-charcoal-soft">of {countNow("signup").toLocaleString()} signup(s)</span>
+              </p>
+            ) : (
+              <p className="text-[11px] text-charcoal-soft">Not enough data yet</p>
+            )}
+          </div>
+          {coverage != null && coverage < 100 && (
+            <p className="mt-2 flex items-start gap-1.5 text-[11px] leading-relaxed text-clay">
+              <AlertTriangle size={11} className="mt-0.5 shrink-0" aria-hidden="true" />
+              {countNow("signup") - attributedSignups} signup(s) have no tracked source — UTM-tagged links close the gap (<Link href="/app/connections" className="underline hover:text-charcoal">data quality</Link>).
+            </p>
+          )}
           {trackedClicks > 0 && (
             <p className="mt-2 text-xs text-charcoal-soft">
               {trackedClicks.toLocaleString()} click(s) recorded across {linksAgg._count} tracked link(s) in total.
@@ -385,7 +416,72 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      {/* ————— 6. Recommended next test — the AI banner ————— */}
+      {/* ————— 6. Agent team + recent activity — the runtime, visible ————— */}
+      <div className="mt-6 grid gap-6 lg:grid-cols-5">
+        <Card className="lg:col-span-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 font-medium text-charcoal"><Bot size={15} className="text-forest" aria-hidden="true" /> Agent team</h2>
+            <Link href="/app/strategy" className="text-xs font-medium text-forest hover:underline">View activity →</Link>
+          </div>
+          <ul className="mt-3 space-y-3">
+            {agentTeam.map((a) => (
+              <li key={a.role} className="flex items-start gap-2.5">
+                <span aria-hidden="true" className={`mt-1 h-2 w-2 shrink-0 rounded-full ${AGENT_STATUS_STYLE[a.status].dot}`} />
+                <span className="min-w-0 flex-1">
+                  <span className="flex flex-wrap items-baseline gap-x-2">
+                    <Link href={a.href} className="text-sm font-medium text-charcoal hover:text-forest">{AGENT_META[a.role].name}</Link>
+                    <span className={`text-[11px] font-medium ${AGENT_STATUS_STYLE[a.status].text}`}>{AGENT_STATUS_STYLE[a.status].label}</span>
+                    {a.at && <span className="text-[11px] text-charcoal-soft/70">{timeAgo(a.at, now)}</span>}
+                  </span>
+                  <span className="mt-0.5 block truncate text-[11px] text-charcoal-soft" title={a.latestAction ?? AGENT_META[a.role].blurb}>
+                    {a.latestAction ?? AGENT_META[a.role].blurb}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 border-t border-bark/10 pt-2.5 text-[11px] leading-relaxed text-charcoal-soft">
+            Status comes straight from the task audit trail — &ldquo;working&rdquo; means a task is ready or running right now; nothing is simulated.
+          </p>
+        </Card>
+
+        <Card className="lg:col-span-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 font-medium text-charcoal"><Activity size={15} className="text-forest" aria-hidden="true" /> Recent activity</h2>
+            <Link href="/app/analytics" className="text-xs font-medium text-forest hover:underline">View all activity →</Link>
+          </div>
+          {activityEvents.length === 0 ? (
+            <p className="mt-3 text-sm text-charcoal-soft">
+              No activity recorded yet. Every approval, publication, agent step and metric lands here with its evidence attached.
+            </p>
+          ) : (
+            <ul className="mt-3 divide-y divide-bark/10">
+              {activityEvents.map((e) => {
+                const evidence = resolveActivityEvidence(e.meta);
+                return (
+                  <li key={e.id} className="flex items-start gap-2.5 py-2.5">
+                    <span className="mt-0.5 shrink-0" aria-hidden="true">{ACTOR_ICON[e.actorType] ?? ACTOR_ICON.user}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-baseline gap-x-2">
+                        <span className={`text-[10px] font-semibold uppercase tracking-wide ${ACTOR_STYLE[e.actorType] ?? ACTOR_STYLE.user}`}>{ACTOR_LABEL[e.actorType] ?? ACTOR_LABEL.user}</span>
+                        <span className="text-[11px] text-charcoal-soft/70">{timeAgo(e.createdAt, now)}</span>
+                      </span>
+                      <span className="mt-0.5 block text-xs leading-relaxed text-charcoal">{e.summary}</span>
+                    </span>
+                    {evidence && (
+                      <Link href={evidence.href} className="mt-0.5 shrink-0 text-[11px] font-medium text-forest hover:underline">
+                        {evidence.label} ↗
+                      </Link>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Card>
+      </div>
+
+      {/* ————— 7. Recommended next test — the AI banner ————— */}
       {topRec ? (
         <div className="rooted-fig mt-6 flex flex-col gap-4 rounded-[3px] border border-fig/25 bg-gradient-to-r from-fig/[0.08] via-white to-forest/[0.06] p-5 lg:flex-row lg:items-center">
           <div className="flex items-start gap-3 lg:max-w-md">
@@ -439,6 +535,25 @@ export default async function DashboardPage() {
     </>
   );
 }
+
+/** Agent-role status styling — derived from the AgentTask audit trail, not simulated. */
+const AGENT_STATUS_STYLE: Record<AgentRoleStatus, { dot: string; text: string; label: string }> = {
+  working: { dot: "bg-forest animate-pulse", text: "text-forest", label: "Working now" },
+  awaiting: { dot: "bg-amber-500", text: "text-amber-700", label: "Awaiting your review" },
+  blocked: { dot: "bg-clay", text: "text-clay", label: "Blocked" },
+  queued: { dot: "bg-fig", text: "text-fig-deep", label: "Queued" },
+  idle: { dot: "bg-sage", text: "text-charcoal-soft", label: "Idle" },
+  offline: { dot: "bg-bark/30", text: "text-charcoal-soft/70", label: "No runs yet" },
+};
+
+/** Activity-feed actor presentation. actorType is one of user | system | ai. */
+const ACTOR_LABEL: Record<string, string> = { user: "You", system: "System", ai: "Agent" };
+const ACTOR_STYLE: Record<string, string> = { user: "text-forest", system: "text-charcoal-soft", ai: "text-fig" };
+const ACTOR_ICON: Record<string, React.ReactNode> = {
+  user: <CheckCircle2 size={12} className="text-forest" />,
+  system: <Activity size={12} className="text-charcoal-soft" />,
+  ai: <Bot size={12} className="text-fig" />,
+};
 
 /** Evidence checklist for the recommendation banner — renders only what is recorded. */
 function EvidenceList({ raw, uncertainty }: { raw: string; uncertainty: string }) {
