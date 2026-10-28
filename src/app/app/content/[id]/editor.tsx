@@ -135,7 +135,7 @@ export function ContentEditor({
 
   const locked = ["published", "archived", "publishing"].includes(item.status);
   const canEdit = !locked && ["draft", "rejected", "ready_for_review"].includes(item.status);
-  const approvalPref = structuredClone(true); // approval always required by default (backend-enforced)
+  void canEdit;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
@@ -239,7 +239,7 @@ export function ContentEditor({
 
       {/* Workflow column */}
       <div className="flex flex-col gap-4">
-        <Card data-testid={`approval-gate-${approvalPref ? "required" : "input"}`}>
+        <Card>
           <h2 className="mb-3 flex items-center gap-2 font-medium text-charcoal"><Eye size={15} className="text-clay" aria-hidden="true" /> Review &amp; approval</h2>
           <div className="flex flex-col gap-2 text-sm">
             <div className="flex items-center gap-2"><span className="text-charcoal-soft">Status:</span><StatusBadge status={item.status} /></div>
@@ -388,8 +388,4 @@ export function ContentEditor({
       </div>
     </div>
   );
-}
-
-export function EmptyNote() {
-  return <EmptyState title="Nothing here" body="This space shows real state only." />;
 }

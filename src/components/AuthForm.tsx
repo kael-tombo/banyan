@@ -88,37 +88,61 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
   );
 }
 
-/** Page wrapper shared by the login and signup pages. */
+/** Page wrapper shared by the login and signup pages.
+ * Split-screen: the canopy panel carries the brand and the promise; the form
+ * gets a calm, uncluttered column. Collapses to a stacked layout on mobile. */
 export function AuthShell({ mode }: { mode: "login" | "signup" }) {
   return (
-    <div className="flex min-h-screen flex-col bg-ivory">
-      <div className="canopy pointer-events-none h-1.5 w-full" aria-hidden="true" />
-      <div className="flex h-16 items-center px-5">
-        <div className="flex items-center gap-2">
-          <BanyanMark size={22} />
-          <span className="font-serif text-lg text-forest-deep">
-            Banyan<span className="text-moss">.ai</span>
-          </span>
+    <div className="grid min-h-screen bg-ivory lg:grid-cols-2">
+      {/* Brand panel — canopy */}
+      <aside className="canopy relative hidden flex-col justify-between p-10 text-ivory lg:flex" aria-hidden={false}>
+        <Link href="/" className="flex items-center gap-2.5" aria-label="Banyan.ai home">
+          <BanyanMark size={30} variant="white" />
+          <span className="font-serif text-lg font-semibold">Banyan<span className="text-fig">.ai</span></span>
+        </Link>
+        <div>
+          <blockquote className="display text-4xl leading-tight">
+            Build your product.
+            <br />
+            Let it find its people.
+          </blockquote>
+          <ul className="mt-8 space-y-3 text-sm text-sage/85">
+            <li className="flex items-center gap-2.5"><span className="h-px w-6 bg-fig" aria-hidden="true" /> Research, create, approve, publish — one workflow</li>
+            <li className="flex items-center gap-2.5"><span className="h-px w-6 bg-fig" aria-hidden="true" /> Human approval required before anything goes live</li>
+            <li className="flex items-center gap-2.5"><span className="h-px w-6 bg-fig" aria-hidden="true" /> Measured outcomes, never invented ones</li>
+          </ul>
         </div>
+        <p className="text-xs text-sage/60">© {new Date().getFullYear()} Banyan.ai — Build. Distribute. Grow.</p>
+      </aside>
+
+      {/* Form panel */}
+      <div className="flex min-h-screen flex-col">
+        <div className="canopy relative flex items-center justify-between px-5 py-3 lg:hidden">
+          <Link href="/" className="flex items-center gap-2" aria-label="Banyan.ai home">
+            <BanyanMark size={22} variant="white" />
+            <span className="font-serif text-base text-ivory">Banyan<span className="text-fig">.ai</span></span>
+          </Link>
+          <Link href="/" className="text-xs text-sage/80 hover:text-ivory">← Back to site</Link>
+        </div>
+        <main className="flex flex-1 items-start justify-center bg-ivory px-4 py-10 sm:items-center sm:px-6">
+          <div className="fade-up w-full max-w-md rounded-[3px] border border-bark/15 bg-white p-8 rooted">
+            <h1 className="serif text-2xl font-semibold text-forest-deep">
+              {mode === "signup" ? "Start distributing" : "Welcome back"}
+            </h1>
+            <p className="mb-6 mt-1 text-sm text-charcoal-soft">
+              {mode === "signup"
+                ? "Create your account and set up your distribution workspace in five minutes."
+                : "Sign in to your distribution workspace."}
+            </p>
+            <AuthForm mode={mode} />
+          </div>
+        </main>
+        <footer className="px-4 pb-6 text-center text-xs text-charcoal-soft">
+          <Link href="/privacy" className="hover:text-forest-deep">Privacy</Link>
+          <span className="mx-2">·</span>
+          <Link href="/terms" className="hover:text-forest-deep">Terms</Link>
+        </footer>
       </div>
-      <main className="flex flex-1 items-center justify-center px-4 pb-16">
-        <div className="fade-up w-full max-w-md rounded-[3px] border border-bark/15 bg-white p-8 rooted">
-          <h1 className="serif text-2xl font-semibold text-forest-deep">
-            {mode === "signup" ? "Start distributing" : "Welcome back"}
-          </h1>
-          <p className="mt-1 mb-6 text-sm text-charcoal-soft">
-            {mode === "signup"
-              ? "Create your account and set up your distribution workspace in five minutes."
-              : "Sign in to your distribution workspace."}
-          </p>
-          <AuthForm mode={mode} />
-        </div>
-      </main>
-      <footer className="px-4 pb-6 text-center text-xs text-charcoal-soft">
-        <Link href="/privacy" className="hover:text-forest-deep">Privacy</Link>
-        <span className="mx-2">·</span>
-        <Link href="/terms" className="hover:text-forest-deep">Terms</Link>
-      </footer>
     </div>
   );
 }

@@ -68,6 +68,37 @@ export default async function PublishingPage() {
       </Card>
 
       <Card className="mt-6">
+        <h2 className="mb-3 font-medium text-charcoal">Connector status</h2>
+        <ul className="space-y-2 text-sm">
+          <li className="flex flex-wrap items-center justify-between gap-2">
+            <span>
+              <span className="block font-medium text-charcoal">Postiz</span>
+              <span className="block text-charcoal-soft">Verified against the Postiz public API (list integrations, create posts, schedule). Self-hosted or cloud.</span>
+            </span>
+            <Badge variant="forest">available now</Badge>
+          </li>
+          <li className="flex flex-wrap items-center justify-between gap-2">
+            <span>
+              <span className="block font-medium text-charcoal">SocialFlow.ai</span>
+              <span className="block text-charcoal-soft">
+                An adapter slot (<code>socialflow</code>) exists in the publishing registry behind the same
+                typed <code>PublishingAdapter</code> interface. Not enabled — we will wire it once its API
+                documentation is verified and credentials are available. We do not ship connectors we cannot test.
+              </span>
+            </span>
+            <Badge variant="warm">planned</Badge>
+          </li>
+          <li className="flex flex-wrap items-center justify-between gap-2">
+            <span>
+              <span className="block font-medium text-charcoal">Manual recording</span>
+              <span className="block text-charcoal-soft">Publish anything yourself (natively, from any tool), then record the live URL as a user-confirmed manual publication.</span>
+            </span>
+            <Badge variant="moss">always available</Badge>
+          </li>
+        </ul>
+      </Card>
+
+      <Card className="mt-6">
         <h2 className="mb-3 font-medium text-charcoal">Recent publication attempts</h2>
         {publications.length === 0 ? (
           <p className="text-sm text-charcoal-soft">

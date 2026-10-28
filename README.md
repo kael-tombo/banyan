@@ -153,6 +153,24 @@ is script-only by design. Channel connections are added in `/app/publishing` and
 verified by calling the provider. Without credentials the whole workflow still
 works up to publication, which is recorded as `blocked`.
 
+Connector status in `/app/publishing`: **Postiz — available now**; **SocialFlow.ai
+— a `socialflow` adapter slot exists in the registry behind the same
+`PublishingAdapter` interface, but is not enabled until its API documentation is
+verified and credentials are available** (no connectors ship untested); **manual
+recording — always available** (publish natively yourself, record the live URL as
+a user-confirmed manual publication).
+
+## Brand
+
+The visual identity uses the official [`banyan-logo-kit`](#) assets: the banyan
+symbol (`public/brand/symbol-color.png`, `symbol-white.png` on canopy/dark
+surfaces), the favicon set, and the 1200×630 social-share image. The design
+system ("rooted canopy", `src/app/globals.css`) takes its palette from the logo:
+deep canopy ink `#123028`, leaf green `#23523f`, cool lichen paper `#e9ede3`,
+and banyan-fig gold `#b98c35` reserved for accents. Auth screens use a
+split-screen canopy layout; the hero carries the white symbol as a quiet
+watermark.
+
 ## AI provider
 
 Any OpenAI-compatible endpoint. With no key, generation uses a deterministic local
@@ -161,7 +179,7 @@ template that is always labelled — it is never presented as live model output.
 ## Tests
 
 ```bash
-npm test        # 32 unit tests across state machines, formats, learning,
+npm test        # 44 unit tests across state machines, formats, learning,
                 # crypto, rate limiting and AI output schemas
 ```
 

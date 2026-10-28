@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import { SiteNav } from "@/components/SiteNav";
 import { Badge, Card, StatusBadge } from "@/components/ui";
 import {
@@ -79,6 +80,15 @@ export default function LandingPage() {
               Banyan.ai is in early development. Every number you see later is real or clearly labeled — never invented traction.
             </p>
           </div>
+          {/* Official mark, held quietly at the hero's edge. */}
+          <Image
+            src="/brand/symbol-white.png"
+            alt=""
+            width={340}
+            height={340}
+            priority
+            className="pointer-events-none absolute right-0 top-1/2 hidden -translate-y-1/2 opacity-[0.16] lg:block"
+          />
         </div>
         {/* The single bold moment: one root line descending and branching into
             the channels the product actually reaches. */}
@@ -351,7 +361,10 @@ function Footer() {
     <footer className="canopy border-t border-bark/10 py-12 text-ivory">
       <div className="mx-auto flex max-w-6xl flex-wrap items-start justify-between gap-8 px-4">
         <div>
-          <span className="font-serif text-lg font-semibold">Banyan<span className="text-fig">.ai</span></span>
+          <span className="flex items-center gap-2.5">
+            <Image src="/brand/symbol-white.png" alt="" width={30} height={30} />
+            <span className="font-serif text-lg font-semibold">Banyan<span className="text-fig">.ai</span></span>
+          </span>
           <p className="mt-2 max-w-xs text-sm text-sage/70">Build. Distribute. Grow.</p>
         </div>
         <div className="flex gap-12">
