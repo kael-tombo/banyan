@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { SiteNav } from "@/components/SiteNav";
+import { Reveal } from "@/components/Reveal";
+import { WorkflowFlow } from "@/components/landing/WorkflowFlow";
 import { Badge, Card, StatusBadge } from "@/components/ui";
 import {
-  Compass, PenLine, SearchCheck, CalendarClock, LineChart, Sprout,
-  Share2, CheckCircle2, XCircle, ArrowRight, FlaskConical, Users, Megaphone,
+  PenLine, SearchCheck, CalendarClock, LineChart, Sprout,
+  Share2, CheckCircle2, XCircle, FlaskConical, Users, Megaphone,
 } from "lucide-react";
 
 export const metadata: Metadata = {
@@ -13,14 +15,14 @@ export const metadata: Metadata = {
 };
 
 const workflow = [
-  { key: "research", label: "Research", icon: SearchCheck },
-  { key: "strategize", label: "Strategize", icon: Compass },
-  { key: "create", label: "Create", icon: PenLine },
-  { key: "review", label: "Review", icon: CheckCircle2 },
-  { key: "publish", label: "Publish", icon: Share2 },
-  { key: "measure", label: "Measure", icon: LineChart },
-  { key: "learn", label: "Learn", icon: Sprout },
-  { key: "iterate", label: "Iterate", icon: ArrowRight },
+  { key: "research", label: "Research" },
+  { key: "strategize", label: "Strategize" },
+  { key: "create", label: "Create" },
+  { key: "review", label: "Review" },
+  { key: "publish", label: "Publish" },
+  { key: "measure", label: "Measure" },
+  { key: "learn", label: "Learn" },
+  { key: "iterate", label: "Iterate" },
 ];
 
 const channels = [
@@ -46,8 +48,9 @@ export default function LandingPage() {
     <div className="min-h-screen bg-ivory">
       <SiteNav />
 
-      {/* Hero — the canopy: the whole page hangs from this ink root. */}
-      <section className="canopy relative overflow-hidden text-ivory">
+      {/* Hero — the canopy: the whole page hangs from this ink root.
+          The canopy light drifts almost imperceptibly; the mark breathes. */}
+      <section className="canopy canopy-drift relative overflow-hidden text-ivory">
         <div className="mx-auto max-w-6xl px-4 pb-28 pt-24 md:pt-32">
           <div className="max-w-3xl">
             <Badge variant="forest" className="fade-up border-ivory/25 bg-ivory/10 text-sage">
@@ -87,7 +90,7 @@ export default function LandingPage() {
             width={340}
             height={340}
             priority
-            className="pointer-events-none absolute right-0 top-1/2 hidden -translate-y-1/2 opacity-[0.16] lg:block"
+            className="hero-mark pointer-events-none absolute right-0 top-1/2 hidden opacity-[0.16] lg:block"
           />
         </div>
         {/* The single bold moment: one root line descending and branching into
@@ -98,34 +101,40 @@ export default function LandingPage() {
       {/* Problem — three roots that never grew. */}
       <section className="py-20">
         <div className="mx-auto max-w-6xl px-4">
-          <h2 className="serif max-w-2xl text-3xl font-semibold text-forest-deep">
+          <Reveal as="h2" className="serif max-w-2xl text-3xl font-semibold text-forest-deep">
             Shipping the product was the easy part.
-          </h2>
+          </Reveal>
           <div className="mt-10 grid gap-5 md:grid-cols-3">
-            <Card className="card-lift rooted">
-              <XCircle className="mb-3 text-ember" aria-hidden="true" />
-              <h3 className="font-semibold text-charcoal">Adoption is not automatic</h3>
-              <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">
-                A good product does not announce itself. Most launches stall because the work of
-                reaching people is unowned, inconsistent, and unmeasured.
-              </p>
-            </Card>
-            <Card className="card-lift rooted">
-              <Share2 className="mb-3 text-ember" aria-hidden="true" />
-              <h3 className="font-semibold text-charcoal">Distribution is fragmented</h3>
-              <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">
-                Research lives in one tool, writing in another, scheduling in a third, and analytics in a
-                fourth tab nobody opens. The connections between them—the actual decisions—are lost.
-              </p>
-            </Card>
-            <Card className="card-lift rooted">
-              <LineChart className="mb-3 text-ember" aria-hidden="true" />
-              <h3 className="font-semibold text-charcoal">Output is not outcome</h3>
-              <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">
-                Publishing more posts is not distribution. Without experiments and honest learning, teams
-                produce content volume and call it progress.
-              </p>
-            </Card>
+            <Reveal delay={0}>
+              <Card className="card-lift h-full rooted">
+                <XCircle className="mb-3 text-ember" aria-hidden="true" />
+                <h3 className="font-semibold text-charcoal">Adoption is not automatic</h3>
+                <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">
+                  A good product does not announce itself. Most launches stall because the work of
+                  reaching people is unowned, inconsistent, and unmeasured.
+                </p>
+              </Card>
+            </Reveal>
+            <Reveal delay={90}>
+              <Card className="card-lift h-full rooted">
+                <Share2 className="mb-3 text-ember" aria-hidden="true" />
+                <h3 className="font-semibold text-charcoal">Distribution is fragmented</h3>
+                <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">
+                  Research lives in one tool, writing in another, scheduling in a third, and analytics in a
+                  fourth tab nobody opens. The connections between them—the actual decisions—are lost.
+                </p>
+              </Card>
+            </Reveal>
+            <Reveal delay={180}>
+              <Card className="card-lift h-full rooted">
+                <LineChart className="mb-3 text-ember" aria-hidden="true" />
+                <h3 className="font-semibold text-charcoal">Output is not outcome</h3>
+                <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">
+                  Publishing more posts is not distribution. Without experiments and honest learning, teams
+                  produce content volume and call it progress.
+                </p>
+              </Card>
+            </Reveal>
           </div>
         </div>
       </section>
@@ -133,24 +142,16 @@ export default function LandingPage() {
       {/* Workflow */}
       <section id="product" className="border-y border-bark/10 bg-ivory-deep/40 py-20">
         <div className="mx-auto max-w-6xl px-4">
-          <h2 className="serif text-3xl font-semibold text-forest-deep">One coordinated workflow</h2>
-          <p className="mt-3 max-w-2xl text-charcoal-soft">
+          <Reveal as="h2" className="serif text-3xl font-semibold text-forest-deep">One coordinated workflow</Reveal>
+          <Reveal as="p" delay={100} className="mt-3 max-w-2xl text-charcoal-soft">
             The same loop a strong distribution team runs — coordinated by agents, decided by you.
-          </p>
-          <nav aria-label="Workflow steps" className="mt-8 flex flex-wrap items-stretch gap-2">
-            {workflow.map((step, i) => (
-              <div key={step.key} className="flex min-w-fit items-center gap-2">
-                <div className="flex w-32 flex-col gap-2 rounded-[3px] border border-bark/15 bg-white p-3 md:w-auto md:flex-1">
-                  <step.icon className="text-forest" size={18} aria-hidden="true" />
-                  <span className="text-sm font-medium text-forest-deep">{step.label}</span>
-                </div>
-                {i < workflow.length - 1 && <ArrowRight className="hidden text-moss md:block" size={14} aria-hidden="true" />}
-              </div>
-            ))}
-          </nav>
+          </Reveal>
+          <div className="mt-8">
+            <WorkflowFlow steps={workflow} />
+          </div>
 
           <div className="mt-14 grid gap-6 md:grid-cols-2">
-            <div>
+            <Reveal delay={0}>
               <h3 className="serif text-xl font-semibold text-forest-deep">What you do</h3>
               <ul className="mt-4 space-y-3 text-sm leading-relaxed text-charcoal-soft">
                 <li className="flex gap-2"><Users className="mt-0.5 shrink-0 text-forest" size={16} aria-hidden="true" /> Define your product, audience, positioning, and one clear distribution goal.</li>
@@ -158,8 +159,8 @@ export default function LandingPage() {
                 <li className="flex gap-2"><Megaphone className="mt-0.5 shrink-0 text-forest" size={16} aria-hidden="true" /> Publish through a genuinely configured connection and see the provider's real response.</li>
                 <li className="flex gap-2"><FlaskConical className="mt-0.5 shrink-0 text-forest" size={16} aria-hidden="true" /> Run small experiments and record what you actually observed — not what you hoped.</li>
               </ul>
-            </div>
-            <div>
+            </Reveal>
+            <Reveal delay={120}>
               <h3 className="serif text-xl font-semibold text-forest-deep">What the system does</h3>
               <ul className="mt-4 space-y-3 text-sm leading-relaxed text-charcoal-soft">
                 <li className="flex gap-2"><SearchCheck className="mt-0.5 shrink-0 text-moss" size={16} aria-hidden="true" /> Drafts research hypotheses and positioning you can accept, edit, or reject.</li>
@@ -167,7 +168,7 @@ export default function LandingPage() {
                 <li className="flex gap-2"><CalendarClock className="mt-0.5 shrink-0 text-moss" size={16} aria-hidden="true" /> Schedules approved content and attempts delivery through the publishing worker — retrying transient failures with backoff.</li>
                 <li className="flex gap-2"><Sprout className="mt-0.5 shrink-0 text-moss" size={16} aria-hidden="true" /> Turns tracked links, publications, and metrics into lessons for the next campaign.</li>
               </ul>
-            </div>
+            </Reveal>
           </div>
         </div>
       </section>
@@ -179,25 +180,28 @@ export default function LandingPage() {
           <h2 className="serif mt-4 max-w-2xl text-3xl font-semibold">
             The dashboard the product actually ships
           </h2>
-          <p className="mt-3 max-w-2xl text-sage/80">
+          <Reveal as="p" delay={100} className="mt-3 max-w-2xl text-sage/80">
             This preview renders the application's real components. Panels show honest empty states — the
             app distinguishes true zeros from data that does not exist yet. No fabricated analytics.
-          </p>
-          <PreviewCard />
+          </Reveal>
+          <Reveal delay={200} className="mt-10">
+            <PreviewCard />
+          </Reveal>
         </div>
       </section>
 
       {/* Channels — capability vs integration, stated precisely */}
       <section className="py-20">
         <div className="mx-auto max-w-6xl px-4">
-          <h2 className="serif text-3xl font-semibold text-forest-deep">Channels, stated precisely</h2>
-          <p className="mt-3 max-w-2xl text-charcoal-soft">
+          <Reveal as="h2" className="serif text-3xl font-semibold text-forest-deep">Channels, stated precisely</Reveal>
+          <Reveal as="p" delay={100} className="mt-3 max-w-2xl text-charcoal-soft">
             A capability is what the product can do today. An integration is what requires your own
             credentials. We distinguish the two everywhere.
-          </p>
+          </Reveal>
           <div className="mt-10 grid gap-5 md:grid-cols-3">
-            {channels.map((c) => (
-              <Card key={c.name} className="card-lift rooted-fig flex flex-col">
+            {channels.map((c, i) => (
+              <Reveal key={c.name} delay={i * 110}>
+                <Card className="card-lift flex h-full flex-col rooted-fig">
                 <h3 className="serif text-lg font-semibold text-forest-deep">{c.name}</h3>
                 <p className="mt-3 text-sm leading-relaxed text-charcoal-soft">
                   <strong className="font-semibold text-forest">Available.</strong> {c.available}
@@ -205,7 +209,8 @@ export default function LandingPage() {
                 <p className="mt-3 text-sm leading-relaxed text-charcoal-soft">
                   <strong className="font-semibold text-fig-deep">Needs your credentials.</strong> {c.integration}
                 </p>
-              </Card>
+                </Card>
+              </Reveal>
             ))}
           </div>
         </div>
@@ -214,22 +219,22 @@ export default function LandingPage() {
       {/* Philosophy */}
       <section id="philosophy" className="border-y border-bark/10 bg-ivory-deep/40 py-20">
         <div className="mx-auto max-w-6xl px-4">
-          <h2 className="serif max-w-2xl text-3xl font-semibold text-forest-deep">
+          <Reveal as="h2" className="serif max-w-2xl text-3xl font-semibold text-forest-deep">
             Banyan.ai is its own first customer.
-          </h2>
+          </Reveal>
           <div className="mt-8 grid gap-6 md:grid-cols-2">
-            <p className="text-sm leading-relaxed text-charcoal-soft">
+            <Reveal as="p" delay={0} className="text-sm leading-relaxed text-charcoal-soft">
               The workspace you would use if you signed up today is the same workspace the team uses to
               distribute Banyan.ai itself. The product researches its own audience, drafts its own
               campaign themes, runs its own approval queue, publishes through the same Postiz
               integration you would configure, and records its own experiments.
-            </p>
-            <p className="text-sm leading-relaxed text-charcoal-soft">
+            </Reveal>
+            <Reveal as="p" delay={120} className="text-sm leading-relaxed text-charcoal-soft">
               That is the founding principle in practice: if the workflows cannot move a real product's
               growth, no amount of interface polish excuses them. Every lesson the team logs in
               Banyan's own workspace is a prioritization decision for the next build cycle — treating
               observed bottlenecks as hypotheses to investigate, not conclusions.
-            </p>
+            </Reveal>
           </div>
           <ul className="mt-10 grid gap-4 text-sm text-charcoal-soft md:grid-cols-2">
             {[
@@ -239,11 +244,11 @@ export default function LandingPage() {
               "Every campaign produces evidence and learning.",
               "Never invent customers, traction, or research.",
               "Prefer measurable progress over technical complexity.",
-            ].map((p) => (
-              <li key={p} className="flex items-start gap-2 rounded-[3px] bg-white px-3 py-2 rooted">
+            ].map((p, i) => (
+              <Reveal key={p} as="li" delay={i * 60} className="flex items-start gap-2 rounded-[3px] bg-white px-3 py-2 rooted">
                 <Sprout className="mt-0.5 shrink-0 text-forest" size={16} aria-hidden="true" />
                 <span className="text-forest-deep">{p}</span>
-              </li>
+              </Reveal>
             ))}
           </ul>
         </div>
@@ -252,16 +257,18 @@ export default function LandingPage() {
       {/* Final CTA */}
       <section className="py-20">
         <div className="mx-auto max-w-3xl px-4 text-center">
-          <h2 className="serif text-3xl font-semibold text-forest-deep md:text-4xl">
-            Stop treating distribution as an afterthought.
-          </h2>
-          <p className="mt-4 text-charcoal-soft">Set up your workspace in five minutes. First plan included.</p>
-          <Link
-            href="/signup"
-            className="mt-8 inline-block rounded-[4px] bg-forest-deep px-6 py-3 text-sm font-semibold text-ivory hover:bg-forest"
-          >
-            Start distributing
-          </Link>
+          <Reveal>
+            <h2 className="serif text-3xl font-semibold text-forest-deep md:text-4xl">
+              Stop treating distribution as an afterthought.
+            </h2>
+            <p className="mt-4 text-charcoal-soft">Set up your workspace in five minutes. First plan included.</p>
+            <Link
+              href="/signup"
+              className="mt-8 inline-block rounded-[4px] bg-forest-deep px-6 py-3 text-sm font-semibold text-ivory shadow-[0_10px_30px_-12px_rgba(18,48,40,0.6)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-forest hover:shadow-[0_16px_36px_-12px_rgba(18,48,40,0.65)]"
+            >
+              Start distributing
+            </Link>
+          </Reveal>
         </div>
       </section>
 
@@ -305,9 +312,9 @@ function Rootline({ className = "" }: { className?: string }) {
         stroke="var(--color-fig)"
         strokeWidth="1.6"
       />
-      <circle className="fill-fig" cx="320" cy="132" r="3" />
-      <circle className="fill-fig" cx="720" cy="132" r="3" />
-      <circle className="fill-fig" cx="520" cy="148" r="3" />
+      <circle className="fig-node fill-fig" style={{ "--node-delay": "1.3s" } as React.CSSProperties} cx="320" cy="132" r="3" />
+      <circle className="fig-node fill-fig" style={{ "--node-delay": "1.45s" } as React.CSSProperties} cx="720" cy="132" r="3" />
+      <circle className="fig-node fill-fig" style={{ "--node-delay": "1.6s" } as React.CSSProperties} cx="520" cy="148" r="3" />
     </svg>
   );
 }
@@ -316,7 +323,7 @@ function Rootline({ className = "" }: { className?: string }) {
  * truthful empty states rather than fabricated analytics. */
 function PreviewCard() {
   return (
-    <Card className="mt-10 bg-white text-charcoal">
+    <Card className="bg-white text-charcoal">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-bark/10 pb-3">
         <div>
           <p className="text-sm font-medium text-charcoal-soft">Banyan.ai workspace</p>

@@ -133,6 +133,105 @@ section[id] {
   scroll-margin-top: 5rem;
 }
 
+/*
+ * Motion — every animation on the marketing page is a rendering of the
+ * product's story: roots descend, the canopy breathes, work flows root to
+ * branch. All of it is scroll-triggered where it happens off-screen, and all
+ * of it collapses to static under prefers-reduced-motion.
+ */
+
+/* Scroll reveal: hidden until the element enters the viewport, then a single
+   gentle rise. `.reveal-stagger > *` cascades the same rise across siblings. */
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+}
+
+/* The hero watermark breathes — very slow, very quiet; the canopy is alive. */
+@keyframes breathe {
+  0%, 100% { opacity: 0.13; transform: translateY(-50%) scale(1); }
+  50% { opacity: 0.20; transform: translateY(-50%) scale(1.035); }
+}
+.hero-mark {
+  transform: translateY(-50%);
+  opacity: 0.16;
+  animation: breathe 9s ease-in-out 1.5s infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-mark { animation: none; opacity: 0.16; }
+}
+
+/* Light drifting through the canopy: the hero's radial slowly wanders. */
+@keyframes canopy-drift {
+  from { background-position: 78% -10%, 8% 110%, 0 0; }
+  50% { background-position: 72% -12%, 12% 108%, 0 0; }
+  to { background-position: 78% -10%, 8% 110%, 0 0; }
+}
+.canopy-drift {
+  background-size: 140% 140%, 120% 120%, auto;
+  animation: canopy-drift 24s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .canopy-drift { animation: none; background-size: auto; }
+}
+
+/* Connector: the workflow's root line draws root-to-branch when it scrolls
+   into view. JS removes the initial state only once measured, so the dash
+   length fits the actual path. */
+.flow-line {
+  stroke-dasharray: var(--flow-len, 600);
+  stroke-dashoffset: var(--flow-len, 600);
+  transition: stroke-dashoffset 1.6s cubic-bezier(0.4, 0, 0.2, 1) 0.2s;
+}
+.flow-line.is-visible {
+  stroke-dashoffset: 0;
+}
+@keyframes flow-pulse {
+  0%, 100% { opacity: 0.35; transform: translateX(0); }
+  50% { opacity: 1; transform: translateX(2px); }
+}
+.flow-arrow {
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  transition-delay: calc(var(--arrow-delay, 0ms));
+}
+.flow-arrow.is-visible {
+  opacity: 1;
+  animation: flow-pulse 2.6s ease-in-out infinite;
+  animation-delay: calc(var(--arrow-delay, 0ms) + 1.6s);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-line { transition: none; stroke-dasharray: none; stroke-dashoffset: 0; }
+  .flow-arrow { transition: none; animation: none; opacity: 1; }
+}
+
+/* The fig nodes at the rootline's tips land with a soft grow-in. */
+@keyframes node-grow {
+  from { opacity: 0; transform: scale(0); }
+  to { opacity: 1; transform: scale(1); }
+}
+.fig-node {
+  transform-origin: center;
+  transform-box: fill-box;
+  opacity: 0;
+  animation: node-grow 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: var(--node-delay, 1.4s);
+}
+@media (prefers-reduced-motion: reduce) {
+  .fig-node { animation: none; opacity: 1; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .fade-up, .fade-up-2, .fade-up-3 { animation: none; }
