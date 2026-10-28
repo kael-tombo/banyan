@@ -75,10 +75,10 @@ export function AppShell({
   const isActive = (href: string) => (href === "/app" ? pathname === "/app" : pathname.startsWith(href));
 
   const linkClass = (href: string, compact = false) =>
-    `flex items-center gap-2 ${compact ? "px-2 py-1.5 text-sm" : "px-2 py-1.5 text-sm"} rounded-md ${
+    `flex items-center gap-2 px-2 py-1.5 text-sm rounded-[3px] ${
       isActive(href)
-        ? "bg-forest/10 font-medium text-forest-deep"
-        : "text-charcoal-soft hover:bg-forest/5 hover:text-forest-deep"
+        ? "bg-ivory/10 font-medium text-ivory"
+        : "text-sage/75 hover:bg-ivory/5 hover:text-ivory"
     }`;
 
   return (
@@ -93,28 +93,28 @@ export function AppShell({
 
       {/* Desktop sidebar */}
       <aside
-        className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col overflow-y-auto border-r border-bark/10 bg-white px-3 py-4 md:flex"
+        className="canopy sticky top-0 hidden h-screen w-60 shrink-0 flex-col overflow-y-auto px-3 py-4 text-ivory md:flex"
         aria-label="Main navigation"
       >
         <Link href="/app" className="mb-1 flex items-center gap-2 px-2">
           <BanyanMark size={22} />
-          <span className="font-serif text-base text-forest-deep">
-            Banyan<span className="text-moss">.ai</span>
+          <span className="font-serif text-base text-ivory">
+            Banyan<span className="text-fig">.ai</span>
           </span>
         </Link>
-        <div className="mb-3 rounded-md bg-ivory px-3 py-2">
-          <p className="truncate text-sm font-medium text-charcoal">{product || "No product yet"}</p>
-          <p className="truncate text-xs text-charcoal-soft">
+        <div className="mb-3 rounded-[3px] border border-ivory/10 bg-ivory/5 px-3 py-2">
+          <p className="truncate text-sm font-medium text-ivory">{product || "No product yet"}</p>
+          <p className="truncate text-xs text-sage/70">
             {workspace.name}
             {workspace.isSelf ? " · self-distribution" : ""}
           </p>
-          {goal && <p className="mt-1 text-xs text-moss">{goal.replace(/_/g, " ")} goal</p>}
+          {goal && <p className="mt-1 text-xs text-fig">{goal.replace(/_/g, " ")} goal</p>}
         </div>
 
         <nav className="flex flex-1 flex-col gap-3" role="list">
           {NAV_GROUPS.map((group) => (
             <div key={group.label} role="listitem">
-              <p className="px-2 pb-1 text-[11px] font-semibold text-bark/45">{group.label}</p>
+              <p className="serif px-2 pb-1 text-xs font-semibold tracking-wide text-fig/80">{group.label}</p>
               <div className="flex flex-col gap-0.5">
                 {group.items.map((n) => (
                   <Link key={n.href} href={n.href} aria-current={isActive(n.href) ? "page" : undefined} className={linkClass(n.href)}>
@@ -125,13 +125,13 @@ export function AppShell({
             </div>
           ))}
 
-          <div className="mt-auto flex flex-col gap-0.5 border-t border-bark/10 pt-2">
+          <div className="mt-auto flex flex-col gap-0.5 border-t border-ivory/10 pt-2">
             {workspace.isSelf && (
               <Link
                 href="/app/growth"
                 aria-current={isActive("/app/growth") ? "page" : undefined}
-                className={`flex items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium ${
-                  isActive("/app/growth") ? "bg-forest/10 text-forest-deep" : "text-clay hover:bg-clay/5"
+                className={`flex items-center gap-2 rounded-[3px] px-2 py-1.5 text-sm font-medium ${
+                  isActive("/app/growth") ? "bg-fig/15 text-fig" : "text-fig/90 hover:bg-fig/10"
                 }`}
               >
                 <Sprout size={16} aria-hidden="true" /> Growth: distributing itself
@@ -145,10 +145,11 @@ export function AppShell({
               <Settings size={16} aria-hidden="true" /> Settings
             </Link>
             <div className="flex items-center justify-between gap-2 px-2 py-1.5">
-              <span className="truncate text-xs text-charcoal-soft" title={user.email}>
+              <span className="truncate text-xs text-sage/70" title={user.email}>
                 {user.email}
               </span>
-              <Button variant="ghost" size="sm" onClick={logout} aria-label="Log out">
+              {/* ghost recolored for the dark sidebar surface */}
+              <Button variant="ghost" size="sm" onClick={logout} aria-label="Log out" className="text-sage/80 hover:bg-ivory/10 hover:text-ivory">
                 <LogOut size={14} aria-hidden="true" />
               </Button>
             </div>
@@ -184,7 +185,7 @@ export function AppShell({
             <nav className="flex flex-col gap-2" aria-label="Sections">
               {NAV_GROUPS.map((group) => (
                 <div key={group.label}>
-                  <p className="px-2 pb-1 text-[11px] font-semibold text-bark/45">{group.label}</p>
+                  <p className="serif px-2 pb-1 text-xs font-semibold tracking-wide text-forest-deep">{group.label}</p>
                   <div className="flex flex-col gap-0.5">
                     {group.items.map((n) => (
                       <Link key={n.href} href={n.href} aria-current={isActive(n.href) ? "page" : undefined} className={linkClass(n.href, true)}>
@@ -196,7 +197,7 @@ export function AppShell({
               ))}
               <div className="flex flex-col gap-0.5 border-t border-bark/10 pt-2">
                 {workspace.isSelf && (
-                  <Link href="/app/growth" className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-clay">
+                  <Link href="/app/growth" className="flex items-center gap-2 rounded-[3px] px-2 py-1.5 text-sm text-fig-deep">
                     <Sprout size={16} aria-hidden="true" /> Growth: distributing itself
                   </Link>
                 )}
@@ -215,7 +216,7 @@ export function AppShell({
         )}
 
         {!onboardingComplete && (
-          <div className="border-b border-clay/25 bg-clay/5">
+          <div className="border-b border-fig/30 bg-fig/5">
             <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
               <p className="text-sm text-charcoal">
                 <span className="font-medium">Finish setting up your workspace.</span>{" "}
@@ -224,7 +225,7 @@ export function AppShell({
               </p>
               <Link
                 href="/onboarding"
-                className="shrink-0 rounded-md bg-forest px-3 py-1.5 text-sm font-medium text-ivory transition-colors hover:bg-forest-deep"
+                className="shrink-0 rounded-[4px] bg-forest-deep px-3 py-1.5 text-sm font-medium text-ivory transition-colors hover:bg-forest"
               >
                 Finish setup
               </Link>

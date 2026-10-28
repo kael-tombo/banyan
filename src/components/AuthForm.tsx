@@ -91,8 +91,9 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 /** Page wrapper shared by the login and signup pages. */
 export function AuthShell({ mode }: { mode: "login" | "signup" }) {
   return (
-    <div className="grain flex min-h-screen flex-col bg-ivory">
-      <div className="pointer-events-none flex h-14 items-center px-5">
+    <div className="flex min-h-screen flex-col bg-ivory">
+      <div className="canopy pointer-events-none h-1.5 w-full" aria-hidden="true" />
+      <div className="flex h-16 items-center px-5">
         <div className="flex items-center gap-2">
           <BanyanMark size={22} />
           <span className="font-serif text-lg text-forest-deep">
@@ -101,7 +102,7 @@ export function AuthShell({ mode }: { mode: "login" | "signup" }) {
         </div>
       </div>
       <main className="flex flex-1 items-center justify-center px-4 pb-16">
-        <div className="fade-up w-full max-w-md rounded-xl border border-bark/15 bg-white p-8 shadow-md">
+        <div className="fade-up w-full max-w-md rounded-[3px] border border-bark/15 bg-white p-8 rooted">
           <h1 className="serif text-2xl font-semibold text-forest-deep">
             {mode === "signup" ? "Start distributing" : "Welcome back"}
           </h1>

@@ -7,13 +7,13 @@ export default function AppLoading() {
       <div className="h-4 w-full max-w-2xl rounded bg-bark/10" />
       <div className="grid gap-4 md:grid-cols-3">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="rounded-lg border border-bark/15 bg-white p-4">
+          <div key={i} className="rounded-[3px] border border-bark/15 bg-white p-4">
             <div className="h-3 w-24 rounded bg-bark/10" />
             <div className="mt-3 h-6 w-20 rounded bg-bark/10" />
           </div>
         ))}
       </div>
-      <div className="h-40 rounded-lg border border-bark/15 bg-white" />
+      <div className="h-40 rounded-[3px] border border-bark/15 bg-white" />
     </div>
   );
 }

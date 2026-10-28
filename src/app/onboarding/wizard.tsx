@@ -382,7 +382,7 @@ function PlanStep({ plan, planError }: { plan: { plan: PlanShape; isFallback: bo
         {plan.label}
       </Badge>
 
-      <div className="rounded-lg border border-bark/15 bg-ivory-deep/50 p-4 text-sm">
+      <div className="rounded-[3px] border border-bark/15 bg-ivory-deep/50 p-4 text-sm">
         <h3 className="font-semibold text-forest-deep">Proposed positioning</h3>
         <p className="mt-1 text-charcoal-soft">{p.positioning}</p>
       </div>
@@ -403,7 +403,7 @@ function PlanStep({ plan, planError }: { plan: { plan: PlanShape; isFallback: bo
         </p>
       </div>
 
-      <div className="rounded-lg border border-forest/20 bg-white p-4 text-sm">
+      <div className="rounded-[3px] rooted-fig border border-forest/20 bg-white p-4 text-sm">
         <h3 className="font-semibold text-forest-deep">Starter campaign</h3>
         <p className="mt-1 font-medium text-charcoal">{p.initialCampaign.name}</p>
         <p className="mt-1 text-charcoal-soft">{p.initialCampaign.keyMessage}</p>

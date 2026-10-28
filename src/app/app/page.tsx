@@ -42,7 +42,7 @@ export default async function DashboardPage() {
       {/* Workspace summary */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
-          <p className="text-xs font-medium uppercase tracking-wide text-charcoal-soft">Distribution goal</p>
+          <p className="text-xs font-medium text-charcoal-soft">Distribution goal</p>
           {profile?.goal ? (
             <>
               <p className="mt-1 font-medium text-charcoal">{GOAL_LABELS[profile.goal] ?? profile.goal}</p>
@@ -53,7 +53,7 @@ export default async function DashboardPage() {
           )}
         </Card>
         <Card>
-          <p className="text-xs font-medium uppercase tracking-wide text-charcoal-soft">Active campaigns</p>
+          <p className="text-xs font-medium text-charcoal-soft">Active campaigns</p>
           {campaigns.length > 0 ? (
             <ul className="mt-2 space-y-1">
               {campaigns.map((c) => (
@@ -68,7 +68,7 @@ export default async function DashboardPage() {
           )}
         </Card>
         <Card>
-          <p className="text-xs font-medium uppercase tracking-wide text-charcoal-soft">Tracked clicks (observed)</p>
+          <p className="text-xs font-medium text-charcoal-soft">Tracked clicks (observed)</p>
           {trackedClicks > 0 ? (
             <p className="mt-1 font-medium text-charcoal">{trackedClicks.toLocaleString()} clicks via Banyan links</p>
           ) : (
@@ -177,7 +177,7 @@ export default async function DashboardPage() {
         {recommendations.length > 0 ? (
           <div className="grid gap-3 md:grid-cols-2">
             {recommendations.map((r) => (
-              <Link key={r.href} href={r.href} className="card-lift flex items-start gap-3 rounded-lg border border-forest/15 bg-white p-4">
+              <Link key={r.href} href={r.href} className="card-lift rooted flex items-start gap-3 rounded-[3px] border border-bark/15 bg-white p-4">
                 <ArrowRight className="mt-1 text-forest" size={16} aria-hidden="true" />
                 <span>
                   <span className="block text-sm font-medium text-charcoal">{r.label}</span>
