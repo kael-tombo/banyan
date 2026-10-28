@@ -1,16 +1,16 @@
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
-import { isProd } from "@/lib/env";
+import { env, isProd } from "@/lib/env";
 
 export const SESSION_COOKIE = "banyan_session";
 export const VISITOR_COOKIE = "banyan_vis";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 function hashToken(token: string): string {
-  // APP_SECRET binds tokens to this deployment (keyed hash).
-  const secret = process.env.APP_SECRET ?? "insecure-dev-secret";
-  return crypto.createHmac("sha256", secret).update(token).digest("hex");
+  // APP_SECRET binds tokens to this deployment (keyed hash). env.ts has
+  // already validated it (64 hex chars) — fail-fast, no silent fallback.
+  return crypto.createHmac("sha256", env.APP_SECRET).update(token).digest("hex");
 }
 
 export async function createSession(userId: string): Promise<{ token: string; expiresAt: Date }> {
