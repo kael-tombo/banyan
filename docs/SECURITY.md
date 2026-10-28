@@ -107,7 +107,7 @@ Live-verified: metadata and loopback targets are blocked with no body echo.
 | 5 residual dependency advisories (`next@16`, `postcss` build chain, `zod@4`) | Major upgrades in the launch window are riskier than the residual exposure; the reachable zod path is closed by the 512 KB cap | Track upstream; upgrade post-launch (P3) |
 | Seed account with default password | Seed-only; runbook mandates rotation/removal | Operator checklist item |
 | Legal pages are template drafts | Not reviewable in-repo | Counsel review before public launch |
-| SQLite single file at rest | No TDE/field-level encryption beyond connection configs | Postgres + disk/at-rest encryption when multi-node |
+| Hosted Postgres at rest | Provider-managed; no field-level encryption beyond connection configs (AES-256-GCM) | Self-managed disk/at-rest encryption when self-hosting |
 
 ## 4. Reporting & handling
 

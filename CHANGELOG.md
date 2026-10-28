@@ -25,6 +25,25 @@ follow [Keep a Changelog](https://keepachangelog.com); commit hashes refer to
   `docs/SECURITY.md` (posture + gaps), this changelog, and
   `CONTRIBUTING.md`.
 
+### Changed
+- **Database provider switched: SQLite → PostgreSQL (hosted, e.g. Prisma
+  Postgres)** — removes the serverless ephemerality limitation; data is now
+  durable across cold starts and instances on Vercel. `prisma/schema.prisma`
+  provider is `postgresql`; the two SQLite-era migrations were replaced by
+  one baseline migration (`20261028120000_postgres_init`, generated via
+  `prisma migrate diff`). `npm run build` now deploys pending migrations
+  automatically when a real `DATABASE_URL` is configured
+  (`scripts/migrate-if-configured.ts`; skip with `MIGRATE_ON_BUILD=0`;
+  clean-room/placeholder builds skip safely). The SQLite runtime bootstrap
+  and its generated-DDL machinery were retired with the provider (demo
+  seeding now lives in `src/lib/bootstrap/seed-demo.ts`, shared by
+  `prisma/seed.ts`; provision a fresh database once with
+  `npx prisma migrate deploy && npm run db:seed`). `prisma` CLI moved to
+  `dependencies` so the Docker entrypoint's migrate-deploy works after
+  `npm prune --omit=dev`. CI (unpushed, workflow-scoped) updated to a
+  postgres:16 service container. Docs updated across README, runbook,
+  architecture, data model, security and launch notes.
+
 ### Fixed
 - **Demo login on serverless deployments** (`founder@banyan.ai` /
   `banyan-demopass` returned "unable to authenticate") — on Vercel, neither

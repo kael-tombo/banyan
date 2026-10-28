@@ -37,7 +37,7 @@ These rules are enforced in the code, not just documented:
 | Concern | Choice |
 | --- | --- |
 | Framework | Next.js 15 (App Router) + React 19 + TypeScript |
-| Database | SQLite via Prisma ORM |
+| Database | PostgreSQL via Prisma ORM (hosted, e.g. Prisma Postgres) |
 | Styling | Tailwind CSS v4 |
 | Validation | Zod |
 | Auth | Cookie sessions (DB-backed, HMAC-hashed tokens) + bcryptjs |
@@ -73,7 +73,7 @@ planned campaign and one planned experiment, and **no results**.
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | yes | Prisma SQLite URL, e.g. `file:./dev.db` |
+| `DATABASE_URL` | yes | PostgreSQL connection URL, e.g. `postgres://user:pass@host:5432/db?sslmode=require` |
 | `APP_SECRET` | yes | 32 bytes hex (64 chars). Encrypts stored credentials and keys session tokens |
 | `NEXT_PUBLIC_APP_URL` | yes | Public base URL; used to build tracked-link URLs |
 | `AI_PROVIDER` | no | `openai` \| `none` (auto-detects from key presence) |
@@ -85,7 +85,7 @@ planned campaign and one planned experiment, and **no results**.
 | `WORKER_BASE_URL` | no | Overrides the worker's target base URL (defaults to `NEXT_PUBLIC_APP_URL`) |
 | `MODEL_MAX_CALLS_PER_DAY` | no | Per-workspace daily cap on live model calls (default 500); fallback is never quota-limited |
 | `FASTLANE_API_KEY` | no | Enables the Fastlane capability adapter (short-form creative; unverified until exercised) |
-| `RUNTIME_DB_BOOTSTRAP` | no | Set `0` to disable the runtime SQLite demo bootstrap (auto-provisions schema + seed on throwaway-filesystem hosts when the database is empty; durable hosts no-op) |
+| `MIGRATE_ON_BUILD` | no | Set `0` to skip `prisma migrate deploy` during `npm run build` (default: deploy when a real database URL is configured) |
 | `USER_MODEL_KEYS_ENABLED` | no | Reserved: user-provided model keys are not implemented; managed access only |
 | `SEED_USER_EMAIL` / `SEED_USER_PASSWORD` | no | Seeded demo account |
 
@@ -105,20 +105,14 @@ planned campaign and one planned experiment, and **no results**.
 
 ## Deploying
 
-- **Node host / Docker** (durable, recommended): see `docs/RELEASE_RUNBOOK.md` §4.
-- **Vercel** (demo): the production build runs with zero configured secrets —
-  the env validator supplies inert placeholders during the build phase only,
-  and no build-time code path touches the database. For a **working** demo
-  deployment set three runtime variables in project settings: `DATABASE_URL`
-  (must be an absolute path, e.g. `file:/tmp/banyan.db`), `APP_SECRET`
-  (`openssl rand -hex 32`) and `WORKER_SECRET` (strong unique value). On the
-  first request each fresh serverless instance provisions the SQLite schema
-  and the demo seed automatically (runtime bootstrap), so
-  `founder@banyan.ai` / `banyan-demopass` (or your `SEED_USER_EMAIL` /
-  `SEED_USER_PASSWORD`) signs in immediately. Honest caveat: SQLite is
-  ephemeral on serverless filesystems (per-instance `/tmp`), so persisted
-  data does not survive cold starts — use the Node/Docker path for durable
-  data. Details: `docs/RELEASE_RUNBOOK.md` §4 "Vercel alternative".
+- **Node host / Docker** (long-running): see `docs/RELEASE_RUNBOOK.md` §4.
+- **Vercel + hosted Postgres (durable demo):** point `DATABASE_URL` at a
+  hosted PostgreSQL (e.g. Prisma Postgres), set `APP_SECRET` and
+  `WORKER_SECRET`, and deploy. `npm run build` deploys pending migrations
+  automatically (skip with `MIGRATE_ON_BUILD=0`); provision the demo
+  account once with `npm run setup` against the same database. Data is
+  durable — no serverless filesystem caveat. Details:
+  `docs/RELEASE_RUNBOOK.md` §4 "Vercel alternative".
 
 ## The agentic execution runtime
 
@@ -278,12 +272,9 @@ journey (42 checks) against a live server. See [`docs/TESTING.md`](docs/TESTING.
   not claimed.
 - External research / live market data is not wired in: research briefs are
   labelled hypotheses, not collected facts.
-- PostgreSQL, object storage, notifications, usage budgets beyond the model
+- Object storage, notifications, usage budgets beyond the model
   call quota, and multi-user collaboration are not implemented; the rate
   limiter is in-process (single node).
-- On serverless hosts (e.g. Vercel) SQLite storage is ephemeral per instance;
-  durable persistence requires the Node/Docker deployment path or a future
-  database-provider migration (`docs/RELEASE_RUNBOOK.md` §4).
 - Legal pages are templates, not reviewed legal documents.
 
 ## Project documents

@@ -1,5 +1,5 @@
-// Banyan.ai data model — SQLite via Prisma.
-// Enums are represented as validated strings (SQLite lacks native enums);
+// Banyan.ai data model — PostgreSQL (hosted, e.g. Prisma Postgres) via Prisma.
+// Enums are represented as validated strings (portable across providers);
 // validation lives in src/lib/state-machines.ts and zod schemas.
 
 generator client {
@@ -7,7 +7,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

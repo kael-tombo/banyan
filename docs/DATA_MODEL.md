@@ -1,8 +1,10 @@
 # Banyan — Data Model
 
-Reference for the Prisma schema (`prisma/schema.prisma`): 23 models, SQLite,
-2 additive migrations (`20261027081750_init`,
-`20261028072735_agentic_execution_runtime`). SQLite has no native enums —
+Reference for the Prisma schema (`prisma/schema.prisma`): 23 models,
+PostgreSQL (hosted, e.g. Prisma Postgres), one baseline migration
+(`20261028120000_postgres_init`; the provider moved from SQLite to
+PostgreSQL on 2026-10-28 and the SQLite-era migrations were replaced).
+Status fields are portable validated strings (not native Postgres enums) —
 every status is a validated string whose legal transitions live in
 `src/lib/state-machines.ts` and zod schemas.
 
@@ -136,5 +138,5 @@ ended blocked — reporting recorded reality is their job.
    may be JSON-in-TEXT with a documented shape (as done above).
 4. Every workspace-owned table carries `workspaceId` **and** a
    `@@index([workspaceId, …])` — tenant scoping relies on it.
-5. Back up the SQLite file before migrating (`cp db/custom.db
-   db/custom.db.bak-$(date +%F)`) — see the runbook.
+5. Back up the database before migrating (provider snapshot or `pg_dump`) —
+   see the runbook.

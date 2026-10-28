@@ -2,7 +2,6 @@ import { prisma } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth/password";
 import { createSession, sessionCookieOptions, SESSION_COOKIE } from "@/lib/auth/session";
 import { apiError, assertSameOrigin, guardRate, readJson } from "@/lib/api-utils";
-import { ensureDatabaseReadyOnce } from "@/lib/bootstrap/runtime-bootstrap";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -19,10 +18,6 @@ export async function POST(req: NextRequest) {
 
   const parsed = await readJson(req, schema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
-
-  // Throwaway-filesystem hosts (serverless): a request can be the first thing
-  // a fresh instance ever sees — provision schema + demo account on demand.
-  await ensureDatabaseReadyOnce();
 
   const user = await prisma.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });
   const valid = user ? await verifyPassword(parsed.data.password, user.passwordHash) : false;

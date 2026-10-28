@@ -72,8 +72,9 @@ announcement is a draft for the founder to review and post.
   results, provider-confirmed publications). It will not fabricate platform
   analytics it cannot observe — expect "not enough data" until real evidence
   exists.
-- **Single-node deployment** (SQLite, in-memory rate limits). Fine for a
-  first public release; Postgres is the next step.
+- **Single-node deployment** (in-memory rate limits, one app process). Fine
+  for a first public release; the database is hosted PostgreSQL (durable),
+  Redis-backed rate limiting is the next step.
 - The recommendation engine is **evidence-first and conservative**: early
   recommendations are explicitly low-confidence.
 

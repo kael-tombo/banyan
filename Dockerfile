@@ -1,8 +1,11 @@
-# Banyan — single-node production image (SQLite).
+# Banyan — single-node production image (PostgreSQL).
 # Build:  docker build -t banyan .
-# Run:    docker run -p 3000:3000 --env-file .env -v banyan-data:/app/db banyan
-# Worker: docker run --env-file .env -v banyan-data:/app/db banyan npm run worker
-# Migrations run automatically on container start (prisma migrate deploy).
+# Run:    docker run -p 3000:3000 --env-file .env banyan
+#         (.env must contain DATABASE_URL pointing at a reachable Postgres —
+#          e.g. hosted Prisma Postgres — plus APP_SECRET and WORKER_SECRET)
+# Worker: docker run --env-file .env banyan npm run worker
+# Migrations run automatically on container start (prisma migrate deploy;
+# the prisma CLI ships in dependencies so it is available after pruning).
 
 FROM node:20-alpine AS base
 # Prisma engines on musl need openssl; sharp-style native bits need libc compat.
@@ -18,7 +21,8 @@ RUN npm ci
 FROM deps AS build
 COPY . .
 # Build-time placeholders: the build machine is not the runtime host.
-# env.ts exempts the WORKER_SECRET runtime guard during next build.
+# env.ts exempts the WORKER_SECRET runtime guard during next build;
+# scripts/migrate-if-configured.ts skips migrate deploy for file: URLs.
 ENV DATABASE_URL=file:./build-placeholder.db \
     APP_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef \
     NEXT_TELEMETRY_DISABLED=1
@@ -37,7 +41,5 @@ COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/src ./src
 COPY --from=build /app/worker ./worker
 COPY --from=build /app/tsconfig.json ./tsconfig.json
-# SQLite lives in /app/db (mount a volume here for persistence).
-RUN mkdir -p /app/db
 EXPOSE 3000
 CMD ["sh", "-c", "npx prisma migrate deploy && npm start"]

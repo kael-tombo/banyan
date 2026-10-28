@@ -24,12 +24,13 @@ tests → build on every push/PR.
 
 | Variable | Required | Notes |
 |---|---|---|
-| `DATABASE_URL` | yes | SQLite `file:` path (e.g. `file:/app/db/prod.db`). Directory must exist and be writable; mount a volume in Docker. |
+| `DATABASE_URL` | yes | PostgreSQL connection URL, e.g. hosted Prisma Postgres: `postgres://user:pass@host:5432/postgres?sslmode=require`. |
 | `APP_SECRET` | yes | 64 hex chars (32 bytes), e.g. `openssl rand -hex 32`. Encrypts stored credentials (AES-256-GCM) and keys session cookies. **Rotating it invalidates sessions and stored connection configs.** |
 | `WORKER_SECRET` | **yes in production** | Bearer secret for `POST /api/worker/tick`. The dev default is **rejected** at production runtime (fail-fast). |
 | `NEXT_PUBLIC_APP_URL` | recommended | Public base URL, used for links/redirects. |
 | `AI_PROVIDER` / `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_MODEL` | optional | Any OpenAI-compatible endpoint. Without it, generation uses the clearly labeled template fallback (honest degradation, no errors). |
 | `MODEL_MAX_CALLS_PER_DAY` | optional | Per-workspace daily cap on live model calls (default 500). |
+| `MIGRATE_ON_BUILD` | optional | Set `0` to skip `prisma migrate deploy` during `npm run build` (default: deploy when a real DB URL is configured). |
 | `FASTLANE_API_KEY` / `FASTLANE_API_BASE_URL` | optional | Activates the Fastlane adapter (marked unverified until exercised). |
 | `SEED_USER_EMAIL` / `SEED_USER_PASSWORD` | seed only | Used by `npm run db:seed`. **Rotate the seeded password after first login in production** (or skip seeding and sign up normally). |
 | `WORKER_INTERVAL_MS` / `WORKER_BASE_URL` | worker only | Worker loop tuning. |
@@ -39,10 +40,19 @@ Missing optional keys never crash the app — the affected capability reports
 
 ## 3. Database migrations
 
-- SQLite (single-node). Two migrations exist; both are additive and safe.
-- Apply: `npx prisma migrate deploy` (idempotent). The Docker image runs it automatically at container start.
-- **Backup before migrating:** `cp prod.db prod.db.bak-$(date +%F)` (SQLite = single file; stop the app first for a consistent copy, or use `sqlite3 prod.db ".backup ..."`).
-- Rollback: restore the backup file. No destructive migrations exist.
+- PostgreSQL via Prisma. One baseline migration exists
+  (`20261028120000_postgres_init`, generated with `prisma migrate diff` from
+  the schema; the pre-switch SQLite migrations were replaced when the
+  provider moved from SQLite to PostgreSQL on 2026-10-28).
+- Apply: `npx prisma migrate deploy` (idempotent). It also runs automatically
+  during `npm run build` when a real `DATABASE_URL` is configured
+  (`scripts/migrate-if-configured.ts`; skip with `MIGRATE_ON_BUILD=0`), and
+  at Docker container start.
+- **Backup before migrating** (hosted provider): use the provider's snapshot
+  facility (Prisma Postgres console) or `pg_dump`.
+- Rollback: restore the snapshot/dump. No destructive migrations exist.
+- First-time provisioning of a fresh database: `npx prisma migrate deploy &&
+  npm run db:seed` (seed = demo founder account + self workspace; idempotent).
 
 ## 4. Deployment procedure (Node host)
 
@@ -67,46 +77,43 @@ docker run -p 3000:3000 --env-file .env -v banyan-data:/app/db banyan
 Note: the Docker build has not been executed in this environment (no docker
 daemon) — treat the first `docker build` as part of deployment validation.
 
-### Vercel alternative (serverless)
+### Vercel alternative (serverless + hosted Postgres)
 
-`npm run build` (`prisma generate && next build`) succeeds on Vercel with
-**zero** project env vars configured: during the build phase (`NEXT_PHASE=phase-production-build`)
-the env validator fills required values with inert placeholders, and no
+`npm run build` succeeds on Vercel even with zero project env vars
+configured: during the build phase (`NEXT_PHASE=phase-production-build`) the
+env validator fills required values with inert placeholders, and no
 build-time code path queries the database. Verified on a clean-room clone
 (2026-10-28): fresh `npm ci` → `next build` compiles and collects page data
 without secrets.
 
-For a **working** demo deployment, set in the Vercel project settings:
+For a **working, durable** deployment, set in the Vercel project settings:
 
 | Variable | Value |
 | --- | --- |
-| `DATABASE_URL` | absolute SQLite path, e.g. `file:/tmp/banyan.db` (serverless writes are limited to `/tmp`; relative `file:` paths resolve under the read-only bundle) |
+| `DATABASE_URL` | hosted PostgreSQL URL, e.g. Prisma Postgres: `postgres://…@db.prisma.io:5432/postgres?sslmode=require` |
 | `APP_SECRET` | `openssl rand -hex 32` |
 | `WORKER_SECRET` | strong unique value (runtime fail-fast rejects the dev default) |
 | `NEXT_PUBLIC_APP_URL` | the deployed URL, e.g. `https://banyan.vercel.app` (optional; defaults to localhost) |
 
-**Runtime demo bootstrap.** Each fresh serverless instance starts with an
-empty filesystem — no migrate or seed step can ever have run there. On cold
-start (`instrumentation.ts` → `register()`) and on the first login/signup
-request, the app provisions the SQLite schema (migration DDL embedded at
-build time via `npm run gen:schema`) and the demo seed automatically. The
-demo account (`founder@banyan.ai` / `banyan-demopass`, or your
-`SEED_USER_EMAIL` / `SEED_USER_PASSWORD`) therefore signs in immediately.
-Set `RUNTIME_DB_BOOTSTRAP=0` to disable. Verified by a live production-server
-simulation on a fresh `/tmp` database (2026-10-28): 66/66 schema statements
-applied, seed created, demo login 200, wrong password 401.
+Because the database is hosted (not a serverless file), data is **durable**
+across cold starts and instances — the SQLite-on-serverless ephemerality
+limitation no longer applies.
 
-**Honest caveats — SQLite on serverless is ephemeral.** Every serverless
-instance gets its own throwaway filesystem (`/tmp`); data written there does
-not survive cold starts and is not shared between instances. Two
-consequences: (1) any persisted data (accounts, campaigns, publications) is
-per-instance and disappears on scale-up/cold start; (2) the bootstrap is a
-demo-provisioning path, not a migration system — incremental schema changes
-are not applied to instances that already bootstrapped an older schema. For
-a durable deployment use the Node host or Docker procedure above (persistent
-volume), or migrate Prisma to a hosted database provider — which is a
-schema/provider change, out of current scope. Deploying to Vercel is
-therefore suitable for a UI/product demo, not for persistent use.
+Deployment mechanics:
+
+- **Migrations**: `npm run build` runs `prisma migrate deploy` automatically
+  against the configured hosted database (`scripts/migrate-if-configured.ts`,
+  idempotent; skip with `MIGRATE_ON_BUILD=0` and migrate out-of-band).
+- **Demo account (one-time)**: provision the seeded founder account against
+  the same database once, from any machine with the URL:
+  `DATABASE_URL=<url> npm run db:seed`. The seed is idempotent but it clears
+  and recreates the demo workspace's seeded content — do not wire it into
+  every build if the demo workspace holds real usage. Alternatively sign up
+  a real account in the UI and skip seeding entirely.
+- **Serverless runtime note**: every serverless instance opens its own
+  connections; Prisma Postgres provides serverless-friendly pooling. The
+  in-process rate limiter and worker remain single-node concerns (run the
+  worker elsewhere or tick `/api/worker/tick` externally, §4 step 8).
 
 ## 5. First public settings
 
@@ -137,7 +144,6 @@ therefore suitable for a UI/product demo, not for persistent use.
   - **Invalid env at boot** — env.ts fails fast with the exact offending variable; fix `.env` and restart.
   - **Publish stuck "blocked"** — expected without a connection; connect Postiz or record manually.
   - **Generation labeled "template fallback"** — no AI key configured or quota exhausted (`MODEL_MAX_CALLS_PER_DAY`); check `/api/usage`.
-  - **SQLite `SQLITE_BUSY`** — concurrent writers; keep one app node (documented limitation) and the worker on the same host.
 
 ## 8. Rollback / recovery
 
@@ -149,6 +155,6 @@ therefore suitable for a UI/product demo, not for persistent use.
 
 - CI workflow file exists but is **not pushed** (GitHub requires `workflow` scope on the PAT; the file is ready in the working tree for the next authorized push).
 - Docker image not yet built/verified end-to-end (no daemon in the build sandbox).
-- Single-node only (SQLite + in-memory rate limiter). Postgres + Redis rate limiting are post-launch (P3).
+- Single-node app only (in-process rate limiter). Redis-backed rate limiting and multi-node scaling are post-launch (P3).
 - No live website scraping in v1 — product context is user-provided (removes the SSRF class from analysis entirely); scraping is P3 with a hardened fetch pipeline required.
 - Dependabot advisories remaining after remediation (5): `next@16`/`postcss` build-time chain and `zod@4` — both are major upgrades deliberately deferred; the reachable zod path is closed by the API-wide 512 KB body cap.

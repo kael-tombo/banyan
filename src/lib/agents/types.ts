@@ -1,7 +1,7 @@
 import type { AgentRole, TaskType } from "@/lib/state-machines";
 
 /**
- * Shared shapes for the agent runtime. DB rows are serialized JSON in SQLite,
+ * Shared shapes for the agent runtime. DB rows are serialized JSON columns,
  * so the runtime works on these typed envelopes and (de)serializes at the edge.
  */
 

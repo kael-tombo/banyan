@@ -45,12 +45,13 @@ Redis, no microservices — deliberate for the single-node MVP scale.
 └──────────────┬─────────────────────────┬───────────────────────┘
                │                         │
     ┌──────────▼──────────┐   ┌──────────▼─────────────────────┐
-    │ SQLite (Prisma)     │   │ External providers (server-side│
-    │ 23 models           │   │ only, via safe-fetch):         │
-    │ db/custom.db        │   │ · OpenAI-compatible model API  │
-    └──────────┬──────────┘   │ · Postiz (publishing)          │
-               │              │ · Fastlane (optional, creative)│
-    ┌──────────▼──────────┐   └────────────────────────────────┘
+    │ PostgreSQL (Prisma) │   │ External providers (server-side │
+    │ 23 models           │   │ only, via safe-fetch):          │
+    │ hosted (e.g. Prisma │   │ · OpenAI-compatible model API   │
+    │ Postgres)           │   │ · Postiz (publishing)           │
+    └──────────┬──────────┘   │ · Fastlane (optional, creative)│
+               │              └────────────────────────────────┘
+    ┌──────────▼──────────┐
     │ worker/index.ts     │
     │ tsx loop → Bearer   │
     │ POST /api/worker/tick│
@@ -211,10 +212,11 @@ handling (≤3 hops, each re-validated); response size cap. See
 
 ## 5. Data & persistence
 
-Prisma + SQLite, 23 models, 2 migrations (both additive). Full entity
+Prisma + PostgreSQL, 23 models, 1 baseline migration. Full entity
 reference: [`DATA_MODEL.md`](DATA_MODEL.md). Design rules:
 
-- **SQLite has no enums** — statuses are validated strings; the validation
+- **Portable enums** — statuses are validated strings (carried over from the
+  SQLite era by design); the validation
   lives in `src/lib/state-machines.ts` and zod schemas, so the string values
   in the DB always pass through one transition table.
 - **JSON-in-TEXT columns** are used for genuinely schemaless payloads
@@ -261,8 +263,8 @@ reference: [`DATA_MODEL.md`](DATA_MODEL.md). Design rules:
 
 ## 8. Known architectural limits (documented, accepted for v1)
 
-- Single node: SQLite + in-process rate limiter + worker on the same host.
-  PostgreSQL/Redis is the P3 scaling path.
+- Single node: in-process rate limiter + worker on the same host.
+  Redis-backed rate limiting is the P3 scaling path.
 - No durable scheduler beyond the worker tick (per-task cron, multi-day
   human-in-the-loop pauses), no parallel multi-campaign waves per goal, no
   cross-workspace delegation.
