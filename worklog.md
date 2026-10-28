@@ -109,3 +109,45 @@ Known limitation recorded honestly: a retry after a partial provider success
 Postiz's public API offers no verified idempotency token. The bounded attempt
 cap keeps the blast radius small; a dedup-by-`group` probe against a live
 account remains the real fix.
+
+## 2026-10-28 — Agentic execution and distribution upgrade
+
+- New persistent execution model: `Goal`, `GoalPlan`, `AgentTask`, `TaskRun`,
+  `ProfileFact`, `Recommendation`, `ModelCall` (+ `Campaign.goalId`).
+  Migration `20261028072735_agentic_execution_runtime`.
+- Central orchestrator (`src/lib/agents/orchestrator.ts`): dependency
+  resolution, crash-recovery leases, bounded transient retries, parallel
+  execution for independent tasks only, verification-before-completion,
+  publish reconciliation, cached goal progress. Pure decision logic in
+  `graph.ts` is unit-tested without a database.
+- Agent handlers: plan_draft (human approval gate), research, strategy,
+  campaign_plan, content_draft, approval_gate, publish, measure, evaluate,
+  recommend — all with honest fallbacks and explicit outcomes.
+- Model router (`src/lib/model/router.ts`): managed-first provider resolution,
+  per-workspace daily live-call quota (`MODEL_MAX_CALLS_PER_DAY`), full usage
+  ledger (`ModelCall`) with token/cost estimates, labeled template fallback.
+- Capability registry (`src/lib/capabilities/`): Postiz, managed model,
+  web-research (honest `unavailable`), and a Fastlane adapter implemented
+  against Fastlane's documented API (creative/scheduling/post analytics;
+  brand analysis does not exist in their API) — marked `unverified` until
+  exercised with `FASTLANE_API_KEY`.
+- Natural-language goal creation with deterministic heuristic parsing
+  (`nl-goal.ts`) validated against model-based extraction; no invented
+  numbers or dates.
+- API: goals CRUD, plan approve/reject, advance, task retry/cancel/approve
+  gate, profile facts with provenance corrections, usage summary; worker tick
+  now advances workflows too.
+- UI: Goals list + NL creation, goal execution cockpit (plan with assumptions
+  and missing info, approve/reject, live task state, execution records,
+  evidence-backed recommendations), Business Context page with provenance
+  badges and corrections, dashboard reworked to be execution-first, nav adds
+  Goals and Context.
+- Fixed a latent publish bug: `isExportableContent` now accepts the
+  publisher's transient `publishing` state (recorded approval still required).
+- Tests: 44 → 116 (state machines, graph, failure recovery, verification, NL
+  parsing, quotas, capabilities honesty, recommendation evidence, permissions).
+- Verified end to end against a running server: NL goal → plan → approval →
+  research/strategy/campaign → content draft → human approval → honest
+  blocked publish → honest zero measurement → "not enough data" evaluation →
+  evidence-backed low-confidence recommendation. Full narrative in
+  `docs/AGENTIC_RUNTIME.md`.

@@ -52,3 +52,17 @@ describe("export guard", () => {
     expect(isExportableContent({ status: "scheduled", approvedById: "u1" })).toBe(true);
   });
 });
+
+// Regression: the publisher moves approved content through a transient
+// "publishing" state; the export guard must not mistake that handoff for a
+// revoked approval. The approval itself (approvedById) remains mandatory.
+describe("isExportableContent — publisher handoff", () => {
+  it("treats 'publishing' with recorded approval as exportable", () => {
+    expect(isExportableContent({ status: "publishing", approvedById: "u1" })).toBe(true);
+  });
+  it("still refuses any export when the approval was revoked", () => {
+    expect(isExportableContent({ status: "publishing", approvedById: null })).toBe(false);
+    expect(isExportableContent({ status: "draft", approvedById: "u1" })).toBe(false);
+    expect(isExportableContent({ status: "rejected", approvedById: "u1" })).toBe(false);
+  });
+});

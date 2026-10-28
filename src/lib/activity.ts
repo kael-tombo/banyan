@@ -16,7 +16,11 @@ export type ActivityType =
   | "experiment_update"
   | "connection"
   | "metric"
-  | "campaign";
+  | "campaign"
+  // Agentic execution runtime
+  | "goal"
+  | "plan"
+  | "task";
 
 export async function recordActivity(input: {
   workspaceId: string;

@@ -71,3 +71,24 @@ npm test                  # 44 passing
 npm run build             # 48 routes
 npm run dev               # sign in: SEED_USER_EMAIL / SEED_USER_PASSWORD
 ```
+
+## Agentic execution runtime (2026-10-28)
+
+**Done**
+- Goal entity with NL creation, structured plan, human approval gate, progress
+- Orchestrator with persisted task state, retries, crash recovery, parallel-safe batching, verification
+- Full distribution workflow as agent tasks: research → strategy → campaign → content → approval → publish → measure → evaluate → recommend
+- Business context with provenance (ProfileFact) + inspect/correct UI (/app/context)
+- Model router separate from runtime: managed access first, quotas, usage ledger, labeled fallback
+- Capability registry incl. Fastlane evaluation (creative/schedule/analytics verified from docs; adapter unverified until credentials; brand analysis not offered by vendor)
+- Evidence-backed recommendations with disclosed uncertainty
+- 116 unit tests covering transitions, graph resolution, failure recovery, verification, parsing, quotas, permissions
+- Execution-first dashboard and goal cockpit UI
+
+**Partial**
+- Fastlane adapter: implemented against documented API, needs credentials + live verification
+- Publishing: works end-to-end only with a configured Postiz connection; otherwise honestly blocked
+
+**Not started**
+- Long-running scheduler (multi-day task pacing), multi-campaign waves, inter-workspace delegation
+- External research provider (no verified source available)

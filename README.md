@@ -4,10 +4,13 @@
 
 Build. Distribute. Grow. — *Build your product. Let it find its people.*
 
-Banyan.ai coordinates research, strategy, content, publishing and learning into a
-distribution system that helps founders turn a product into measurable growth
-experiments. It is deliberately **not** a content generator with a scheduler
-attached, and it never invents results.
+Banyan.ai coordinates goals, research, strategy, content, publishing and
+learning into an execution system that helps founders turn a product into
+measurable growth experiments. Goals are created in natural language, turned
+into a structured plan, and executed by a persistent agent runtime — with
+human approval before anything consequential happens. It is deliberately
+**not** a content generator with a scheduler attached, and it never invents
+results.
 
 ## Honesty posture
 
@@ -17,13 +20,17 @@ These rules are enforced in the code, not just documented:
   explicit empty state. A real zero is shown as `0`; anything not measured is
   labelled as uncollected.
 - **Human approval before external actions.** Publishing refuses any content
-  without a recorded `approvedById` (`isExportableContent`), and editing approved
-  copy invalidates the approval.
+  without a recorded `approvedById` (`isExportableContent`), editing approved
+  copy invalidates the approval, and no agent task executes before the plan
+  itself is approved.
 - **Provider confirmation or nothing.** A publication becomes `published` only
   after the provider confirms it, or after a human records a real live URL.
   Missing integrations are `blocked` with actionable messaging — never faked.
 - **Model output is labelled.** When no model credentials are configured, drafts
   come from a local template fallback that is always displayed as such.
+- **Provenance everywhere.** Business context distinguishes verified facts,
+  user-provided information, external observations and generated hypotheses —
+  in storage, in prompts, and in the UI.
 
 ## Stack
 
@@ -34,9 +41,10 @@ These rules are enforced in the code, not just documented:
 | Styling | Tailwind CSS v4 |
 | Validation | Zod |
 | Auth | Cookie sessions (DB-backed, HMAC-hashed tokens) + bcryptjs |
-| AI | OpenAI-compatible chat completions behind a provider interface |
+| AI | Model router over OpenAI-compatible endpoints + usage ledger + quotas |
 | Publishing | Postiz adapter (HTTP) behind a provider-neutral interface |
-| Tests | Vitest |
+| Capabilities | Provider-independent registry (publishing, creative, research, analytics) |
+| Tests | Vitest (116 unit tests) |
 
 ## Quick start
 
@@ -75,6 +83,9 @@ planned campaign and one planned experiment, and **no results**.
 | `WORKER_SECRET` | no | Bearer secret protecting `POST /api/worker/tick` |
 | `WORKER_INTERVAL_MS` | no | How often `npm run worker` polls the tick endpoint |
 | `WORKER_BASE_URL` | no | Overrides the worker's target base URL (defaults to `NEXT_PUBLIC_APP_URL`) |
+| `MODEL_MAX_CALLS_PER_DAY` | no | Per-workspace daily cap on live model calls (default 500); fallback is never quota-limited |
+| `FASTLANE_API_KEY` | no | Enables the Fastlane capability adapter (short-form creative; unverified until exercised) |
+| `USER_MODEL_KEYS_ENABLED` | no | Reserved: user-provided model keys are not implemented; managed access only |
 | `SEED_USER_EMAIL` / `SEED_USER_PASSWORD` | no | Seeded demo account |
 
 ## Commands
@@ -89,7 +100,33 @@ planned campaign and one planned experiment, and **no results**.
 | `npm run db:deploy` | Apply committed migrations |
 | `npm run db:seed` | Seed the demo workspace |
 | `npm run setup` | `db:deploy` + `db:seed` |
-| `npm run worker` | Run the publishing worker loop |
+| `npm run worker` | Run the worker loop (publishes due content AND advances agent workflows) |
+
+## The agentic execution runtime
+
+The core loop is goal-driven and persists every step:
+
+1. **Goal** — describe it in plain language (`/app/goals`). Banyan extracts the
+   metric, target, deadline and constraints, and drafts a structured plan.
+2. **Plan approval** — the plan shows its summary, assumptions, missing
+   information and risks. Nothing consequential runs until you approve.
+3. **Research → Strategy → Campaign** — hypothesis-framed, provenance-labelled,
+   one message, one audience, a declared success metric.
+4. **Content** — channel/format-specific drafts land in the review queue.
+5. **Approval gate** — a recorded human decision closes the gate.
+6. **Publish** — via a configured Postiz integration, or recorded manually
+   with the live URL. Without a connection the task is honestly **blocked**
+   with setup guidance and the workflow state is preserved.
+7. **Measure → Evaluate → Recommend** — real observed outcomes only
+   (publications, tracked clicks, first-party events), an experiment verdict
+   with limitations, and a next action that cites its evidence.
+
+Every task has structured inputs, an assigned agent role, explicit status,
+dependencies, retry budgets, verification criteria and execution records.
+Crashed runs resume from persisted state without duplicating side effects.
+See [`docs/AGENTIC_RUNTIME.md`](docs/AGENTIC_RUNTIME.md) for the full design,
+including the Fastlane capability evaluation and the honest list of
+unavailable external services.
 
 ## Architecture
 
@@ -98,19 +135,31 @@ A modular monolith plus one background worker — no premature microservices.
 - **Experience** — `src/app` (landing, auth, onboarding, and the `/app` product)
   and `src/components` (design system in `ui.tsx`, app chrome in `AppShell.tsx`).
 - **Domain / tools** — `src/lib`:
+  - `agents/` — the orchestration runtime: pure graph logic (`graph.ts`),
+    output verification, NL goal parsing, the workflow template, agent
+    handlers (`handlers/`) and the central `orchestrator.ts`.
+  - `model/` — the model router (provider resolution, quotas, usage ledger),
+    deliberately separate from the agent runtime.
+  - `capabilities/` — provider-independent capability registry, including the
+    evaluated Fastlane adapter.
   - `ai/` — provider interface, OpenAI-compatible adapter, labelled fallback,
     structured-output validation, plan and content generation.
   - `publishing/` — provider-neutral `PublishingAdapter` interface, the Postiz
     adapter, and the publication lifecycle (`publish.ts`).
   - `analytics/` — tracked-link creation and click/attribution recording.
-  - `state-machines.ts` — explicit campaign/content transitions and the export guard.
+  - `state-machines.ts` — explicit campaign/content/goal/task transitions and
+    the export guard.
   - `learning.ts` — evidence-based experiment summaries.
-  - `auth/`, `crypto.ts`, `api-utils.ts`, `ratelimit.ts`, `activity.ts`, `env.ts`.
+  - `auth/`, `crypto.ts`, `api-utils.ts`, `permissions.ts`, `ratelimit.ts`,
+    `activity.ts`, `env.ts`.
 - **Policy / execution control** — same-origin enforcement, per-route rate limits,
-  server-side workspace scoping, the approval guard, and idempotency keys on
-  publications.
-- **Durable state** — `prisma/schema.prisma` (see below).
-- **Worker** — `worker/index.ts` polls `POST /api/worker/tick`.
+  server-side workspace scoping, role checks, the approval guards, and
+  idempotency keys on publications and task creation.
+- **Durable state** — `prisma/schema.prisma` (`Goal`, `GoalPlan`, `AgentTask`,
+  `TaskRun`, `ProfileFact`, `Recommendation`, `ModelCall` alongside the
+  distribution models).
+- **Worker** — `worker/index.ts` polls `POST /api/worker/tick` (publications +
+  workflow advancement).
 
 ### Security boundaries
 
@@ -125,14 +174,16 @@ A modular monolith plus one background worker — no premature microservices.
 Public: `/`, `/login`, `/signup`, `/privacy`, `/terms`, `/t/[slug]` (tracked-link
 redirect), `/onboarding`.
 
-Authenticated (`/app`): dashboard, `workspace`, `audience`, `campaigns`,
-`campaigns/new`, `campaigns/[id]`, `content`, `content/new`, `content/[id]`,
-`approvals`, `calendar`, `publishing`, `analytics`, `experiments`, `settings`,
-`growth`.
+Authenticated (`/app`): dashboard, goals, goals/[id], context, workspace,
+audience, campaigns, campaigns/new, campaigns/[id], content, content/new,
+content/[id], approvals, calendar, publishing, analytics, experiments,
+settings, growth.
 
-API: `auth/{login,logout,signup}`, `profile`, `onboarding`, `audience`,
-`campaigns`, `content` (+`generate`, `review`, `schedule`, `publish`),
-`connections`, `links`, `metrics`, `experiments`, `worker/tick`.
+API: `auth/{login,logout,signup}`, `profile`, `profile/facts` (+`[id]`),
+`onboarding`, `audience`, `campaigns`, `content` (+`generate`, `review`,
+`schedule`, `publish`), `goals` (+`[id]`, `plan/approve`, `advance`),
+`tasks/[id]` (retry/cancel/gate), `connections`, `links`, `metrics`,
+`experiments`, `usage`, `worker/tick`.
 
 ## The core loop
 
@@ -179,19 +230,32 @@ template that is always labelled — it is never presented as live model output.
 ## Tests
 
 ```bash
-npm test        # 44 unit tests across state machines, formats, learning,
-                # crypto, rate limiting and AI output schemas
+npm test        # 116 unit tests: state machines, orchestration graph,
+                # failure recovery, verification, NL goal parsing, quotas,
+                # capabilities honesty, recommendation evidence, permissions
 ```
 
 ## Known limitations
 
-- **Agentic orchestration runtime is not implemented.** There is no durable
-  goal/plan/task-graph execution engine (`Goal`, `AgentRun`, `TaskRun` models do
-  not exist). Planning and generation are single-pass AI calls with a fallback;
-  the product's strength today is the reliable distribution workflow.
-- Publishing has not been exercised against real Postiz credentials here.
-- PostgreSQL, object storage, notifications, usage budgets and multi-user
-  collaboration are not implemented; the rate limiter is in-process (single node).
+- **The agentic runtime executes the distribution workflow.** Goal-driven
+  planning, research, strategy, campaign creation, content drafting, approval
+  gates, publishing, measurement, evaluation and recommendations run with
+  persisted state and bounded retries. What is *not* implemented yet: a
+  durable long-running goal/plan/task-graph scheduler beyond the worker tick
+  (e.g. per-task cron scheduling or human-in-the-loop multi-day pauses),
+  parallel multi-campaign waves per goal, and inter-workspace agent
+  delegation.
+- Publishing has not been exercised against real Postiz credentials here;
+  without a connection the publish step is honestly blocked.
+- The Fastlane capability adapter is implemented against Fastlane's documented
+  API but is **unverified** until exercised with real credentials
+  (`FASTLANE_API_KEY`). Brand analysis is not part of Fastlane's API and is
+  not claimed.
+- External research / live market data is not wired in: research briefs are
+  labelled hypotheses, not collected facts.
+- PostgreSQL, object storage, notifications, usage budgets beyond the model
+  call quota, and multi-user collaboration are not implemented; the rate
+  limiter is in-process (single node).
 - Legal pages are templates, not reviewed legal documents.
 
 ## Project documents

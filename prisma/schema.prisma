@@ -12,11 +12,11 @@ datasource db {
 }
 
 model User {
-  id                    String    @id @default(cuid())
-  email                 String    @unique
+  id                    String        @id @default(cuid())
+  email                 String        @unique
   name                  String
   passwordHash          String
-  createdAt             DateTime  @default(now())
+  createdAt             DateTime      @default(now())
   onboardingCompletedAt DateTime?
   // Attribution recorded at signup when a tracked visitor cookie exists (observed, not inferred).
   attributedLinkId      String?
@@ -25,6 +25,7 @@ model User {
   sessions              Session[]
   memberships           Membership[]
   approvals             ContentItem[] @relation("approvals")
+  planApprovals         GoalPlan[]    @relation("planApprovals")
 }
 
 model Session {
@@ -46,17 +47,22 @@ model Workspace {
   isSelf    Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  memberships   Membership[]
-  profile       ProductProfile?
-  insights      AudienceInsight[]
-  campaigns     Campaign[]
-  contentItems  ContentItem[]
-  connections   ChannelConnection[]
-  trackedLinks  TrackedLink[]
-  metrics       CampaignMetric[]
-  events        MetricEvent[]
-  experiments   Experiment[]
-  activity      ActivityEvent[]
+  memberships     Membership[]
+  profile         ProductProfile?
+  insights        AudienceInsight[]
+  campaigns       Campaign[]
+  contentItems    ContentItem[]
+  connections     ChannelConnection[]
+  trackedLinks    TrackedLink[]
+  metrics         CampaignMetric[]
+  events          MetricEvent[]
+  experiments     Experiment[]
+  activity        ActivityEvent[]
+  goals           Goal[]
+  agentTasks      AgentTask[]
+  profileFacts    ProfileFact[]
+  recommendations Recommendation[]
+  modelCalls      ModelCall[]
 }
 
 model Membership {
@@ -72,80 +78,85 @@ model Membership {
 }
 
 model ProductProfile {
-  id          String   @id @default(cuid())
-  workspaceId String   @unique
+  id          String    @id @default(cuid())
+  workspaceId String    @unique
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
-  name         String
-  description  String
-  website      String?
-  stage        String // idea | building | launched | growing
-  problem      String
-  valueProp    String
+  name            String
+  description     String
+  website         String?
+  stage           String // idea | building | launched | growing
+  problem         String
+  valueProp       String
   // Audience
-  audience     String?
-  audiencePain String?
+  audience        String?
+  audiencePain    String?
   audienceOutcome String?
-  market       String?
+  market          String?
   // Distribution goal
-  goal         String? // first_users | launch | audience | leads | activation | conversions
-  goalTarget   Int?
-  goalMetric   String?
-  positioning  String?
+  goal            String? // first_users | launch | audience | leads | activation | conversions
+  goalTarget      Int?
+  goalMetric      String?
+  positioning     String?
   // JSON: array of channel keys
-  channels     String  @default("[]")
+  channels        String   @default("[]")
   // JSON: { tone, language, themes, avoid, cta, approvalPreference }
-  brandVoice   String  @default("{}")
-  timezone     String  @default("UTC")
-  updatedAt    DateTime @updatedAt
+  brandVoice      String   @default("{}")
+  timezone        String   @default("UTC")
+  updatedAt       DateTime @updatedAt
 }
 
 model AudienceInsight {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   title       String
   body        String
   // assumption | interview | research | observed
-  source      String   @default("assumption")
-  confidence  String   @default("low") // low | medium | high
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  source      String    @default("assumption")
+  confidence  String    @default("low") // low | medium | high
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([workspaceId])
 }
 
 model Campaign {
-  id          String   @id @default(cuid())
-  workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  name        String
-  objective   String
+  id             String    @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name           String
+  objective      String
   targetAudience String
-  keyMessage  String
-  evidence    String   @default("")
-  cta         String
+  keyMessage     String
+  evidence       String    @default("")
+  cta            String
   // JSON arrays
-  channels    String  @default("[]")
-  formats     String  @default("[]")
+  channels       String    @default("[]")
+  formats        String    @default("[]")
   // JSON: { startDate?, cadence?, notes? }
-  schedule    String  @default("{}")
-  successMetric String
+  schedule       String    @default("{}")
+  successMetric  String
   // draft | planned | in_progress | completed | archived
-  status      String   @default("draft")
-  startedAt   DateTime?
-  completedAt DateTime?
-  isSelfCampaign Boolean @default(false)
-  selfTheme   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  status         String    @default("draft")
+  startedAt      DateTime?
+  completedAt    DateTime?
+  isSelfCampaign Boolean   @default(false)
+  selfTheme      String?
+  // The goal this campaign serves (agentic execution); null for standalone campaigns
+  goalId         String?
+  goal           Goal?     @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   items       ContentItem[]
   metrics     CampaignMetric[]
   experiments Experiment[]
   links       TrackedLink[]
+  tasks       AgentTask[]
 
   @@index([workspaceId, status])
+  @@index([goalId])
 }
 
 model ContentItem {
@@ -155,23 +166,23 @@ model ContentItem {
   campaignId  String?
   campaign    Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
 
-  channel String // x | linkedin | shortvideo
-  format  String
-  title   String
-  body    String
+  channel         String // x | linkedin | shortvideo
+  format          String
+  title           String
+  body            String
   // draft | ready_for_review | approved | scheduled | publishing | published | failed | rejected | archived
-  status       String    @default("draft")
-  scheduledFor DateTime?
-  approvedById String?
-  approvedBy   User?     @relation("approvals", fields: [approvedById], references: [id])
-  approvedAt   DateTime?
+  status          String    @default("draft")
+  scheduledFor    DateTime?
+  approvedById    String?
+  approvedBy      User?     @relation("approvals", fields: [approvedById], references: [id])
+  approvedAt      DateTime?
   rejectionReason String?
-  publishedAt  DateTime?
+  publishedAt     DateTime?
   // JSON: { provider, model, isFallback, note, promptTokens?, completionTokens? }
-  generationMeta String @default("{}")
+  generationMeta  String    @default("{}")
   // JSON: { hook, scenes: [...], onScreenText, caption, cta } for short-form video
-  videoExtras  String @default("{}")
-  sourceRef    String?
+  videoExtras     String    @default("{}")
+  sourceRef       String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -184,35 +195,35 @@ model ContentItem {
 }
 
 model ContentRevision {
-  id            String   @id @default(cuid())
+  id            String      @id @default(cuid())
   contentItemId String
   contentItem   ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
   title         String
   body          String
-  note          String   @default("")
-  authorType    String   @default("user") // ai | user
-  meta          String   @default("{}")
-  createdAt     DateTime @default(now())
+  note          String      @default("")
+  authorType    String      @default("user") // ai | user
+  meta          String      @default("{}")
+  createdAt     DateTime    @default(now())
 
   @@index([contentItemId])
 }
 
 model ChannelConnection {
-  id          String   @id @default(cuid())
-  workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id              String    @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   // The channel this connection publishes to: x | linkedin | shortvideo
-  channel     String
+  channel         String
   // Publishing adapter provider: postiz | manual
-  adapter     String   @default("postiz")
-  label       String
+  adapter         String    @default("postiz")
+  label           String
   // AES-256-GCM encrypted JSON config { baseUrl, apiKey, integrationIds }
   configEncrypted String
   // configured | verified | error
-  status      String   @default("configured")
-  lastCheckedAt DateTime?
-  lastError   String?
-  createdAt   DateTime @default(now())
+  status          String    @default("configured")
+  lastCheckedAt   DateTime?
+  lastError       String?
+  createdAt       DateTime  @default(now())
 
   publications Publication[]
 
@@ -220,43 +231,43 @@ model ChannelConnection {
 }
 
 model Publication {
-  id            String   @id @default(cuid())
-  contentItemId String
-  contentItem   ContentItem @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
-  connectionId  String?
-  connection    ChannelConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
-  provider      String
+  id               String             @id @default(cuid())
+  contentItemId    String
+  contentItem      ContentItem        @relation(fields: [contentItemId], references: [id], onDelete: Cascade)
+  connectionId     String?
+  connection       ChannelConnection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+  provider         String
   // scheduled | attempting | published | failed | blocked
-  status        String   @default("scheduled")
-  externalId    String?
-  externalUrl   String?
+  status           String             @default("scheduled")
+  externalId       String?
+  externalUrl      String?
   // Raw provider response (audit trail)
-  providerResponse String @default("{}")
-  attempts      Int      @default(0)
-  lastError     String?
-  scheduledFor  DateTime?
-  publishedAt   DateTime?
-  idempotencyKey String  @unique
-  manual        Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  providerResponse String             @default("{}")
+  attempts         Int                @default(0)
+  lastError        String?
+  scheduledFor     DateTime?
+  publishedAt      DateTime?
+  idempotencyKey   String             @unique
+  manual           Boolean            @default(false)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
 
   @@index([contentItemId])
   @@index([status, scheduledFor])
 }
 
 model TrackedLink {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   workspaceId   String
   workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   campaignId    String?
   campaign      Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
   contentItemId String?
-  slug          String   @unique
+  slug          String    @unique
   targetUrl     String
-  utm           String   @default("{}")
-  clicks        Int      @default(0)
-  createdAt     DateTime @default(now())
+  utm           String    @default("{}")
+  clicks        Int       @default(0)
+  createdAt     DateTime  @default(now())
   lastClickAt   DateTime?
 
   events MetricEvent[]
@@ -266,16 +277,16 @@ model TrackedLink {
 }
 
 model CampaignMetric {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   campaignId  String
-  campaign    Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  campaign    Campaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
   // provider | manual
   source      String
   metric      String // e.g. impressions, engagements, link_clicks, signups
   value       Float
-  recordedAt  DateTime @default(now())
+  recordedAt  DateTime  @default(now())
   note        String?
 
   @@index([workspaceId, campaignId])
@@ -299,44 +310,244 @@ model MetricEvent {
 }
 
 model Experiment {
-  id          String    @id @default(cuid())
-  workspaceId String
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  campaignId  String?
-  campaign    Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
-  title       String
-  hypothesis  String
-  audience    String?
-  channel     String?
-  variable    String
-  successMetric String
+  id              String    @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  campaignId      String?
+  campaign        Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  title           String
+  hypothesis      String
+  audience        String?
+  channel         String?
+  variable        String
+  successMetric   String
   // planned | running | complete | abandoned
-  status      String    @default("planned")
-  results     String?
-  interpretation String?
-  limitations String?
-  nextAction  String?
+  status          String    @default("planned")
+  results         String?
+  interpretation  String?
+  limitations     String?
+  nextAction      String?
   // JSON snapshot of actual observed numbers taken when conclusions were drafted
-  metricsSnapshot String @default("{}")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  decidedAt   DateTime?
+  metricsSnapshot String    @default("{}")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  decidedAt       DateTime?
 
   @@index([workspaceId])
 }
 
 model ActivityEvent {
-  id          String   @id @default(cuid())
+  id           String    @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  // publication_attempt | publication_success | publication_failed | approval | content_created | signup | visit | experiment_update | connection | campaign | metric
+  type         String
+  // user | system | ai
+  actorType    String    @default("user")
+  actorSummary String?
+  summary      String
+  meta         String    @default("{}")
+  createdAt    DateTime  @default(now())
+
+  @@index([workspaceId, createdAt])
+}
+
+// ---------------------------------------------------------------------------
+// Agentic execution runtime
+// ---------------------------------------------------------------------------
+
+// A persistent, measurable objective. The execution envelope for the agent
+// runtime: every plan, task, campaign and recommendation can trace back here.
+model Goal {
+  id            String    @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  objective     String
+  description   String    @default("")
+  successMetric String
+  metricTarget  Float?
+  metricUnit    String?
+  deadline      DateTime?
+  constraints   String    @default("")
+  // draft | planning | awaiting_approval | active | paused | achieved | missed | cancelled
+  status        String    @default("draft")
+  // 0..100, recomputed by the orchestrator from task completion (cached)
+  progress      Float     @default(0)
+  // user | ai_suggested
+  source        String    @default("user")
+  // The original natural-language instruction the goal was created from
+  rawInput      String    @default("")
+  createdBy     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  plan            GoalPlan?
+  tasks           AgentTask[]
+  campaigns       Campaign[]
+  recommendations Recommendation[]
+
+  @@index([workspaceId, status])
+}
+
+// The structured plan Banyan drafts for a goal. Requires explicit human
+// approval before any consequential task is created or executed.
+model GoalPlan {
+  id             String    @id @default(cuid())
+  goalId         String    @unique
+  goal           Goal      @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  summary        String
+  // JSON string arrays: assumptions[], missingInfo[], risks[], phases[{name, description, taskTypes[]}]
+  assumptions    String    @default("[]")
+  missingInfo    String    @default("[]")
+  risks          String    @default("[]")
+  phases         String    @default("[]")
+  // planned | approved | rejected | superseded
+  status         String    @default("planned")
+  approvedById   String?
+  approvedBy     User?     @relation("planApprovals", fields: [approvedById], references: [id])
+  approvedAt     DateTime?
+  rejectedReason String?
+  // JSON: { provider, model, isFallback, label }
+  generatedMeta  String    @default("{}")
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+// One unit of agent work. Immutable record of what was asked, who ran it,
+// what happened, and what was verified — the execution audit trail.
+model AgentTask {
+  id               String    @id @default(cuid())
+  workspaceId      String
+  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  goalId           String?
+  goal             Goal?     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  campaignId       String?
+  campaign         Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  // Stable per-workflow slot key (e.g. "goal:xyz:content:x"). Unique to make
+  // task creation idempotent across ticks, retries and crash resumptions.
+  dedupeKey        String    @unique
+  // plan_draft | research | strategy | campaign_plan | content_draft | approval_gate | publish | measure | evaluate | recommend
+  type             String
+  title            String
+  // planner | researcher | strategist | creator | publisher | analyst
+  agentRole        String
+  // pending | ready | running | waiting_approval | blocked | completed | failed | cancelled
+  status           String    @default("pending")
+  // JSON: structured inputs
+  inputs           String    @default("{}")
+  // JSON: expected output description / result envelope
+  expectedOutput   String    @default("{}")
+  // JSON result written on completion (also read on resumption for idempotent adoption)
+  output           String?
+  // JSON: verification criteria { kind: "nonempty"|"json_schema"|"provider_confirmed", schema?: string }
+  verification     String    @default("{}")
+  requiresApproval Boolean   @default(false)
+  // JSON array of task ids this task depends on
+  dependsOn        String    @default("[]")
+  attempts         Int       @default(0)
+  maxAttempts      Int       @default(3)
+  lastError        String?
+  // Crash-recovery lease: a running task whose lease expired is requeued
+  leasedUntil      DateTime?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  runs TaskRun[]
+
+  @@index([workspaceId, status])
+  @@index([goalId])
+}
+
+// Execution record for one attempt of an agent task.
+model TaskRun {
+  id         String    @id @default(cuid())
+  taskId     String
+  task       AgentTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  attempt    Int       @default(1)
+  // running | completed | failed | requeued
+  status     String    @default("running")
+  output     String?
+  error      String?
+  // JSON array of step log entries [{ at, step, detail }]
+  log        String    @default("[]")
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  @@index([taskId])
+}
+
+// Persistent business context with explicit provenance. Verified facts,
+// user-provided information, external observations and generated hypotheses
+// are always distinguishable, and every value can be inspected and corrected.
+model ProfileFact {
+  id          String    @id @default(cuid())
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  // publication_attempt | publication_success | publication_failed | approval | content_created | signup | visit | experiment_update | connection | campaign | metric
-  type        String
-  // user | system | ai
-  actorType   String   @default("user")
-  actorSummary String?
-  summary     String
-  meta        String   @default("{}")
-  createdAt   DateTime @default(now())
+  // product | audience | positioning | voice | competitor | constraint | resource | metric | research
+  category    String
+  // Stable slug within the category, e.g. "value_prop", "competitor:acme"
+  key         String
+  value       String
+  // verified | user_provided | external_observation | hypothesis
+  provenance  String    @default("user_provided")
+  // Where this value came from, human readable: "onboarding", "user correction", "task:<id>"
+  source      String?
+  confidence  String    @default("medium") // low | medium | high
+  verifiedAt  DateTime?
+  createdBy   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([workspaceId, category, key])
+  @@index([workspaceId])
+}
+
+// An evidence-backed next action. Recommendations must cite recorded evidence
+// and disclose uncertainty; empty evidence forces low confidence.
+model Recommendation {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  goalId       String?
+  goal         Goal?     @relation(fields: [goalId], references: [id], onDelete: SetNull)
+  campaignId   String?
+  experimentId String?
+  title        String
+  rationale    String
+  // JSON array [{ source, ref, summary }] — each entry cites recorded data
+  evidence     String    @default("[]")
+  // low | medium | high
+  confidence   String    @default("low")
+  uncertainty  String    @default("")
+  // open | accepted | dismissed | acted_upon
+  status       String    @default("open")
+  producedBy   String    @default("agent:analyst")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([workspaceId, status])
+}
+
+// Model usage ledger. One row per routed model call (including fallbacks and
+// failures) so usage and costs can be tracked per workspace over time.
+model ModelCall {
+  id               String    @id @default(cuid())
+  workspaceId      String
+  purpose          String
+  provider         String
+  model            String
+  isFallback       Boolean   @default(false)
+  promptTokens     Int       @default(0)
+  completionTokens Int       @default(0)
+  // Estimated cost in micro-USD (1e-6 USD); 0 when pricing unknown — never guessed
+  estCostMicros    Int       @default(0)
+  latencyMs        Int       @default(0)
+  ok               Boolean   @default(true)
+  error            String?
+  createdAt        DateTime  @default(now())
+  workspace        Workspace @relation(fields: [workspaceId], references: [id])
 
   @@index([workspaceId, createdAt])
 }

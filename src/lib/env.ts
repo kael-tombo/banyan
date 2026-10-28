@@ -11,6 +11,9 @@ const envSchema = z.object({
   OPENAI_BASE_URL: z.string().url().default("https://api.openai.com/v1"),
   OPENAI_MODEL: z.string().default("gpt-4o-mini"),
   WORKER_SECRET: z.string().default("banyan-worker-dev-secret"),
+  // Daily cap on live managed-model calls per workspace (quota applies to live
+  // calls only; the labeled template fallback is never quota-limited).
+  MODEL_MAX_CALLS_PER_DAY: z.coerce.number().int().min(1).max(1_000_000).default(500),
   SEED_USER_EMAIL: z.string().default("founder@banyan.ai"),
   SEED_USER_PASSWORD: z.string().default("banyan-demopass"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
