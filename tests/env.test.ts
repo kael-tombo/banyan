@@ -94,4 +94,63 @@ describe("environment validation", () => {
     delete process.env.NEXT_PHASE;
     await expect(import("@/lib/env")).rejects.toThrow(/DATABASE_URL/);
   });
+
+  it("accepts PRISMA_DATABASE_URL as the database URL when DATABASE_URL is absent", async () => {
+    // Vercel's Prisma Postgres integration provisions this alias name.
+    process.env = {
+      ...REAL_ENV,
+      NODE_ENV: "production",
+      APP_SECRET: HEX64,
+      WORKER_SECRET: "prod-secret-9f8a7b",
+      PRISMA_DATABASE_URL: "postgres://alias:secret@db.prisma.io:5432/postgres?sslmode=require",
+    } as NodeJS.ProcessEnv;
+    delete process.env.DATABASE_URL;
+    const mod = await import("@/lib/env");
+    expect(mod.env.DATABASE_URL).toBe("postgres://alias:secret@db.prisma.io:5432/postgres?sslmode=require");
+  });
+
+  it("accepts POSTGRES_URL as a last-resort database URL alias", async () => {
+    process.env = {
+      ...REAL_ENV,
+      NODE_ENV: "production",
+      APP_SECRET: HEX64,
+      WORKER_SECRET: "prod-secret-9f8a7b",
+      POSTGRES_URL: "postgres://fallback:secret@db.prisma.io:5432/postgres?sslmode=require",
+    } as NodeJS.ProcessEnv;
+    delete process.env.DATABASE_URL;
+    delete process.env.PRISMA_DATABASE_URL;
+    const mod = await import("@/lib/env");
+    expect(mod.env.DATABASE_URL).toBe("postgres://fallback:secret@db.prisma.io:5432/postgres?sslmode=require");
+  });
+
+  it("prefers DATABASE_URL over the injected aliases (deterministic precedence)", async () => {
+    process.env = {
+      ...REAL_ENV,
+      NODE_ENV: "production",
+      APP_SECRET: HEX64,
+      WORKER_SECRET: "prod-secret-9f8a7b",
+      DATABASE_URL: "postgres://canonical:secret@db.prisma.io:5432/postgres?sslmode=require",
+      PRISMA_DATABASE_URL: "postgres://alias:secret@db.prisma.io:5432/postgres?sslmode=require",
+      POSTGRES_URL: "postgres://fallback:secret@db.prisma.io:5432/postgres?sslmode=require",
+    } as NodeJS.ProcessEnv;
+    const mod = await import("@/lib/env");
+    expect(mod.env.DATABASE_URL).toBe("postgres://canonical:secret@db.prisma.io:5432/postgres?sslmode=require");
+  });
+
+  it("build phase uses a real alias URL when provided instead of the placeholder", async () => {
+    // A build machine with the hosted URL under an alias should run the real
+    // migration step — the placeholder is only for fully unset machines.
+    process.env = {
+      ...REAL_ENV,
+      NODE_ENV: "production",
+      NEXT_PHASE: "phase-production-build",
+      PRISMA_DATABASE_URL: "postgres://alias:secret@db.prisma.io:5432/postgres?sslmode=require",
+    } as NodeJS.ProcessEnv;
+    delete process.env.DATABASE_URL;
+    delete process.env.APP_SECRET;
+    delete process.env.WORKER_SECRET;
+    const mod = await import("@/lib/env");
+    expect(mod.env.DATABASE_URL).toBe("postgres://alias:secret@db.prisma.io:5432/postgres?sslmode=require");
+    expect(mod.env.APP_SECRET).toBe("0".repeat(64)); // APP_SECRET placeholder still applies
+  });
 });

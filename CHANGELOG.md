@@ -9,6 +9,41 @@ follow [Keep a Changelog](https://keepachangelog.com); commit hashes refer to
 ## [Unreleased]
 
 ### Added
+- **`GET /api/health` deployment diagnostics** — one URL that answers "why
+  can't I authenticate?" without shell access to the serverless host. Reports
+  which database-URL env name was found (`DATABASE_URL` /
+  `PRISMA_DATABASE_URL` / `POSTGRES_URL`), whether the full environment
+  validates, and whether the database is reachable, migrated and serving the
+  demo account — booleans and latency only, never secret values; database
+  error text is scrubbed of credentials before it leaves the process. Built
+  on dynamic imports so a misconfigured environment degrades to an accurate
+  report instead of the 500 it is diagnosing.
+- **Database-URL alias resolution** — hosted-provider integrations (Vercel
+  marketplace, Prisma Postgres) inject the connection string under
+  `PRISMA_DATABASE_URL` / `POSTGRES_URL`; the app previously required the
+  literal `DATABASE_URL` name and crashed at import time on deployments that
+  only had the aliases. `src/lib/db-url.ts` now resolves the chain
+  `DATABASE_URL > PRISMA_DATABASE_URL > POSTGRES_URL` for the runtime
+  validator, the build-time migration step, and the health endpoint, with a
+  deterministic precedence pinned by unit tests. The resolution reaches all
+  the way down: the generated Prisma client receives the URL explicitly via
+  `datasourceUrl` (its engine otherwise reads the literal
+  `env("DATABASE_URL")` name at runtime), and the build-time
+  `prisma migrate deploy` subprocess gets the resolved URL forwarded under
+  the canonical name. Verified by starting the production server with only
+  `PRISMA_DATABASE_URL` set: health 200 (demo user present) and demo login
+  200 + wrong password 401.
+
+### Fixed
+- **HTML 500 on auth failures with an unreachable database** — the login and
+  signup routes now catch database errors and return a JSON 503 with an
+  actionable message (previously the route crashed into Next's HTML error
+  page, which every client rendered as a generic "Could not reach the
+  server"). Also added `outputFileTracingIncludes` for the Prisma query
+  engine in `next.config.ts` — the native binary is a known serverless
+  tracing blind spot and its absence produced production-only 500s.
+
+### Added
 - **SocialFlow.ai integration boundary + manual handoff** — verified that no
   SocialFlow.ai API exists (socialflow.ai is a parked domain as of 2026-10-28;
   no developer docs, auth model, or endpoints — evidence in

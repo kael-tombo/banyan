@@ -73,7 +73,7 @@ planned campaign and one planned experiment, and **no results**.
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | yes | PostgreSQL connection URL, e.g. `postgres://user:pass@host:5432/db?sslmode=require` |
+| `DATABASE_URL` | yes | PostgreSQL connection URL, e.g. `postgres://user:pass@host:5432/db?sslmode=require`. Aliases accepted when `DATABASE_URL` is absent: `PRISMA_DATABASE_URL`, `POSTGRES_URL` (precedence: `DATABASE_URL` > `PRISMA_DATABASE_URL` > `POSTGRES_URL`) |
 | `APP_SECRET` | yes | 32 bytes hex (64 chars). Encrypts stored credentials and keys session tokens |
 | `NEXT_PUBLIC_APP_URL` | yes | Public base URL; used to build tracked-link URLs |
 | `AI_PROVIDER` | no | `openai` \| `none` (auto-detects from key presence) |
@@ -106,12 +106,16 @@ planned campaign and one planned experiment, and **no results**.
 ## Deploying
 
 - **Node host / Docker** (long-running): see `docs/RELEASE_RUNBOOK.md` §4.
-- **Vercel + hosted Postgres (durable demo):** point `DATABASE_URL` at a
-  hosted PostgreSQL (e.g. Prisma Postgres), set `APP_SECRET` and
-  `WORKER_SECRET`, and deploy. `npm run build` deploys pending migrations
-  automatically (skip with `MIGRATE_ON_BUILD=0`); provision the demo
-  account once with `npm run setup` against the same database. Data is
-  durable — no serverless filesystem caveat. Details:
+- **Vercel + hosted Postgres (durable demo):** point the database URL at a
+  hosted PostgreSQL (e.g. Prisma Postgres) — `DATABASE_URL`, or the
+  platform-injected aliases `PRISMA_DATABASE_URL` / `POSTGRES_URL` work as-is —
+  set `APP_SECRET` and `WORKER_SECRET`, and deploy. `npm run build` deploys
+  pending migrations automatically (skip with `MIGRATE_ON_BUILD=0`); provision
+  the demo account once with `npm run setup` against the same database. Data
+  is durable — no serverless filesystem caveat. After deploying, check
+  `GET /api/health`: it reports which env names were found, whether the full
+  configuration validates, and whether the database is reachable, seeded and
+  serving the demo account. Details:
   `docs/RELEASE_RUNBOOK.md` §4 "Vercel alternative".
 
 ## The agentic execution runtime

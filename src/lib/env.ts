@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { resolveDatabaseUrl } from "@/lib/db-url";
 
 const hex64 = z.string().regex(/^[0-9a-fA-F]{64}$/, "APP_SECRET must be 64 hex chars (32 bytes)");
 
@@ -10,7 +11,10 @@ const hex64 = z.string().regex(/^[0-9a-fA-F]{64}$/, "APP_SECRET must be 64 hex c
 export const DEV_WORKER_SECRET = "banyan-worker-dev-secret";
 
 const envSchema = z.object({
-  DATABASE_URL: z.string().min(1),
+  DATABASE_URL: z.string({
+    required_error:
+      "Required — set DATABASE_URL (aliases accepted: PRISMA_DATABASE_URL, POSTGRES_URL)",
+  }).min(1, "Required — set DATABASE_URL (aliases accepted: PRISMA_DATABASE_URL, POSTGRES_URL)"),
   APP_SECRET: hex64,
   NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
   AI_PROVIDER: z.enum(["", "openai", "none"]).default("none"),
@@ -37,6 +41,10 @@ function readEnv() {
   // NEXT_PHASE set, so it still fails fast below until real values exist.
   const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
   const source: Record<string, string | undefined> = { ...process.env };
+  // Hosted-provider integrations inject the database URL under well-known
+  // alias names (PRISMA_DATABASE_URL, POSTGRES_URL). Normalize onto the
+  // canonical name so the rest of the validator (and the app) reads one field.
+  source.DATABASE_URL = resolveDatabaseUrl(source).url;
   if (isBuildPhase) {
     source.DATABASE_URL ||= "file:./build-placeholder.db";
     source.APP_SECRET ||= "0".repeat(64); // schema-valid hex; never used for real work at build time

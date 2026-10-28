@@ -90,7 +90,7 @@ For a **working, durable** deployment, set in the Vercel project settings:
 
 | Variable | Value |
 | --- | --- |
-| `DATABASE_URL` | hosted PostgreSQL URL, e.g. Prisma Postgres: `postgres://…@db.prisma.io:5432/postgres?sslmode=require` |
+| `DATABASE_URL` | hosted PostgreSQL URL, e.g. Prisma Postgres: `postgres://…@db.prisma.io:5432/postgres?sslmode=require`. The platform-injected aliases `PRISMA_DATABASE_URL` / `POSTGRES_URL` are accepted as-is (precedence: `DATABASE_URL` > `PRISMA_DATABASE_URL` > `POSTGRES_URL`) |
 | `APP_SECRET` | `openssl rand -hex 32` |
 | `WORKER_SECRET` | strong unique value (runtime fail-fast rejects the dev default) |
 | `NEXT_PUBLIC_APP_URL` | the deployed URL, e.g. `https://banyan.vercel.app` (optional; defaults to localhost) |
@@ -114,6 +114,11 @@ Deployment mechanics:
   connections; Prisma Postgres provides serverless-friendly pooling. The
   in-process rate limiter and worker remain single-node concerns (run the
   worker elsewhere or tick `/api/worker/tick` externally, §4 step 8).
+- **Post-deploy check**: open `https://<deployment>/api/health`. A healthy
+  deployment returns 200 with `env.validated: true` and
+  `db.demoUserPresent: true`; anything else names the exact gap (missing env
+  name, invalid `APP_SECRET`, unreachable database, schema not migrated).
+  The endpoint exposes booleans and labels only — never secret values.
 
 ## 5. First public settings
 

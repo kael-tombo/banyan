@@ -25,55 +25,62 @@ export async function POST(req: NextRequest) {
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
 
   const email = parsed.data.email.toLowerCase();
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) return apiError("An account with this email already exists.", 409);
+  try {
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) return apiError("An account with this email already exists.", 409);
 
-  // Attribution: if the visitor arrived via a tracked link, attribute the signup
-  // (observed fact: they clicked a campaign link before registering).
-  const store = await cookies();
-  const visitorSlug = store.get(VISITOR_COOKIE)?.value ?? null;
-  let link = visitorSlug ? await prisma.trackedLink.findUnique({ where: { slug: visitorSlug } }) : null;
+    // Attribution: if the visitor arrived via a tracked link, attribute the signup
+    // (observed fact: they clicked a campaign link before registering).
+    const store = await cookies();
+    const visitorSlug = store.get(VISITOR_COOKIE)?.value ?? null;
+    let link = visitorSlug ? await prisma.trackedLink.findUnique({ where: { slug: visitorSlug } }) : null;
 
-  const user = await prisma.user.create({
-    data: {
-      email,
-      name: parsed.data.name,
-      passwordHash: await hashPassword(parsed.data.password),
-      attributedLinkId: link?.id ?? null,
-      attributedCampaignId: link?.campaignId ?? null,
-      attributedSource: link ? `tracked:${link.slug}` : "direct",
-    },
-  });
-
-  if (link) {
-    // Visits attributed to the workspace that owns the link. A signup only
-    // creates an event for the link's own workspace.
-    await recordMetricEvent({
-      workspaceId: link.workspaceId,
-      type: "signup",
-      campaignId: link.campaignId,
-      linkId: link.id,
-      visitorId: visitorSlug,
-      userId: user.id,
+    const user = await prisma.user.create({
+      data: {
+        email,
+        name: parsed.data.name,
+        passwordHash: await hashPassword(parsed.data.password),
+        attributedLinkId: link?.id ?? null,
+        attributedCampaignId: link?.campaignId ?? null,
+        attributedSource: link ? `tracked:${link.slug}` : "direct",
+      },
     });
+
+    if (link) {
+      // Visits attributed to the workspace that owns the link. A signup only
+      // creates an event for the link's own workspace.
+      await recordMetricEvent({
+        workspaceId: link.workspaceId,
+        type: "signup",
+        campaignId: link.campaignId,
+        linkId: link.id,
+        visitorId: visitorSlug,
+        userId: user.id,
+      });
+    }
+
+    // Everyone gets their own workspace to start in.
+    const workspace = await prisma.workspace.create({
+      data: { name: `${parsed.data.name}'s workspace`, slug: `ws-${randomSlug(8)}` },
+    });
+    await prisma.membership.create({ data: { userId: user.id, workspaceId: workspace.id, role: "owner" } });
+    await recordActivity({
+      workspaceId: workspace.id,
+      type: "signup",
+      actorType: "user",
+      summary: `New user ${email} registered${link ? " (attributed to a tracked campaign link)" : " (direct)"}.`,
+      meta: { email },
+    });
+
+    const { token } = await createSession(user.id);
+    // Straight into the app — setup is guided, never forced.
+    const res = NextResponse.json({ ok: true, next: "/app" }, { status: 201 });
+    res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
+    return res;
+  } catch (err) {
+    // Database unreachable / misconfigured: return JSON (not an HTML 500) so
+    // the client renders an accurate message. GET /api/health diagnoses.
+    console.error("[signup] database error:", err instanceof Error ? err.message : err);
+    return apiError("Service temporarily unavailable — the database could not be reached. Check GET /api/health.", 503);
   }
-
-  // Everyone gets their own workspace to start in.
-  const workspace = await prisma.workspace.create({
-    data: { name: `${parsed.data.name}'s workspace`, slug: `ws-${randomSlug(8)}` },
-  });
-  await prisma.membership.create({ data: { userId: user.id, workspaceId: workspace.id, role: "owner" } });
-  await recordActivity({
-    workspaceId: workspace.id,
-    type: "signup",
-    actorType: "user",
-    summary: `New user ${email} registered${link ? " (attributed to a tracked campaign link)" : " (direct)"}.`,
-    meta: { email },
-  });
-
-  const { token } = await createSession(user.id);
-  // Straight into the app — setup is guided, never forced.
-  const res = NextResponse.json({ ok: true, next: "/app" }, { status: 201 });
-  res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
-  return res;
 }
