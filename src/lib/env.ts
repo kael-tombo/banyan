@@ -35,7 +35,15 @@ function readEnv() {
     throw new Error(`Invalid environment configuration — ${issues}`);
   }
   const data = parsed.data;
-  if (data.NODE_ENV === "production" && (!data.WORKER_SECRET || data.WORKER_SECRET === DEV_WORKER_SECRET)) {
+  // `next build` collects page data on CI/build machines that are not the
+  // runtime host — runtime-only secrets cannot be required there. The guard
+  // applies at real production runtime (`next start`), not build phase.
+  const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build";
+  if (
+    data.NODE_ENV === "production" &&
+    !isBuildPhase &&
+    (!data.WORKER_SECRET || data.WORKER_SECRET === DEV_WORKER_SECRET)
+  ) {
     throw new Error(
       "Invalid environment configuration — WORKER_SECRET: set a strong unique value in production (it guards POST /api/worker/tick); the development default and empty values are not allowed."
     );
