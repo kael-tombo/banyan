@@ -151,3 +151,55 @@ account remains the real fix.
   blocked publish → honest zero measurement → "not enough data" evaluation →
   evidence-backed low-confidence recommendation. Full narrative in
   `docs/AGENTIC_RUNTIME.md`.
+
+## 2026-10-28 — Landing redesigns
+
+- White banyan redesign (`e34c5c6`): animated hero tree (SVG banyan grows
+  trunk → canopy → aerial roots → channel chips), bento runtime grid,
+  philosophy section, reduced-motion safe, scoped to marketing surfaces.
+- Modern redesign (`38acdac`): Inter via next/font, gradient hero + glass
+  cards, geometric banyan with travelling agent dots (CSS offset-path),
+  channel marquee, 9-cell bento, timeline how-it-works; fixed nested-<p>
+  hydration and tree rendering defects found via browser screenshots.
+  Desktop + mobile browser-verified; 120/120 tests, build green.
+
+## 2026-10-28 — Launch mission (audit → fixes → acceptance)
+
+- Phase A audit (`2a9accb`): evidence-based findings frozen into
+  docs/LAUNCH_AUDIT.md + docs/LAUNCH_BACKLOG.md (P0/P1/P2/P3).
+- SEC-2/SEC-4/ERR-1 (`27d7a45`): production WORKER_SECRET fail-fast (also
+  rejects the dev default), session secret via validated env, root
+  not-found + global-error.
+- SEC-1 (`e5debfa`): src/lib/net/safe-fetch.ts — SSRF choke point
+  (protocol/DNS private-IP/metadata/redirect/size guards) wired into the
+  Postiz adapter; live-verified metadata + loopback blocked, no body echo.
+- SEC-3 (`af2d6b8`): readJson 512 KB body cap across 25 mutating routes;
+  live 413/400 verified.
+- DEP-1 (`a5c2174`, `e6baf60`): prisma-chain audit fix + vitest 3→5
+  (criticals cleared, advisories 10→5); NEXT_PHASE build exemption for the
+  runtime env guard (build caught it on secret-less machines).
+- OPS-1 (`d5b420f`): Dockerfile (multi-stage, migrate-on-start) +
+  .dockerignore. ci.yml written locally — push requires a workflow-scoped
+  token.
+- E2E-1 (`a9a82cb`): scripts/e2e-acceptance.sh — 42/42 checks PASS live
+  (signup → onboarding → goal → plan gate → agents → content review →
+  honest blocked publish → manual publication → experiment → results →
+  recommendation → persistence → isolation 404s → 413/400/SSRF/logout).
+- Deliverables D+E (`aa7166a`): docs/RELEASE_RUNBOOK.md + docs/LAUNCH.md;
+  backlog verification log updated.
+- Final sweep: typecheck clean, 173/173 tests, production build green.
+
+## 2026-10-28 — Documentation set completed
+
+- New: docs/ARCHITECTURE.md (layers, request lifecycle, agent runtime,
+  provider boundaries, extension points, known limits), docs/DATA_MODEL.md
+  (23 entities, relationships, all state machines, schema conventions),
+  docs/API.md (every endpoint: method, auth, role, rate limit, body),
+  docs/TESTING.md (unit suite map, E2E run, quality gates), docs/SECURITY.md
+  (threat model, verified controls, known gaps, reporting),
+  CHANGELOG.md (release history from the git log), CONTRIBUTING.md
+  (setup, workflow, quality gates, engineering rules, docs map).
+- Updated: README.md (test counts 116→173, testing section, full document
+  index), progress.md (milestone evidence, current next-up, launch
+  readiness + documentation sections), this worklog.
+- Verified before commit: typecheck clean, 173/173 tests.

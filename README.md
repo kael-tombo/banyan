@@ -44,7 +44,7 @@ These rules are enforced in the code, not just documented:
 | AI | Model router over OpenAI-compatible endpoints + usage ledger + quotas |
 | Publishing | Postiz adapter (HTTP) behind a provider-neutral interface |
 | Capabilities | Provider-independent registry (publishing, creative, research, analytics) |
-| Tests | Vitest (116 unit tests) |
+| Tests | Vitest (173 unit tests) + 42-check live E2E acceptance script |
 
 ## Quick start
 
@@ -230,10 +230,15 @@ template that is always labelled — it is never presented as live model output.
 ## Tests
 
 ```bash
-npm test        # 116 unit tests: state machines, orchestration graph,
-                # failure recovery, verification, NL goal parsing, quotas,
-                # capabilities honesty, recommendation evidence, permissions
+npm test        # 173 unit tests across 14 files: state machines,
+                # orchestration graph, failure recovery, verification,
+                # NL goal parsing, quotas, SSRF guard, body caps, env
+                # guards, capabilities honesty, recommendation evidence,
+                # permissions
 ```
+
+Beyond unit tests, `scripts/e2e-acceptance.sh` drives the full founder
+journey (42 checks) against a live server. See [`docs/TESTING.md`](docs/TESTING.md).
 
 ## Known limitations
 
@@ -260,10 +265,29 @@ npm test        # 116 unit tests: state machines, orchestration graph,
 
 ## Project documents
 
+**Core:**
+
 | Document | What it holds |
 | --- | --- |
 | [`vision.md`](vision.md) | Why the product exists, who it is for, milestones and non-goals |
 | [`philosophy.md`](philosophy.md) | Product and engineering beliefs, and where each is enforced in code |
 | [`progress.md`](progress.md) | Living status board: done, partial, not started, next up |
 | [`worklog.md`](worklog.md) | Chronological record of changes |
-| [`docs/IMPLEMENTATION_REPORT.md`](docs/IMPLEMENTATION_REPORT.md) | Full factual status report |
+| [`CHANGELOG.md`](CHANGELOG.md) | Release history (Keep-a-Changelog) |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Dev setup, workflow, quality gates, engineering rules |
+
+**Reference (`docs/`):**
+
+| Document | What it holds |
+| --- | --- |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | System design: layers, request lifecycle, agent runtime, provider boundaries, extension points |
+| [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) | All 23 entities, relationships, and every state machine |
+| [`docs/API.md`](docs/API.md) | Full API reference: endpoints, auth, rate limits, conventions |
+| [`docs/TESTING.md`](docs/TESTING.md) | Unit suite map, E2E acceptance run, quality gates |
+| [`docs/SECURITY.md`](docs/SECURITY.md) | Threat model, controls in code, known gaps, reporting |
+| [`docs/AGENTIC_RUNTIME.md`](docs/AGENTIC_RUNTIME.md) | The execution loop, orchestrator contract, capability honesty (incl. Fastlane evaluation) |
+| [`docs/IMPLEMENTATION_REPORT.md`](docs/IMPLEMENTATION_REPORT.md) | Factual status report against the master build spec |
+| [`docs/LAUNCH_AUDIT.md`](docs/LAUNCH_AUDIT.md) | Evidence-based launch audit (Oct 28 2026) |
+| [`docs/LAUNCH_BACKLOG.md`](docs/LAUNCH_BACKLOG.md) | Frozen P0/P1/P2/P3 launch backlog with verification log |
+| [`docs/RELEASE_RUNBOOK.md`](docs/RELEASE_RUNBOOK.md) | Deploy, env vars, migrations + backup, smoke tests, monitoring, rollback |
+| [`docs/LAUNCH.md`](docs/LAUNCH.md) | Announcement draft, 5-minute demo script, honest limitations |
