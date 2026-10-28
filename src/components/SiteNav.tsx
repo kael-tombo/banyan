@@ -16,33 +16,40 @@ export function SiteNav({ cta = "Start distributing", ctaHref = "/signup" }: { c
   return (
     <header
       className="sticky top-0 z-40 border-b border-bark/10"
-      style={{ background: "rgba(255, 255, 255, 0.82)", backdropFilter: "blur(10px)" }}
+      style={{ background: "rgba(255, 255, 255, 0.72)", backdropFilter: "blur(14px) saturate(1.4)", WebkitBackdropFilter: "blur(14px) saturate(1.4)" }}
     >
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-2.5" aria-label="Banyan.ai home">
-          <BanyanMark size={26} />
-          <span className="font-serif text-lg font-semibold text-forest-deep">Banyan<span className="text-moss">.ai</span></span>
+          <BanyanMark size={28} />
+          <span className="text-lg font-semibold tracking-tight text-forest-deep">Banyan<span className="text-moss">.ai</span></span>
         </Link>
 
-        <nav className="hidden items-center gap-7 md:flex" aria-label="Main">
+        <nav className="hidden items-center gap-1 md:flex" aria-label="Main">
           {links.map((l) => (
-            <Link key={l.href} href={l.href} className="text-sm font-medium text-charcoal-soft hover:text-forest-deep">
+            <Link
+              key={l.href}
+              href={l.href}
+              className="rounded-full px-3.5 py-1.5 text-sm font-medium text-charcoal-soft transition-colors hover:bg-forest/5 hover:text-forest-deep"
+            >
               {l.label}
             </Link>
           ))}
-          <Link href="/login" className="text-sm font-medium text-charcoal-soft hover:text-forest-deep">
+          <Link
+            href="/login"
+            className="rounded-full px-3.5 py-1.5 text-sm font-medium text-charcoal-soft transition-colors hover:bg-forest/5 hover:text-forest-deep"
+          >
             Sign in
           </Link>
           <Link
             href={ctaHref}
-            className="rounded-[4px] bg-forest-deep px-3.5 py-2 text-sm font-medium text-ivory shadow-[0_6px_16px_-8px_rgba(18,48,40,0.5)] transition-all duration-200 hover:-translate-y-px hover:bg-forest"
+            className="ml-2 rounded-full bg-forest-deep px-4.5 py-2 text-sm font-semibold text-white shadow-[0_8px_20px_-10px_rgba(18,48,40,0.6)] transition-all duration-200 hover:-translate-y-px hover:bg-forest"
           >
             {cta}
           </Link>
         </nav>
 
         <button
-          className="rounded-[4px] p-2 text-forest-deep md:hidden"
+          className="rounded-full p-2 text-forest-deep transition-colors hover:bg-forest/5 md:hidden"
           aria-expanded={open}
           aria-label={open ? "Close menu" : "Open menu"}
           onClick={() => setOpen(!open)}
@@ -52,17 +59,17 @@ export function SiteNav({ cta = "Start distributing", ctaHref = "/signup" }: { c
       </div>
 
       {open && (
-        <nav className="border-t border-bark/10 bg-white px-4 py-3 md:hidden" aria-label="Mobile">
+        <nav className="border-t border-bark/10 bg-white/95 px-4 py-3 backdrop-blur md:hidden" aria-label="Mobile">
           <div className="flex flex-col gap-1">
             {links.map((l) => (
-              <Link key={l.href} href={l.href} className="rounded-[4px] px-2 py-2 text-sm font-medium text-charcoal hover:bg-forest/5" onClick={() => setOpen(false)}>
+              <Link key={l.href} href={l.href} className="rounded-xl px-3 py-2.5 text-sm font-medium text-charcoal transition-colors hover:bg-forest/5" onClick={() => setOpen(false)}>
                 {l.label}
               </Link>
             ))}
-            <Link href="/login" className="rounded-[4px] px-2 py-2 text-sm font-medium text-charcoal hover:bg-forest/5" onClick={() => setOpen(false)}>
+            <Link href="/login" className="rounded-xl px-3 py-2.5 text-sm font-medium text-charcoal transition-colors hover:bg-forest/5" onClick={() => setOpen(false)}>
               Sign in
             </Link>
-            <Link href={ctaHref} className="mt-1 rounded-[4px] bg-forest-deep px-3 py-2 text-center text-sm font-medium text-ivory" onClick={() => setOpen(false)}>
+            <Link href={ctaHref} className="mt-1 rounded-full bg-forest-deep px-4 py-2.5 text-center text-sm font-semibold text-white" onClick={() => setOpen(false)}>
               {cta}
             </Link>
           </div>

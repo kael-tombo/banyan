@@ -73,13 +73,13 @@ export function WorkflowFlow({ steps }: { steps: Step[] }) {
           return (
             <div key={step.key} className="flex min-w-fit items-center gap-2">
               <div
-                className={`flex w-32 flex-col gap-2 rounded-[3px] border border-bark/15 bg-white p-3 transition-all duration-700 ease-out md:w-auto md:flex-1 ${
+                className={`flex w-32 flex-col gap-2 rounded-xl border border-bark/12 bg-white/90 p-3.5 shadow-[0_1px_2px_rgba(18,48,40,0.04),0_8px_24px_-16px_rgba(18,48,40,0.18)] backdrop-blur transition-all duration-700 ease-out md:w-auto md:flex-1 ${
                   shown ? "translate-y-0 opacity-100" : "translate-y-3 opacity-0"
                 }`}
                 style={{ transitionDelay: `${i * 90}ms` }}
               >
                 <Icon className="text-forest" size={18} aria-hidden />
-                <span className="text-sm font-medium text-forest-deep">{step.label}</span>
+                <span className="text-[13px] font-medium text-forest-deep">{step.label}</span>
               </div>
               {i < steps.length - 1 && (
                 <ArrowRight

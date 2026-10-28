@@ -18,7 +18,7 @@ export function Reveal({
   /** Visual delay in ms, for staggering siblings. */
   delay?: number;
   className?: string;
-  as?: "div" | "section" | "li" | "nav" | "h2" | "p" | "ul";
+  as?: "div" | "section" | "li" | "nav" | "h1" | "h2" | "h3" | "p" | "ul";
 }) {
   const ref = useRef<HTMLElement | null>(null);
 

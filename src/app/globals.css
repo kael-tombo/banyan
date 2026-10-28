@@ -60,12 +60,30 @@ body {
   font-family: var(--font-serif);
 }
 
+/*
+ * Landing scope: the marketing surfaces run on Inter, a crisper modern
+ * grotesque, while the app interior keeps the existing stack. Overriding
+ * --font-sans inside .landing means every `font-sans` utility below this
+ * element resolves to Inter automatically.
+ */
+.landing {
+  --font-sans: var(--font-inter), "Avenir Next", Avenir, "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+  letter-spacing: -0.011em;
+}
+
 /* Editorial display treatment — the landing hero only: big, tight, sure. */
 .display {
-  font-family: var(--font-serif);
-  font-weight: 650;
-  letter-spacing: -0.02em;
-  line-height: 1.02;
+  font-family: var(--font-sans);
+  font-weight: 640;
+  letter-spacing: -0.045em;
+  line-height: 1.04;
+}
+
+/* Tight tracking for section headlines on the landing page. */
+.tight {
+  letter-spacing: -0.03em;
 }
 
 /* The root rule: a hairline that anchors a card to its meaning — the recurring
@@ -331,4 +349,140 @@ section[id] {
 
 @media (prefers-reduced-motion: reduce) {
   .flow-line, .flow-arrow, .reveal { will-change: auto; }
+}
+
+/*
+ * ————————————————————————————————————————————————————————————————
+ * Modern layer — the 2025 refresh of the landing language.
+ *
+ * Same palette, new grammar: soft radial glows instead of flat paper, a
+ * dot-grid stage for the hero visual, glass panels floating around the tree,
+ * a channel marquee, and a geometric banyan whose agent dots travel real
+ * branch paths. Everything below is landing-only and reduced-motion safe.
+ * ————————————————————————————————————————————————————————————————
+ */
+
+/* Hero backdrop: two soft forest glows breathing behind white paper. */
+.hero-glow {
+  background:
+    radial-gradient(ellipse 52% 42% at 50% -6%, rgba(67, 118, 95, 0.14), transparent 65%),
+    radial-gradient(ellipse 40% 36% at 88% 30%, rgba(205, 219, 208, 0.5), transparent 62%),
+    radial-gradient(ellipse 36% 30% at 6% 66%, rgba(67, 118, 95, 0.08), transparent 60%);
+}
+@keyframes glow-drift {
+  0%, 100% { background-position: 0 0, 0 0, 0 0; }
+  50% { background-position: 0 1.5%, 1.5% 0, -1% -1%; }
+}
+.hero-glow-drift { animation: glow-drift 18s ease-in-out infinite; }
+
+/* Dot-grid stage: the engineered ground the hero tree stands on. */
+.dot-grid {
+  background-image: radial-gradient(circle, rgba(67, 80, 63, 0.16) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+.dot-grid-fade {
+  -webkit-mask-image: radial-gradient(ellipse 75% 80% at 50% 45%, black 38%, transparent 78%);
+  mask-image: radial-gradient(ellipse 75% 80% at 50% 45%, black 38%, transparent 78%);
+}
+
+/* Glass panels: the floating product cards around the hero tree. */
+.glass {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  border: 1px solid rgba(67, 80, 63, 0.12);
+  box-shadow:
+    0 1px 2px rgba(18, 48, 40, 0.05),
+    0 20px 44px -20px rgba(18, 48, 40, 0.28);
+}
+
+@keyframes float-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+.float-bob { animation: float-bob 7.5s ease-in-out infinite; }
+.float-bob-slow { animation: float-bob 9.5s ease-in-out 1.2s infinite; }
+.float-bob-fast { animation: float-bob 6.5s ease-in-out 0.6s infinite; }
+
+/* Channel marquee: one slow pass, seamless loop, pause on hover. */
+.marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee-scroll 36s linear infinite;
+}
+.marquee:hover { animation-play-state: paused; }
+@keyframes marquee-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.marquee-mask {
+  -webkit-mask-image: linear-gradient(to right, transparent, black 12%, black 88%, transparent);
+  mask-image: linear-gradient(to right, transparent, black 12%, black 88%, transparent);
+}
+
+/*
+ * The geometric banyan — new hero visual.
+ * Growth order is unchanged (trunk → branches → canopy → aerial roots →
+ * channel nodes); the rendering is crisper: filled tapered trunk, layered
+ * organic canopy discs with crisp edges, and agent dots that travel real
+ * branch and root paths (CSS motion-path, hidden under reduced motion).
+ */
+
+/* The filled trunk rises from the ground: scale from its base. */
+.tree-trunk {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  transform: scaleY(0.04);
+  animation: tree-trunk 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--trunk-delay, 0.15s);
+}
+@keyframes tree-trunk {
+  to { transform: scaleY(1); }
+}
+
+/* Agent dots: travel along branch/root paths, then rest before looping. */
+.tree-agent {
+  offset-path: var(--agent-path);
+  offset-rotate: 0deg;
+  opacity: 0;
+  animation: tree-agent var(--agent-dur, 7s) ease-in-out var(--agent-delay, 3s) infinite;
+}
+@keyframes tree-agent {
+  0% { offset-distance: 0%; opacity: 0; }
+  6% { opacity: var(--agent-opacity, 0.9); }
+  88% { opacity: var(--agent-opacity, 0.9); }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+
+/* A soft halo that pulses behind the canopy — the tree is alive. */
+.tree-halo {
+  animation: tree-halo 7s ease-in-out 3.4s infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes tree-halo {
+  0%, 100% { opacity: 0.5; transform: scale(1); }
+  50% { opacity: 0.85; transform: scale(1.045); }
+}
+
+/* Channel nodes at the root tips: rise from the ground line. */
+.tree-node {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  transform: translateY(10px);
+  animation: tree-node 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: var(--node-delay, 2.6s);
+}
+@keyframes tree-node {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-glow-drift, .float-bob, .float-bob-slow, .float-bob-fast { animation: none; }
+  .marquee { animation: none; flex-wrap: wrap; width: auto; justify-content: center; }
+  .tree-trunk { animation: none; transform: none; }
+  .tree-agent { animation: none; opacity: 0; }
+  .tree-halo { animation: none; opacity: 0.55; }
+  .tree-node { animation: none; opacity: 1; transform: none; }
 }
