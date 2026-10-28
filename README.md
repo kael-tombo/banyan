@@ -85,7 +85,7 @@ planned campaign and one planned experiment, and **no results**.
 | `WORKER_BASE_URL` | no | Overrides the worker's target base URL (defaults to `NEXT_PUBLIC_APP_URL`) |
 | `MODEL_MAX_CALLS_PER_DAY` | no | Per-workspace daily cap on live model calls (default 500); fallback is never quota-limited |
 | `FASTLANE_API_KEY` | no | Enables the Fastlane capability adapter (short-form creative; unverified until exercised) |
-| `MIGRATE_ON_BUILD` | no | Set `0` to skip `prisma migrate deploy` during `npm run build` (default: deploy when a real database URL is configured) |
+| `MIGRATE_ON_BUILD` | no | `0` skips the build-time `prisma migrate deploy`; `strict` fails the build when migrations cannot be applied; default applies them and, on failure, prints a warning and continues (verify with `GET /api/health`) |
 | `USER_MODEL_KEYS_ENABLED` | no | Reserved: user-provided model keys are not implemented; managed access only |
 | `SEED_USER_EMAIL` / `SEED_USER_PASSWORD` | no | Seeded demo account |
 
@@ -110,8 +110,10 @@ planned campaign and one planned experiment, and **no results**.
   hosted PostgreSQL (e.g. Prisma Postgres) — `DATABASE_URL`, or the
   platform-injected aliases `PRISMA_DATABASE_URL` / `POSTGRES_URL` work as-is —
   set `APP_SECRET` and `WORKER_SECRET`, and deploy. `npm run build` deploys
-  pending migrations automatically (skip with `MIGRATE_ON_BUILD=0`); provision
-  the demo account once with `npm run setup` against the same database. Data
+  pending migrations automatically — on failure it warns and continues rather
+  than blocking the deploy (`MIGRATE_ON_BUILD=strict` fails the build instead,
+  `MIGRATE_ON_BUILD=0` skips); provision the demo account once with
+  `npm run setup` against the same database. Data
   is durable — no serverless filesystem caveat. After deploying, check
   `GET /api/health`: it reports which env names were found, whether the full
   configuration validates, and whether the database is reachable, seeded and

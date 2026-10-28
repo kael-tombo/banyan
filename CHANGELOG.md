@@ -35,6 +35,15 @@ follow [Keep a Changelog](https://keepachangelog.com); commit hashes refer to
   200 + wrong password 401.
 
 ### Fixed
+- **Stale-deployment trap: build-time `prisma migrate deploy` no longer fails
+  the build when the database cannot be reached** — a failed build silently
+  keeps the PREVIOUS deployment live, so the site keeps serving old code with
+  zero signal (this bit the 2026-10-28 Vercel rollout: the alias fix sat
+  unbuilt while an older deployment kept returning HTML 500s on signup).
+  Default is now warn-and-continue with a loud banner pointing at
+  `GET /api/health` (`db.reachable`, `db.schemaPresent`);
+  `MIGRATE_ON_BUILD=strict` restores fail-the-build; `MIGRATE_ON_BUILD=0`
+  still skips entirely.
 - **HTML 500 on auth failures with an unreachable database** — the login and
   signup routes now catch database errors and return a JSON 503 with an
   actionable message (previously the route crashed into Next's HTML error

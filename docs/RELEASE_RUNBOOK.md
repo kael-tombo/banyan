@@ -30,7 +30,7 @@ tests → build on every push/PR.
 | `NEXT_PUBLIC_APP_URL` | recommended | Public base URL, used for links/redirects. |
 | `AI_PROVIDER` / `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_MODEL` | optional | Any OpenAI-compatible endpoint. Without it, generation uses the clearly labeled template fallback (honest degradation, no errors). |
 | `MODEL_MAX_CALLS_PER_DAY` | optional | Per-workspace daily cap on live model calls (default 500). |
-| `MIGRATE_ON_BUILD` | optional | Set `0` to skip `prisma migrate deploy` during `npm run build` (default: deploy when a real DB URL is configured). |
+| `MIGRATE_ON_BUILD` | optional | `0` skips the build-time `prisma migrate deploy`; `strict` fails the build on migrate errors; default applies migrations and, on failure, warns + continues (check `GET /api/health` afterwards). |
 | `FASTLANE_API_KEY` / `FASTLANE_API_BASE_URL` | optional | Activates the Fastlane adapter (marked unverified until exercised). |
 | `SEED_USER_EMAIL` / `SEED_USER_PASSWORD` | seed only | Used by `npm run db:seed`. **Rotate the seeded password after first login in production** (or skip seeding and sign up normally). |
 | `WORKER_INTERVAL_MS` / `WORKER_BASE_URL` | worker only | Worker loop tuning. |
@@ -47,7 +47,10 @@ Missing optional keys never crash the app — the affected capability reports
 - Apply: `npx prisma migrate deploy` (idempotent). It also runs automatically
   during `npm run build` when a real `DATABASE_URL` is configured
   (`scripts/migrate-if-configured.ts`; skip with `MIGRATE_ON_BUILD=0`), and
-  at Docker container start.
+  at Docker container start. If the build-time deploy fails, the build
+  continues with a loud warning by default — verify `GET /api/health`
+  (`db.schemaPresent`) after shipping, or set `MIGRATE_ON_BUILD=strict` to
+  fail the build instead.
 - **Backup before migrating** (hosted provider): use the provider's snapshot
   facility (Prisma Postgres console) or `pg_dump`.
 - Rollback: restore the snapshot/dump. No destructive migrations exist.
@@ -103,7 +106,11 @@ Deployment mechanics:
 
 - **Migrations**: `npm run build` runs `prisma migrate deploy` automatically
   against the configured hosted database (`scripts/migrate-if-configured.ts`,
-  idempotent; skip with `MIGRATE_ON_BUILD=0` and migrate out-of-band).
+  idempotent; skip with `MIGRATE_ON_BUILD=0` and migrate out-of-band). If the
+  deploy fails, the build continues with a loud warning — a failed build
+  would silently keep the previous deployment live, which is worse than a
+  current deploy you can diagnose via `GET /api/health`; opt into fail-hard
+  with `MIGRATE_ON_BUILD=strict`.
 - **Demo account (one-time)**: provision the seeded founder account against
   the same database once, from any machine with the URL:
   `DATABASE_URL=<url> npm run db:seed`. The seed is idempotent but it clears
