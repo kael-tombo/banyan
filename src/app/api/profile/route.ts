@@ -41,6 +41,29 @@ const brandVoiceUpdate = z.object({
   }),
 });
 
+/** GET: read the workspace's product profile (read-only, own workspace only). */
+export async function GET() {
+  const ctx = await requireWorkspace();
+  if (!ctx) return apiError("Unauthorized", 401);
+  const profile = await prisma.productProfile.findUnique({ where: { workspaceId: ctx.workspace.id } });
+  if (!profile) return apiError("No product profile yet — complete onboarding first.", 404);
+  return json({
+    profile: {
+      ...profile,
+      channels: profile.channels ? safeParse(profile.channels) : [],
+      brandVoice: profile.brandVoice ? safeParse(profile.brandVoice) : null,
+    },
+  });
+}
+
+function safeParse(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 /** PATCH: update product profile. */
 export async function PATCH(req: NextRequest) {
   const csrf = assertSameOrigin(req);
