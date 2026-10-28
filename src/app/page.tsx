@@ -4,8 +4,9 @@ import Image from "next/image";
 import { SiteNav } from "@/components/SiteNav";
 import { Reveal } from "@/components/Reveal";
 import { WorkflowFlow } from "@/components/landing/WorkflowFlow";
-import { BanyanTree } from "@/components/landing/BanyanTree";
-import { Badge, Card, StatusBadge } from "@/components/ui";
+import { BuildPlanForm } from "@/components/landing/BuildPlanForm";
+import { WorkspaceMockup } from "@/components/landing/WorkspaceMockup";
+import { Card } from "@/components/ui";
 import {
   ArrowRight, PenLine, SearchCheck, CalendarClock, LineChart, Sprout,
   Share2, CheckCircle2, XCircle, FlaskConical, Users, Megaphone,
@@ -13,7 +14,7 @@ import {
 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: { absolute: "Banyan.ai — Build. Distribute. Grow." },
+  title: { absolute: "Banyan.ai — Turn your product into a distribution system" },
 };
 
 const workflow = [
@@ -108,111 +109,36 @@ function SectionHeading({ eyebrow, title, sub }: { eyebrow: string; title: strin
   );
 }
 
-/* ————— Hero visual: the tree on its engineered stage, with the runtime
-         floating around it as glass cards. Decorative → aria-hidden. ————— */
-
-function HeroStage() {
-  return (
-    <div className="relative mx-auto mt-14 max-w-5xl md:mt-16">
-      <div className="card-shadow-lg relative overflow-hidden rounded-[2rem] border border-bark/10 bg-gradient-to-b from-mist/80 via-white to-white">
-        <div className="dot-grid dot-grid-fade absolute inset-0" aria-hidden="true" />
-
-        <div className="relative px-3 pb-4 pt-8 sm:px-8 sm:pt-10">
-          <div className="relative mx-auto max-w-3xl">
-            <BanyanTree className="h-auto w-full" />
-
-            {/* Goal card — top left */}
-            <div className="glass float-bob absolute -left-14 top-12 hidden w-60 rounded-2xl p-4 lg:block" aria-hidden="true">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-fig-deep">
-                <span className="h-1.5 w-1.5 rounded-full bg-fig" /> Goal · active
-              </div>
-              <p className="mt-2 text-sm font-medium leading-snug text-charcoal">Grow a founder audience on X</p>
-              <div className="mt-3 flex flex-wrap gap-1 text-[10.5px] font-medium">
-                <span className="rounded-md bg-forest/10 px-1.5 py-0.5 text-forest">research ✓</span>
-                <span className="rounded-md bg-forest/10 px-1.5 py-0.5 text-forest">plan ✓</span>
-                <span className="rounded-md border border-fig/30 bg-fig/10 px-1.5 py-0.5 text-fig-deep">draft · review</span>
-              </div>
-            </div>
-
-            {/* Approval card — right */}
-            <div className="glass float-bob-slow absolute -right-16 top-36 hidden w-64 rounded-2xl p-4 lg:block" aria-hidden="true">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-forest">
-                <ShieldCheck size={12} className="text-forest" /> Approval gate
-              </div>
-              <p className="mt-2 text-sm font-medium leading-snug text-charcoal">X thread · v3 ready for review</p>
-              <div className="mt-3 flex items-center gap-2">
-                <span className="rounded-full bg-forest-deep px-3 py-1.5 text-[11px] font-semibold text-white">Approve</span>
-                <span className="rounded-full border border-bark/20 px-3 py-1.5 text-[11px] font-semibold text-charcoal-soft">Edit</span>
-              </div>
-            </div>
-
-            {/* Receipt card — bottom left */}
-            <div className="glass float-bob-fast absolute bottom-20 left-2 hidden w-56 rounded-2xl p-4 md:block" aria-hidden="true">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-forest">
-                <span className="h-1.5 w-1.5 rounded-full bg-forest" /> Published · X
-              </div>
-              <p className="mt-2 text-sm font-medium leading-snug text-charcoal">Posted at 12:40 — real response, recorded</p>
-              <p className="mt-2 text-[11px] text-charcoal-soft">Measurement scheduled tomorrow</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="relative flex items-center justify-center gap-2 pb-5 pt-1 text-xs text-charcoal-soft/80">
-          <Sprout size={12} className="text-forest" aria-hidden="true" />
-          <span>One trunk. Every aerial root becomes a trunk of its own.</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function LandingPage() {
   return (
     <div className="landing min-h-screen bg-paper">
       <SiteNav />
 
-      {/* ————— Hero — white paper, full sun, the tree on stage. ————— */}
+      {/* ————— Hero — the vision: URL in, distribution system out. ————— */}
       <section className="hero-glow hero-glow-drift relative overflow-hidden">
-        <div className="mx-auto max-w-6xl px-4 pb-10 pt-16 text-center md:pt-24">
-          <div className="mx-auto max-w-3xl">
+        <div className="mx-auto grid max-w-6xl gap-12 px-4 pb-16 pt-12 md:pt-20 lg:grid-cols-[1.04fr_1fr] lg:items-center lg:gap-10">
+          <div className="max-w-2xl">
             <Reveal>
-              <Link
-                href="#product"
-                className="group inline-flex items-center gap-2 rounded-full border border-bark/12 bg-white/70 py-1.5 pl-1.5 pr-3.5 text-xs font-medium text-charcoal-soft shadow-sm backdrop-blur transition-colors hover:border-forest/30"
-              >
-                <span className="rounded-full bg-fig/12 px-2 py-0.5 text-[11px] font-semibold text-fig-deep">New</span>
-                The agentic execution runtime is live
-                <ArrowRight size={12} className="transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-              </Link>
-            </Reveal>
-            <Reveal as="h1" delay={90} className="display mt-7 text-[2.75rem] text-forest-deep sm:text-6xl md:text-7xl">
-              Build your product.
-              <br />
-              <span className="bg-gradient-to-r from-forest via-moss to-forest bg-clip-text text-transparent">
-                Let it find its people.
+              <span className="inline-flex items-center gap-2 rounded-full border border-forest/20 bg-sage/40 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-forest-deep">
+                <Sprout size={12} className="text-forest" aria-hidden="true" />
+                Distribution workspace
               </span>
             </Reveal>
-            <Reveal as="p" delay={180} className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-charcoal-soft md:text-lg">
-              Banyan.ai is the agentic operating system for product distribution: AI agents run research,
-              content, publishing, and learning as one workflow — and every publish waits for your approval.
+            <Reveal as="h1" delay={80} className="display mt-6 text-[2.6rem] text-forest-deep sm:text-5xl md:text-[3.35rem]">
+              Turn your product into a{" "}
+              <span className="bg-gradient-to-r from-forest via-moss to-forest bg-clip-text text-transparent">
+                distribution system.
+              </span>
             </Reveal>
-            <Reveal delay={260} className="mt-9 flex flex-wrap items-center justify-center gap-3">
-              <Link
-                href="/signup"
-                className="inline-flex items-center gap-2 rounded-full bg-forest-deep px-6 py-3 text-sm font-semibold text-white shadow-[0_14px_34px_-14px_rgba(18,48,40,0.65)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-forest"
-              >
-                Start distributing
-                <ArrowRight size={15} aria-hidden="true" />
-              </Link>
-              <Link
-                href="#how-it-works"
-                className="rounded-full border border-bark/20 bg-white/80 px-6 py-3 text-sm font-semibold text-forest-deep backdrop-blur transition-colors hover:border-forest/50"
-              >
-                See how it works
-              </Link>
+            <Reveal as="p" delay={160} className="mt-5 max-w-xl text-base leading-relaxed text-charcoal-soft md:text-lg">
+              Start with your website. Get a clear plan, launch focused experiments, and learn what
+              brings customers — agents run the workflow, and every publish waits for your approval.
             </Reveal>
-            <Reveal delay={340}>
-              <ul className="mt-9 flex flex-wrap items-center justify-center gap-x-7 gap-y-2 text-[13px] text-charcoal-soft">
+            <Reveal delay={240} className="mt-8">
+              <BuildPlanForm />
+            </Reveal>
+            <Reveal delay={320}>
+              <ul className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-2 text-[13px] text-charcoal-soft">
                 {[
                   { icon: ShieldCheck, text: "Nothing publishes without your approval" },
                   { icon: Plug, text: "Real connections, or honest blocks" },
@@ -227,8 +153,8 @@ export default function LandingPage() {
             </Reveal>
           </div>
 
-          <Reveal delay={200}>
-            <HeroStage />
+          <Reveal delay={200} className="min-w-0">
+            <WorkspaceMockup />
           </Reveal>
         </div>
       </section>
@@ -462,32 +388,37 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ————— How it works — the loop, run by agents, decided by you. ————— */}
+      {/* ————— How it works — from product URL to next experiment (the vision's four moves). ————— */}
       <section id="how-it-works" className="py-24">
         <div className="mx-auto max-w-6xl px-4">
           <SectionHeading
             eyebrow="How it works"
-            title="The loop a strong distribution team runs"
-            sub="Four moves, repeated until the product finds its people — coordinated by agents, decided by you."
+            title="From product URL to your next growth experiment."
+            sub="Four connected moves. Each one sets up the next — agents coordinate the work, you decide at the approval gate."
           />
 
-          <ol className="mt-14 grid gap-x-8 gap-y-10 md:grid-cols-4">
+          <ol className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
             {[
-              { n: "01", title: "State a goal", body: "Type what you want in plain language — the planner turns it into a reviewable task graph." },
-              { n: "02", title: "Approve the plan", body: "Every task, dependency, and gate is visible before any agent starts work." },
-              { n: "03", title: "Agents execute", body: "Research, strategy, and drafts run through verified hand-offs; you approve what ships." },
-              { n: "04", title: "Publish & learn", body: "Real connections deliver; results come back as evidence for the next cycle." },
+              { n: "1", icon: SearchCheck, title: "Understand your offer", body: "Start from your website. The agents extract your product, value proposition, and differentiation into provenance-tracked context." },
+              { n: "2", icon: Users, title: "Choose the audience", body: "Identify the highest-potential customer segments for your product — with the reasoning and confidence recorded." },
+              { n: "3", icon: FlaskConical, title: "Prepare the experiment", body: "Channel-specific content, messaging angles, and a clear test plan: one variable at a time, success metric declared up front." },
+              { n: "4", icon: LineChart, title: "Measure what works", body: "Track first-party results, learn fast, and double down on what brings customers. Never invented — always sourced." },
             ].map((s, i) => (
-              <Reveal as="li" key={s.n} delay={i * 110} className="relative border-t border-bark/15 pt-6">
-                <span className="absolute -top-[5px] left-0 h-2.5 w-2.5 rounded-full bg-forest" aria-hidden="true" />
-                <span className="text-[13px] font-semibold tracking-widest text-fig-deep" aria-hidden="true">{s.n}</span>
-                <h3 className="tight mt-2 text-lg font-semibold text-forest-deep">{s.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">{s.body}</p>
+              <Reveal as="li" key={s.n} delay={i * 110} className="relative">
+                {i < 3 && <span className="absolute left-full top-10 hidden h-px w-5 bg-forest/30 lg:block" aria-hidden="true" />}
+                <Card className="card-lift card-shadow h-full rounded-2xl p-6">
+                  <div className="flex items-center gap-3">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sage/50 text-sm font-semibold text-forest-deep" aria-hidden="true">{s.n}</span>
+                    <s.icon size={18} className="text-forest" aria-hidden="true" />
+                  </div>
+                  <h3 className="tight mt-4 text-base font-semibold text-forest-deep">{s.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">{s.body}</p>
+                </Card>
               </Reveal>
             ))}
           </ol>
 
-          <div className="mt-14">
+          <div className="mt-16">
             <WorkflowFlow steps={workflow} />
           </div>
 
@@ -577,38 +508,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ————— Honest product preview, in a browser frame. ————— */}
-      <section className="py-24">
-        <div className="mx-auto max-w-6xl px-4">
-          <SectionHeading
-            eyebrow="Product preview"
-            title="The dashboard the product actually ships"
-            sub="This preview renders the application's real components. Panels show honest empty states — the app distinguishes true zeros from data that does not exist yet."
-          />
-          <Reveal delay={200} className="mt-14">
-            <div className="card-shadow-lg overflow-hidden rounded-2xl border border-bark/12">
-              <div className="flex items-center gap-3 border-b border-bark/10 bg-mist/80 px-4 py-3">
-                <div className="flex gap-1.5" aria-hidden="true">
-                  <span className="h-2.5 w-2.5 rounded-full bg-clay/50" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-fig/60" />
-                  <span className="h-2.5 w-2.5 rounded-full bg-forest/60" />
-                </div>
-                <div className="mx-auto flex items-center gap-1.5 rounded-full border border-bark/12 bg-white px-3.5 py-1 text-[11px] font-medium text-charcoal-soft">
-                  <ShieldCheck size={11} className="text-forest" aria-hidden="true" />
-                  banyan.ai/app
-                </div>
-                <div className="w-10" aria-hidden="true" />
-              </div>
-              <div className="bg-white p-5 sm:p-8">
-                <PreviewCard />
-              </div>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-
       {/* ————— Channels — capability vs integration, stated precisely. ————— */}
-      <section className="border-y border-bark/10 bg-mist py-24">
+      <section id="channels" className="border-y border-bark/10 bg-mist py-24">
         <div className="mx-auto max-w-6xl px-4">
           <SectionHeading
             eyebrow="Channels"
@@ -655,7 +556,7 @@ export default function LandingPage() {
               href="/signup"
               className="mt-9 inline-flex items-center gap-2 rounded-full bg-forest-deep px-8 py-3.5 text-sm font-semibold text-white shadow-[0_14px_34px_-14px_rgba(18,48,40,0.65)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-forest"
             >
-              Start distributing
+              Build my plan
               <ArrowRight size={15} aria-hidden="true" />
             </Link>
           </Reveal>
@@ -665,50 +566,6 @@ export default function LandingPage() {
       {/* ————— Footer ————— */}
       <Footer />
     </div>
-  );
-}
-
-/** The preview is built from the application's genuine UI primitives, showing
- * truthful empty states rather than fabricated analytics. */
-function PreviewCard() {
-  return (
-    <Card className="card-shadow-lg rounded-2xl bg-white text-charcoal">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-bark/10 pb-4">
-        <div>
-          <p className="text-xs font-medium text-charcoal-soft">Banyan.ai workspace</p>
-          <h3 className="tight mt-0.5 text-lg font-semibold text-forest-deep">Distribution dashboard</h3>
-        </div>
-        <Badge variant="forest">Preview · empty states, not live data</Badge>
-      </div>
-      <div className="mt-5 grid gap-4 md:grid-cols-3">
-        <Card className="rooted rounded-xl">
-          <p className="text-xs font-medium text-charcoal-soft">Active campaign</p>
-          <p className="mt-2 text-sm font-medium text-charcoal">First wave: early adopters</p>
-          <div className="mt-2.5 flex gap-2">
-            <StatusBadge status="draft" />
-            <Badge variant="warm">hypotheses</Badge>
-          </div>
-        </Card>
-        <Card className="rooted rounded-xl">
-          <p className="text-xs font-medium text-charcoal-soft">Awaiting approval</p>
-          <p className="mt-2 text-sm text-charcoal">0 items</p>
-          <p className="mt-2 text-xs text-charcoal-soft">Nothing queued right now — a true zero, not missing data.</p>
-        </Card>
-        <Card className="rooted rounded-xl">
-          <p className="text-xs font-medium text-charcoal-soft">Publications</p>
-          <p className="mt-2 text-sm text-charcoal">None yet</p>
-          <p className="mt-2 text-xs text-charcoal-soft">Publishing starts after you configure a Postiz connection.</p>
-        </Card>
-      </div>
-      <div className="mt-5 rounded-xl border border-bark/10 bg-mist p-4">
-        <p className="text-xs font-medium text-charcoal-soft">Recommended next actions</p>
-        <ul className="mt-2.5 space-y-1.5 text-sm text-charcoal-soft">
-          <li className="flex gap-2"><span className="text-fig-deep">→</span> Complete onboarding to generate your first draft plan</li>
-          <li className="flex gap-2"><span className="text-fig-deep">→</span> Create your first campaign from a reviewable theme</li>
-          <li className="flex gap-2"><span className="text-fig-deep">→</span> Connect Postiz to enable actual publishing</li>
-        </ul>
-      </div>
-    </Card>
   );
 }
 
@@ -732,7 +589,7 @@ function Footer() {
               <li><Link href="/#product" className="transition-colors hover:text-forest-deep">Product</Link></li>
               <li><Link href="/#how-it-works" className="transition-colors hover:text-forest-deep">How it works</Link></li>
               <li><Link href="/#philosophy" className="transition-colors hover:text-forest-deep">Philosophy</Link></li>
-              <li><Link href="/signup" className="transition-colors hover:text-forest-deep">Start distributing</Link></li>
+              <li><Link href="/signup" className="transition-colors hover:text-forest-deep">Build my plan</Link></li>
               <li><Link href="/login" className="transition-colors hover:text-forest-deep">Sign in</Link></li>
             </ul>
           </div>

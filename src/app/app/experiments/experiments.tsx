@@ -21,7 +21,7 @@ type Experiment = {
   updatedAt: string;
 };
 
-export function ExperimentManager({ experiments, campaigns }: { experiments: Experiment[]; campaigns: { id: string; name: string }[] }) {
+export function ExperimentManager({ experiments, campaigns, prefillTitle }: { experiments: Experiment[]; campaigns: { id: string; name: string }[]; prefillTitle?: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +106,7 @@ export function ExperimentManager({ experiments, campaigns }: { experiments: Exp
         <h2 className="mb-3 font-medium text-charcoal">New experiment</h2>
         <form onSubmit={create} className="flex flex-col gap-4">
           <Field label="Title" required>
-            <Input name="title" maxLength={140} placeholder="Problem-first vs product-first openings" />
+            <Input name="title" maxLength={140} key={prefillTitle ?? "blank"} defaultValue={prefillTitle ?? ""} placeholder="Problem-first vs product-first openings" />
           </Field>
           <Field label="Hypothesis" required hint="State it as a testable claim: 'X causes more Y than Z'.">
             <Textarea name="hypothesis" rows={2} maxLength={1000} />

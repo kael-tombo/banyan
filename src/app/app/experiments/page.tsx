@@ -6,7 +6,12 @@ import { ExperimentManager } from "./experiments";
 
 export const metadata: Metadata = { title: "Experiments" };
 
-export default async function ExperimentsPage() {
+export default async function ExperimentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ title?: string }>;
+}) {
+  const { title } = await searchParams;
   const ctx = await requireWorkspaceServer();
 
   const [experiments, campaigns] = await Promise.all([
@@ -29,6 +34,7 @@ export default async function ExperimentsPage() {
         description="One variable at a time, with a pre-declared success metric. Conclusions are drafted only from recorded outcomes — the system will say 'not enough data' rather than invent a result."
       />
       <ExperimentManager
+        prefillTitle={title ? title.slice(0, 140) : undefined}
         campaigns={campaigns}
         experiments={experiments.map((e) => ({
           id: e.id,

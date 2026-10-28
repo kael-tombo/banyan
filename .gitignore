@@ -14,3 +14,4 @@ prisma/test.db-journal
 coverage
 next-env.d.ts
 tsconfig.tsbuildinfo
+.shots/

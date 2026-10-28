@@ -8,10 +8,11 @@ import { BanyanMark } from "@/components/BanyanMark";
 const links = [
   { href: "/#product", label: "Product" },
   { href: "/#how-it-works", label: "How it works" },
+  { href: "/#channels", label: "Channels" },
   { href: "/#philosophy", label: "Philosophy" },
 ];
 
-export function SiteNav({ cta = "Start distributing", ctaHref = "/signup" }: { cta?: string; ctaHref?: string }) {
+export function SiteNav({ cta = "Build my plan", ctaHref = "/signup" }: { cta?: string; ctaHref?: string }) {
   const [open, setOpen] = useState(false);
   return (
     <header

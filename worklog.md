@@ -233,3 +233,45 @@ account remains the real fix.
 - Tests: +8 (handoff package, video extras, defensive parsing, capability
   contract, registry honesty) → 181/181 pass; typecheck clean; production
   build green.
+
+## 2026-10-28 — Distribution OS vision applied to main app + landing
+
+Sources: three founder-provided reference screenshots ("Distribution OS" growth
+workspace dashboard, marketing site, agentic growth-strategy page). The vision's
+information architecture was applied; the visual identity stays White Banyan
+(forest/fig, rooted cards, serif headers). Honesty rules unchanged: every number
+rendered is recorded data; the landing mockup is labeled illustrative.
+
+- Landing (`src/app/page.tsx`): split hero per the vision — "Turn your product
+  into a distribution system." + DISTRIBUTION WORKSPACE pill + product-URL form
+  ("Build my plan →") + workspace mockup (pipeline, audience card, top
+  recommendation with projected lift, channels to test — Banyan's real channels,
+  honesty badge). How-it-works re-titled "From product URL to your next growth
+  experiment." with the vision's 4 connected steps; old preview section retired
+  (superseded by the hero mockup); nav adds Channels; CTAs say "Build my plan".
+- Real wiring: hero URL → `/signup?next=/onboarding?url=…` → onboarding website
+  field prefilled (BuildPlanForm.tsx; onboarding/page.tsx searchParams).
+- Dashboard (`src/app/app/page.tsx`) rebuilt as the Growth workspace: goal card
+  with big progress + task count; "This week's growth focus" numbered list built
+  from real gates/blockers/running tasks + top recommendation; Active-experiment
+  card (running · day N, hypothesis, variable, honest mid-run note); Customer
+  journey funnel (visit/signup/onboarding_complete with true 14-day deltas vs
+  previous window + daily sparkline — new `Sparkline.tsx`, true zeros kept);
+  Publishing panel (connections + scheduled/published with real statuses);
+  "Recommended next test" evidence banner (fig gradient, evidence checklist,
+  limits) + remaining-recs pointer to strategy.
+- New Growth strategy page (`src/app/app/strategy/`): goal & constraints chips,
+  agent synthesis (plan summary + real counts + confidence), recommended growth
+  bets (evidence list, disconfirmers, Create experiment), risks & assumptions
+  with Validate actions, strategy-agent rail (planner/strategist/analyst tasks),
+  explainability callout, opportunity→hypothesis→experiment flow. Nav: Strategy
+  added to Plan group (Compass).
+- Bets/risks "Create experiment"/"Validate" prefills the experiments form via
+  `?title=` (experiments page + ExperimentManager prefillTitle).
+- Verified: typecheck clean; 181/181 unit tests; production build green; E2E
+  acceptance 42/42 against the dev server; browser-checked landing + dashboard
+  (cold, goal, rich data) + strategy at 1440/390px; fixed a mobile flex-shrink
+  defect on the goal card found during verification.
+- scripts/seed-visual-check.js: idempotent visual-check seed (backdated
+  first-party events, tracked link, scheduled/manual publications) used to
+  exercise the data-rich dashboard states; dev database only, gitignored.
