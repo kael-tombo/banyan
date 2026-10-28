@@ -44,7 +44,7 @@ These rules are enforced in the code, not just documented:
 | AI | Model router over OpenAI-compatible endpoints + usage ledger + quotas |
 | Publishing | Postiz adapter (HTTP) behind a provider-neutral interface |
 | Capabilities | Provider-independent registry (publishing, creative, research, analytics) |
-| Tests | Vitest (173 unit tests) + 42-check live E2E acceptance script |
+| Tests | Vitest (181 unit tests) + 42-check live E2E acceptance script |
 
 ## Quick start
 
@@ -205,11 +205,13 @@ verified by calling the provider. Without credentials the whole workflow still
 works up to publication, which is recorded as `blocked`.
 
 Connector status in `/app/publishing`: **Postiz — available now**; **SocialFlow.ai
-— a `socialflow` adapter slot exists in the registry behind the same
-`PublishingAdapter` interface, but is not enabled until its API documentation is
-verified and credentials are available** (no connectors ship untested); **manual
-recording — always available** (publish natively yourself, record the live URL as
-a user-confirmed manual publication).
+— no verifiable API exists (socialflow.ai is a parked domain, checked October
+2026), so no client was built; the SocialFlow.ai *handoff* on each content item
+exports a channel-formatted, copy-ready package for manual execution, and the
+live URL is recorded as a user-confirmed manual publication — activation
+checklist in [`docs/SOCIALFLOW_INTEGRATION.md`](docs/SOCIALFLOW_INTEGRATION.md)**;
+**manual recording — always available** (publish natively yourself, record the
+live URL as a user-confirmed manual publication).
 
 ## Brand
 
@@ -230,7 +232,7 @@ template that is always labelled — it is never presented as live model output.
 ## Tests
 
 ```bash
-npm test        # 173 unit tests across 14 files: state machines,
+npm test        # 181 unit tests across 15 files: state machines,
                 # orchestration graph, failure recovery, verification,
                 # NL goal parsing, quotas, SSRF guard, body caps, env
                 # guards, capabilities honesty, recommendation evidence,

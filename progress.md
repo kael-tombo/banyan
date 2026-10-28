@@ -11,7 +11,7 @@ Living status board. Updated as work lands. Companion to
 | # | Milestone | State | Evidence |
 | --- | --- | --- | --- |
 | 1 | **Capability** — the product can run the whole loop | Met | goal → plan → campaign → content → approval → publish → measure → learn is implemented and reachable; 48 routes build |
-| 2 | **Reliability** — behaves correctly under real conditions | In progress | approvals, idempotency, rate limiting, bounded publication retries, fail-fast env guards, SSRF choke point, uniform body caps enforced server-side; **173 unit tests + 42-check live E2E acceptance (42/42 PASS)**; real publishing still unverified against live Postiz credentials |
+| 2 | **Reliability** — behaves correctly under real conditions | In progress | approvals, idempotency, rate limiting, bounded publication retries, fail-fast env guards, SSRF choke point, uniform body caps enforced server-side; **181 unit tests + 42-check live E2E acceptance (42/42 PASS)**; real publishing still unverified against live Postiz credentials |
 | 3 | **Growth** — real campaigns produce measurable outcomes | Not started | requires real attributed signups; none observed |
 
 Milestone 3 is deliberately not claimed. Capability and reliability do not imply it.

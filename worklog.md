@@ -203,3 +203,33 @@ account remains the real fix.
   index), progress.md (milestone evidence, current next-up, launch
   readiness + documentation sections), this worklog.
 - Verified before commit: typecheck clean, 173/173 tests.
+
+## 2026-10-28 — SocialFlow.ai distribution integration (boundary + manual handoff)
+
+- Verification (directive-mandated, evidence recorded in
+  docs/SOCIALFLOW_INTEGRATION.md §1): socialflow.ai is a PARKED DOMAIN for
+  sale; no developer portal, API docs, auth model, endpoints, media spec,
+  platform coverage, rate limits, or error docs exist for the product (web
+  search + direct fetch, Oct 28 2026). No API client was built and nothing
+  is simulated — per the directive's scope-control rule.
+- Implemented instead:
+  - src/lib/publishing/socialflow.ts — SOCIALFLOW_REQUIRED_CAPABILITIES
+    contract + buildSocialFlowHandoff/socialflowHandoffToText (pure,
+    channel-formatted, video-script extras, execution checklist ending in
+    recording the live URL).
+  - GET /api/content/[id]/handoff — workspace-scoped, read-only handoff
+    package ({handoff, text, approved, itemStatus}); cross-tenant 404.
+  - Editor UI: "SocialFlow.ai handoff (manual execution)" — copies the
+    package, states the approval requirement honestly; feeds the existing
+    manual-publication recording (mode: "manual").
+  - Capability registry: socialflow entry reports "unavailable" with the
+    evidence; /app/publishing connector card updated ("manual handoff only").
+  - Connections API still only accepts adapter "postiz" — nothing storable
+    until an adapter exists.
+- Status mapping, authorization, idempotency/no-blind-retry guarantees, and
+  the activation checklist (connector-only future change) documented in
+  docs/SOCIALFLOW_INTEGRATION.md; README, AGENTIC_RUNTIME.md, API.md,
+  CHANGELOG, progress.md updated.
+- Tests: +8 (handoff package, video extras, defensive parsing, capability
+  contract, registry honesty) → 181/181 pass; typecheck clean; production
+  build green.

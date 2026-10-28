@@ -42,6 +42,7 @@ export function ContentEditor({
   const [format, setFormat] = useState(item.format);
   const [scheduleAt, setScheduleAt] = useState("");
   const [manualUrl, setManualUrl] = useState("");
+  const [handoffNote, setHandoffNote] = useState<string | null>(null);
   const [tone, setTone] = useState("");
 
   const isChannelNow = isChannel(channel);
@@ -124,6 +125,25 @@ export function ContentEditor({
     e.preventDefault();
     await post(`/api/content/${item.id}/publish`, { mode: "manual", liveUrl: manualUrl }, "manual");
     setManualUrl("");
+  }
+
+  async function copyHandoff() {
+    setBusy("handoff"); setError(null); setHandoffNote(null);
+    try {
+      const res = await fetch(`/api/content/${item.id}/handoff`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not build the handoff.");
+      await navigator.clipboard.writeText(data.text);
+      setHandoffNote(
+        data.approved
+          ? "Handoff copied. Execute it in SocialFlow.ai (or natively), then record the live URL below."
+          : `Handoff copied as a PREVIEW — this item is "${data.itemStatus}", not approved. Approval is required before publishing anywhere.`
+      );
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
   }
 
   const charHint = useMemo(() => {
@@ -303,6 +323,16 @@ export function ContentEditor({
             {["draft", "ready_for_review", "rejected"].includes(item.status) && (
               <p className="text-xs text-charcoal-soft">Publishing controls unlock once the item is approved.</p>
             )}
+            <details>
+              <summary className="cursor-pointer text-xs font-medium text-charcoal">SocialFlow.ai handoff (manual execution)</summary>
+              <div className="mt-2 flex flex-col gap-2">
+                <p className="text-xs text-charcoal-soft">
+                  SocialFlow.ai has no verifiable API yet (socialflow.ai is a parked domain, checked October 2026) — Banyan does not fake one. This copies a channel-formatted package: execute it in SocialFlow.ai or any native tool, then record the live URL below. That recording is what marks the content published.
+                </p>
+                <Button size="sm" variant="secondary" onClick={copyHandoff} disabled={!!busy}>Copy handoff for SocialFlow.ai</Button>
+                {handoffNote && <p className="text-xs text-charcoal-soft">{handoffNote}</p>}
+              </div>
+            </details>
             <details>
               <summary className="cursor-pointer text-xs font-medium text-charcoal">Record a manual publication</summary>
               <form onSubmit={recordManual} className="mt-2 flex flex-col gap-2">

@@ -99,10 +99,41 @@ class WebResearchCapability implements CapabilityAdapter {
   }
 }
 
+class SocialFlowCapability implements CapabilityAdapter {
+  readonly id = "socialflow";
+  readonly kind = "publishing" as const;
+  readonly label = "SocialFlow.ai (distribution execution)";
+
+  capabilities(): string[] {
+    return ["publish.socialflow.handoff"];
+  }
+
+  describe(): CapabilityDescriptor {
+    return {
+      id: this.id,
+      kind: this.kind,
+      label: this.label,
+      capabilities: this.capabilities(),
+      status: "unavailable",
+      detail:
+        "No verified API exists for SocialFlow.ai (socialflow.ai is a parked domain as of October 28 2026 — no developer documentation, auth model, or endpoints). Banyan does not fabricate integrations: the supported path today is the manual handoff — Banyan formats approved content into a copy-ready package, you publish/schedule it in SocialFlow.ai (or any tool), and record the live URL as a user-confirmed manual publication. The adapter slot, required capability list and activation checklist are ready in docs/SOCIALFLOW_INTEGRATION.md for when a real API appears.",
+      untested: false,
+    };
+  }
+
+  async health(): Promise<CapabilityHealth> {
+    return {
+      ok: false,
+      detail: "No verifiable SocialFlow.ai API (parked domain, checked 2026-10-28). Use the manual handoff + manual publication recording.",
+    };
+  }
+}
+
 const ADAPTERS: CapabilityAdapter[] = [
   new PostizCapability(),
   new ManagedModelCapability(),
   new WebResearchCapability(),
+  new SocialFlowCapability(),
   fastlaneAdapter,
 ];
 

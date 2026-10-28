@@ -81,12 +81,14 @@ export default async function PublishingPage() {
             <span>
               <span className="block font-medium text-charcoal">SocialFlow.ai</span>
               <span className="block text-charcoal-soft">
-                An adapter slot (<code>socialflow</code>) exists in the publishing registry behind the same
-                typed <code>PublishingAdapter</code> interface. Not enabled — we will wire it once its API
-                documentation is verified and credentials are available. We do not ship connectors we cannot test.
+                No verifiable API exists yet — socialflow.ai is a parked domain (checked October 2026), with no developer
+                documentation, auth model, or endpoints. Banyan does not fabricate integrations. Until a real API appears,
+                use the <strong>SocialFlow.ai handoff</strong> on any content item: copy the formatted package, execute it
+                in SocialFlow.ai, then record the live URL as a manual publication. The adapter slot, required capability
+                list and activation checklist are ready in <code>docs/SOCIALFLOW_INTEGRATION.md</code>.
               </span>
             </span>
-            <Badge variant="warm">planned</Badge>
+            <Badge variant="warm">manual handoff only</Badge>
           </li>
           <li className="flex flex-wrap items-center justify-between gap-2">
             <span>

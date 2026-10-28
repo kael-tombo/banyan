@@ -122,8 +122,14 @@ credentials the adapter reports `needs_credentials` with setup guidance.
   labeled as such.
 - **Fastlane**: implemented against the documented API; `unverified` /
   `needs_credentials` until exercised (see above).
-- **SocialFlow.ai**: adapter slot only; not implemented (unchanged from the
-  prior release, no verified API documentation).
+- **SocialFlow.ai**: no verifiable API exists (socialflow.ai is a parked
+  domain as of October 28 2026 — no developer documentation, auth model, or
+  endpoints). No client was built and nothing is simulated. The supported
+  path is the **manual handoff** (`GET /api/content/[id]/handoff` copies a
+  channel-formatted package; the user executes it externally and records the
+  live URL as a manual publication), with the capability registry reporting
+  `unavailable` and the full activation checklist in
+  [`docs/SOCIALFLOW_INTEGRATION.md`](SOCIALFLOW_INTEGRATION.md).
 
 ## Business context with provenance
 

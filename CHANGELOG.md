@@ -9,6 +9,16 @@ follow [Keep a Changelog](https://keepachangelog.com); commit hashes refer to
 ## [Unreleased]
 
 ### Added
+- **SocialFlow.ai integration boundary + manual handoff** — verified that no
+  SocialFlow.ai API exists (socialflow.ai is a parked domain as of 2026-10-28;
+  no developer docs, auth model, or endpoints — evidence in
+  `docs/SOCIALFLOW_INTEGRATION.md`). Shipped the honest path instead:
+  `src/lib/publishing/socialflow.ts` (capability contract + handoff builder,
+  unit-tested), `GET /api/content/[id]/handoff` (workspace-scoped,
+  copy-ready channel-formatted package), a "SocialFlow.ai handoff" action on
+  every content item feeding the existing manual-publication recording, and
+  an `unavailable` capability-registry entry citing the evidence. Activation
+  checklist included for when a real API appears — a connector-only change.
 - Documentation set completed: `docs/ARCHITECTURE.md` (system design),
   `docs/DATA_MODEL.md` (entities, relations, state machines),
   `docs/API.md` (endpoint reference), `docs/TESTING.md` (unit + E2E guide),

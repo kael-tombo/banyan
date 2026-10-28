@@ -60,6 +60,7 @@ Rate limits below are per IP, in-process (single node).
 | `GET /api/content` | query filters (status, campaign, channel, search) | Paginated list. |
 | `POST /api/content` | `{title?, channel, format, campaignId?, …}` | `write`. Creates a draft item. |
 | `GET /api/content/[id]` | — | Item + revisions + publications. |
+| `GET /api/content/[id]/handoff` | — | SocialFlow.ai manual handoff: channel-formatted, copy-ready package (`{handoff, text, approved, itemStatus}`). Read-only — publishes nothing, calls no provider; the live URL is recorded afterwards via publish `mode: "manual"`. |
 | `PATCH /api/content/[id]` | `{title?, body?, …}` | `write`. Saves a new `ContentRevision`; editing an approved item resets it to `draft` (approval invalidated). |
 | `POST /api/content/[id]/generate` | `{note?}` | 20/min, `write`. Generates channel/format-specific copy via the model router; creates a revision (`authorType: ai`, labelled fallback when no key). Never overwrites user edits. |
 | `POST /api/content/[id]/review` | `{action: "submit"} \| {action: "approve"} \| {action: "reject", reason} \| {action: "back_to_draft"}` | `approve` for approve/reject (records `approvedById`); `submit`/`back_to_draft` are `write`. Reject requires a 3–500 char reason. |

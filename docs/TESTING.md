@@ -13,7 +13,7 @@ npm test          # run once
 npm run test:watch
 ```
 
-Current state: **14 files, 173 tests — all passing** (verified 2026-10-28).
+Current state: **15 files, 181 tests — all passing** (verified 2026-10-28).
 Typecheck (`npm run typecheck`) is clean; the production build (`npm run
 build`) is green.
 
@@ -33,6 +33,7 @@ build`) is green.
 | `crypto.test.ts` | AES-256-GCM encrypt/decrypt round-trips, tamper rejection. |
 | `ratelimit.test.ts` | Sliding-window limiter behavior. |
 | `formats.test.ts` | Channel/format validation for content generation. |
+| `socialflow-handoff.test.ts` | The SocialFlow.ai manual handoff: package contents (copy, video extras, checklist), defensive videoExtras parsing, the required-capability contract, and registry honesty (`unavailable` + evidence). |
 | `learning.test.ts` | Evidence-based experiment summaries: verdicts from recorded data, "not enough data" when thin, recommendation confidence policy (empty evidence forces `low`). |
 
 External providers (Postiz, OpenAI-compatible endpoints, Fastlane) are
