@@ -85,6 +85,7 @@ planned campaign and one planned experiment, and **no results**.
 | `WORKER_BASE_URL` | no | Overrides the worker's target base URL (defaults to `NEXT_PUBLIC_APP_URL`) |
 | `MODEL_MAX_CALLS_PER_DAY` | no | Per-workspace daily cap on live model calls (default 500); fallback is never quota-limited |
 | `FASTLANE_API_KEY` | no | Enables the Fastlane capability adapter (short-form creative; unverified until exercised) |
+| `RUNTIME_DB_BOOTSTRAP` | no | Set `0` to disable the runtime SQLite demo bootstrap (auto-provisions schema + seed on throwaway-filesystem hosts when the database is empty; durable hosts no-op) |
 | `USER_MODEL_KEYS_ENABLED` | no | Reserved: user-provided model keys are not implemented; managed access only |
 | `SEED_USER_EMAIL` / `SEED_USER_PASSWORD` | no | Seeded demo account |
 
@@ -107,12 +108,17 @@ planned campaign and one planned experiment, and **no results**.
 - **Node host / Docker** (durable, recommended): see `docs/RELEASE_RUNBOOK.md` §4.
 - **Vercel** (demo): the production build runs with zero configured secrets —
   the env validator supplies inert placeholders during the build phase only,
-  and no build-time code path touches the database. For a serving deployment
-  set `DATABASE_URL`, `APP_SECRET`, `WORKER_SECRET` and `NEXT_PUBLIC_APP_URL`
-  in project settings. Honest caveat: SQLite is ephemeral on serverless
-  filesystems (per-instance `/tmp`), so persisted data does not survive cold
-  starts — use the Node/Docker path for durable data. Details:
-  `docs/RELEASE_RUNBOOK.md` §4 "Vercel alternative".
+  and no build-time code path touches the database. For a **working** demo
+  deployment set three runtime variables in project settings: `DATABASE_URL`
+  (must be an absolute path, e.g. `file:/tmp/banyan.db`), `APP_SECRET`
+  (`openssl rand -hex 32`) and `WORKER_SECRET` (strong unique value). On the
+  first request each fresh serverless instance provisions the SQLite schema
+  and the demo seed automatically (runtime bootstrap), so
+  `founder@banyan.ai` / `banyan-demopass` (or your `SEED_USER_EMAIL` /
+  `SEED_USER_PASSWORD`) signs in immediately. Honest caveat: SQLite is
+  ephemeral on serverless filesystems (per-instance `/tmp`), so persisted
+  data does not survive cold starts — use the Node/Docker path for durable
+  data. Details: `docs/RELEASE_RUNBOOK.md` §4 "Vercel alternative".
 
 ## The agentic execution runtime
 

@@ -8,6 +8,7 @@ import { z } from "zod";
 import { cookies } from "next/headers";
 import { VISITOR_COOKIE } from "@/lib/auth/session";
 import { randomSlug } from "@/lib/crypto";
+import { ensureDatabaseReadyOnce } from "@/lib/bootstrap/runtime-bootstrap";
 
 const schema = z.object({
   name: z.string().trim().min(1).max(80),
@@ -23,6 +24,10 @@ export async function POST(req: NextRequest) {
 
   const parsed = await readJson(req, schema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
+
+  // Throwaway-filesystem hosts (serverless): provision schema + demo seed on
+  // first use, mirroring the login route.
+  await ensureDatabaseReadyOnce();
 
   const email = parsed.data.email.toLowerCase();
   const existing = await prisma.user.findUnique({ where: { email } });

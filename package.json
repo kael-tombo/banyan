@@ -5,7 +5,8 @@
   "description": "Banyan.ai — The Agentic Operating System for Product Distribution",
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "prisma generate && tsx scripts/gen-schema-statements.ts && next build",
+    "gen:schema": "tsx scripts/gen-schema-statements.ts",
     "start": "next start",
     "worker": "tsx worker/index.ts",
     "db:migrate": "prisma migrate dev",

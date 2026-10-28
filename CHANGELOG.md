@@ -26,6 +26,22 @@ follow [Keep a Changelog](https://keepachangelog.com); commit hashes refer to
   `CONTRIBUTING.md`.
 
 ### Fixed
+- **Demo login on serverless deployments** (`founder@banyan.ai` /
+  `banyan-demopass` returned "unable to authenticate") — on Vercel, neither
+  migrations nor seed ever run at runtime, so the database had no tables and
+  no demo account. Added a **runtime demo bootstrap**:
+  `src/instrumentation.ts` provisions the SQLite schema (migration DDL
+  embedded at build time by `npm run gen:schema` →
+  `src/lib/bootstrap/schema.generated.ts`, drift-checked by a unit test) and
+  the shared demo seed (extracted to `src/lib/bootstrap/seed-demo.ts`,
+  reused by `prisma/seed.ts`) on cold start and on the first
+  login/signup request; idempotent, race-tolerant, kill-switch
+  `RUNTIME_DB_BOOTSTRAP=0`. Verified by a live production-server simulation
+  on a fresh `/tmp` database (66/66 statements, seed created, demo login 200,
+  wrong password 401) plus the full 42-check E2E acceptance on the durable
+  path. Runbook §4 and README document the exact Vercel env recipe
+  (`DATABASE_URL=file:/tmp/banyan.db`, `APP_SECRET`, `WORKER_SECRET`) and
+  the ephemerality caveats.
 - **Vercel/serverless build failure** — `next build` aborted during
   "Collecting page data" with `Invalid environment configuration —
   DATABASE_URL: Required; APP_SECRET: Required` on any machine without

@@ -76,25 +76,37 @@ build-time code path queries the database. Verified on a clean-room clone
 (2026-10-28): fresh `npm ci` → `next build` compiles and collects page data
 without secrets.
 
-For a **working** deployment, set in the Vercel project settings:
+For a **working** demo deployment, set in the Vercel project settings:
 
 | Variable | Value |
 | --- | --- |
-| `DATABASE_URL` | Prisma SQLite URL (see caveat below) |
+| `DATABASE_URL` | absolute SQLite path, e.g. `file:/tmp/banyan.db` (serverless writes are limited to `/tmp`; relative `file:` paths resolve under the read-only bundle) |
 | `APP_SECRET` | `openssl rand -hex 32` |
 | `WORKER_SECRET` | strong unique value (runtime fail-fast rejects the dev default) |
-| `NEXT_PUBLIC_APP_URL` | the deployed URL, e.g. `https://banyan.vercel.app` |
+| `NEXT_PUBLIC_APP_URL` | the deployed URL, e.g. `https://banyan.vercel.app` (optional; defaults to localhost) |
 
-**Honest caveat — SQLite on serverless is ephemeral.** Every serverless
+**Runtime demo bootstrap.** Each fresh serverless instance starts with an
+empty filesystem — no migrate or seed step can ever have run there. On cold
+start (`instrumentation.ts` → `register()`) and on the first login/signup
+request, the app provisions the SQLite schema (migration DDL embedded at
+build time via `npm run gen:schema`) and the demo seed automatically. The
+demo account (`founder@banyan.ai` / `banyan-demopass`, or your
+`SEED_USER_EMAIL` / `SEED_USER_PASSWORD`) therefore signs in immediately.
+Set `RUNTIME_DB_BOOTSTRAP=0` to disable. Verified by a live production-server
+simulation on a fresh `/tmp` database (2026-10-28): 66/66 schema statements
+applied, seed created, demo login 200, wrong password 401.
+
+**Honest caveats — SQLite on serverless is ephemeral.** Every serverless
 instance gets its own throwaway filesystem (`/tmp`); data written there does
-not survive cold starts and is not shared between instances. Pointing
-`DATABASE_URL` at `file:/tmp/banyan.db` yields a build that deploys and serves,
-but any persisted data (accounts, campaigns, publications) is per-instance and
-disappears on scale-up/cold start. For a durable deployment use the Node host
-or Docker procedure above (persistent volume), or migrate Prisma to a hosted
-database provider — which is a schema/provider change, out of current scope.
-Deploying to Vercel is therefore suitable for a UI/product demo, not for
-persistent use.
+not survive cold starts and is not shared between instances. Two
+consequences: (1) any persisted data (accounts, campaigns, publications) is
+per-instance and disappears on scale-up/cold start; (2) the bootstrap is a
+demo-provisioning path, not a migration system — incremental schema changes
+are not applied to instances that already bootstrapped an older schema. For
+a durable deployment use the Node host or Docker procedure above (persistent
+volume), or migrate Prisma to a hosted database provider — which is a
+schema/provider change, out of current scope. Deploying to Vercel is
+therefore suitable for a UI/product demo, not for persistent use.
 
 ## 5. First public settings
 
