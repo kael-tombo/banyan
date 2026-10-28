@@ -1,23 +1,26 @@
 @import "tailwindcss";
 
 /*
- * Design system — "rooted canopy".
+ * Design system — "White Banyan".
  *
- * The banyan metaphor is the organizing idea: one trunk, many prop roots, each
- * becoming load-bearing — exactly the product's story. The palette is the
- * forest at eye level: a genuine deep-green ink (never near-black) above,
- * cool lichen paper below, and banyan-fig gold used only where it earns its
- * place. Decoration must come from the subject, not be applied over it.
+ * The banyan metaphor is the organizing idea: one trunk, many aerial roots,
+ * each becoming load-bearing — exactly the product's story. This theme turns
+ * the surface of the marketing site into white paper flooded with light: the
+ * feeling of standing under a banyan in full sun. Deep forest green is the
+ * ink, banyan-fig gold appears only where it earns its place, and decoration
+ * must come from the subject (the tree itself), never be applied over it.
  *
- * Token names keep their historical API so the large codebase stays coherent;
- * their values carry the new palette. (`ivory` is now the cool paper,
- * `clay` is now ember — reserved for danger, never decoration.)
+ * Token names keep their historical API so the large codebase stays coherent.
+ * The app interior continues to use `canopy` ink bands; the landing page is
+ * the white expression of the same brand.
  */
 @theme {
-  --color-ivory: #e9ede3;        /* paper: cool, green-cast — deliberately not warm cream */
+  --color-ivory: #e9ede3;        /* app paper: cool, green-cast (app interior) */
   --color-ivory-deep: #dde4d7;   /* sunken paper: wells, quiet bands */
+  --color-paper: #ffffff;        /* landing paper: pure white canvas */
+  --color-mist: #f3f7f2;         /* tinted landing band: light through leaves */
   --color-forest: #23523f;       /* the green of the leaf itself */
-  --color-forest-deep: #123028;  /* canopy ink: bands, hero, brand moments */
+  --color-forest-deep: #123028;  /* canopy ink: headings, brand moments */
   --color-moss: #43765f;         /* young growth */
   --color-bark: #43503f;         /* hairlines and muted ink text */
   --color-charcoal: #172119;     /* body text — faint green cast, reads near-black */
@@ -76,13 +79,45 @@ body {
   border-radius: 2px 6px 6px 2px;
 }
 
-/* Canopy band: the ink surface where brand moments live. Adds one soft
-   radial — light falling through leaves — as single-point depth. */
+/* Canopy band (app interior + auth): the ink surface where brand moments live. */
 .canopy {
   background:
     radial-gradient(ellipse 70% 55% at 78% -10%, rgba(205, 219, 208, 0.14), transparent 60%),
     radial-gradient(ellipse 45% 40% at 8% 110%, rgba(67, 118, 95, 0.28), transparent 65%),
     var(--color-forest-deep);
+}
+
+/* Hero light: white paper with sun coming through the canopy — one drifting
+   radial of leaf-light and one faint ground-glow. Quiet by design. */
+.hero-light {
+  background:
+    radial-gradient(ellipse 55% 45% at 82% -12%, rgba(67, 118, 95, 0.10), transparent 62%),
+    radial-gradient(ellipse 40% 34% at 4% 108%, rgba(205, 219, 208, 0.55), transparent 65%),
+    var(--color-paper);
+}
+@keyframes hero-light-drift {
+  from { background-position: 82% -12%, 4% 108%, 0 0; }
+  50% { background-position: 76% -14%, 9% 105%, 0 0; }
+  to { background-position: 82% -12%, 4% 108%, 0 0; }
+}
+.hero-light-drift {
+  background-size: 130% 130%, 120% 120%, auto;
+  animation: hero-light-drift 26s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-light-drift { animation: none; background-size: auto; }
+}
+
+/* Soft green-tinted elevation for white cards on white paper. */
+.card-shadow {
+  box-shadow:
+    0 1px 2px rgba(18, 48, 40, 0.04),
+    0 10px 30px -18px rgba(18, 48, 40, 0.18);
+}
+.card-shadow-lg {
+  box-shadow:
+    0 1px 2px rgba(18, 48, 40, 0.05),
+    0 24px 60px -28px rgba(18, 48, 40, 0.28);
 }
 
 .hairline {
@@ -95,11 +130,14 @@ a {
 }
 
 .card-lift {
-  transition: transform 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 .card-lift:hover {
   transform: translateY(-2px);
   border-color: color-mix(in oklab, var(--color-forest) 45%, transparent);
+  box-shadow:
+    0 1px 2px rgba(18, 48, 40, 0.05),
+    0 16px 36px -18px rgba(18, 48, 40, 0.24);
 }
 
 @keyframes fade-up {
@@ -111,16 +149,6 @@ a {
 }
 .fade-up-2 { animation: fade-up 0.5s ease both; animation-delay: 0.08s; }
 .fade-up-3 { animation: fade-up 0.5s ease both; animation-delay: 0.16s; }
-
-/* The rootline draws itself once, on load, into the surface it lands on. */
-@keyframes root-draw {
-  from { stroke-dashoffset: 420; }
-  to { stroke-dashoffset: 0; }
-}
-.rootline {
-  stroke-dasharray: 420;
-  animation: root-draw 1.1s ease-out 0.35s both;
-}
 
 h1,
 h2,
@@ -135,9 +163,10 @@ section[id] {
 
 /*
  * Motion — every animation on the marketing page is a rendering of the
- * product's story: roots descend, the canopy breathes, work flows root to
- * branch. All of it is scroll-triggered where it happens off-screen, and all
- * of it collapses to static under prefers-reduced-motion.
+ * product's story: the tree grows from one trunk, aerial roots descend and
+ * become load-bearing, leaves travel root to canopy. Scroll-triggered where
+ * it happens off-screen; all of it collapses to static under
+ * prefers-reduced-motion.
  */
 
 /* Scroll reveal: hidden until the element enters the viewport, then a single
@@ -155,34 +184,6 @@ section[id] {
 }
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1; transform: none; transition: none; }
-}
-
-/* The hero watermark breathes — very slow, very quiet; the canopy is alive. */
-@keyframes breathe {
-  0%, 100% { opacity: 0.13; transform: translateY(-50%) scale(1); }
-  50% { opacity: 0.20; transform: translateY(-50%) scale(1.035); }
-}
-.hero-mark {
-  transform: translateY(-50%);
-  opacity: 0.16;
-  animation: breathe 9s ease-in-out 1.5s infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .hero-mark { animation: none; opacity: 0.16; }
-}
-
-/* Light drifting through the canopy: the hero's radial slowly wanders. */
-@keyframes canopy-drift {
-  from { background-position: 78% -10%, 8% 110%, 0 0; }
-  50% { background-position: 72% -12%, 12% 108%, 0 0; }
-  to { background-position: 78% -10%, 8% 110%, 0 0; }
-}
-.canopy-drift {
-  background-size: 140% 140%, 120% 120%, auto;
-  animation: canopy-drift 24s ease-in-out infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .canopy-drift { animation: none; background-size: auto; }
 }
 
 /* Connector: the workflow's root line draws root-to-branch when it scrolls
@@ -210,31 +211,124 @@ section[id] {
   animation: flow-pulse 2.6s ease-in-out infinite;
   animation-delay: calc(var(--arrow-delay, 0ms) + 1.6s);
 }
-
 @media (prefers-reduced-motion: reduce) {
   .flow-line { transition: none; stroke-dasharray: none; stroke-dashoffset: 0; }
   .flow-arrow { transition: none; animation: none; opacity: 1; }
 }
 
-/* The fig nodes at the rootline's tips land with a soft grow-in. */
-@keyframes node-grow {
-  from { opacity: 0; transform: scale(0); }
-  to { opacity: 1; transform: scale(1); }
+/*
+ * The banyan tree — the hero's one orchestrated visual.
+ *
+ * Growth order mirrors the real tree and the product: the trunk first (the
+ * workspace), then branches (the workflow), then the canopy (shelter for the
+ * team), then aerial roots descending to become prop trunks (channels that
+ * become load-bearing). Each stage is a CSS class driven by two custom
+ * properties: the path length to draw and the delay at which to start.
+ */
+
+/* Stroke paths: dash-length is supplied per element so the draw speed is
+   constant regardless of path length. */
+.tree-draw {
+  stroke-dasharray: var(--draw-len, 300);
+  stroke-dashoffset: var(--draw-len, 300);
+  animation: tree-draw 1s cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation-delay: var(--draw-delay, 0s);
 }
-.fig-node {
-  transform-origin: center;
-  transform-box: fill-box;
+@keyframes tree-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Canopy blobs and fruit: bloom from the branch point outward. */
+.tree-bloom {
   opacity: 0;
-  animation: node-grow 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  animation-delay: var(--node-delay, 1.4s);
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(0.4);
+  animation: tree-bloom 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--bloom-delay, 0s);
+}
+@keyframes tree-bloom {
+  60% { opacity: 1; transform: scale(1.06); }
+  100% { opacity: var(--bloom-opacity, 1); transform: scale(1); }
+}
+
+/* Soft fades (ground, shadow, texture). */
+.tree-fade {
+  opacity: 0;
+  animation: tree-fade 0.8s ease both;
+  animation-delay: var(--fade-delay, 0s);
+}
+@keyframes tree-fade {
+  to { opacity: var(--fade-opacity, 1); }
+}
+
+/* Aerial roots thicken after touching ground: the moment a root becomes a
+   trunk. A heavier stroke fades in over the lower half of the root path. */
+.tree-thicken {
+  opacity: 0;
+  animation: tree-fade 0.7s ease both;
+  animation-delay: var(--fade-delay, 0s);
+}
+
+/* Channel chips at the prop-root tips land with a small spring. */
+.tree-chip {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: translateY(6px) scale(0.85);
+  animation: tree-chip 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: var(--pop-delay, 0s);
+}
+@keyframes tree-chip {
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Idle life: the whole canopy breathes on a slow 9s cycle. */
+@keyframes tree-sway {
+  0%, 100% { transform: rotate(-0.35deg); }
+  50% { transform: rotate(0.35deg); }
+}
+.tree-sway {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: tree-sway 9s ease-in-out 3.2s infinite;
+}
+
+/* A slow rise-and-fall for the whole crown (paired with sway, feels alive). */
+@keyframes tree-breathe {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.tree-breathe {
+  animation: tree-breathe 11s ease-in-out 3.2s infinite;
+}
+
+/* Leaf particles: two leaves travel downward through the light, forever. */
+@keyframes leaf-drift {
+  0% { opacity: 0; transform: translate(0, -12px) rotate(0deg); }
+  12% { opacity: var(--leaf-opacity, 0.7); }
+  85% { opacity: var(--leaf-opacity, 0.7); }
+  100% { opacity: 0; transform: translate(var(--leaf-x, 18px), var(--leaf-y, 120px)) rotate(var(--leaf-r, 140deg)); }
+}
+.leaf-drift {
+  animation: leaf-drift var(--leaf-dur, 9s) linear var(--leaf-delay, 0s) infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .fig-node { animation: none; opacity: 1; }
+  .leaf-drift { animation: none; opacity: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .fade-up, .fade-up-2, .fade-up-3 { animation: none; }
-  .rootline { animation: none; stroke-dasharray: none; }
   .card-lift:hover { transform: none; }
+  .tree-draw { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; }
+  .tree-bloom { animation: none; opacity: var(--bloom-opacity, 1); transform: none; }
+  .tree-fade { animation: none; opacity: var(--fade-opacity, 1); }
+  .tree-thicken { animation: none; opacity: 1; }
+  .tree-chip { animation: none; opacity: 1; transform: none; }
+  .tree-sway, .tree-breathe { animation: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-line, .flow-arrow, .reveal { will-change: auto; }
 }
