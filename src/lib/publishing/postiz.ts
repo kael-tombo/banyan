@@ -1,5 +1,6 @@
 import { PublishingAdapter, ConnectionConfig, PublishResult, PublishingCapabilities } from "@/lib/publishing/types";
 import { AIError } from "@/lib/ai/provider";
+import { SafeFetchError, safeFetch } from "@/lib/net/safe-fetch";
 
 /**
  * Postiz adapter (verified against Postiz public API docs):
@@ -105,10 +106,11 @@ export class PostizAdapter implements PublishingAdapter {
     method: "GET" | "POST",
     body?: unknown
   ): Promise<{ status: number; json: unknown; body: string; retryAfterMs?: number }> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 30_000);
     try {
-      const res = await fetch(`${cfg.baseUrl.replace(/\/$/, "")}${path}`, {
+      // safeFetch enforces the SSRF guard: the connection baseUrl is
+      // user-supplied, so only public http(s) hosts are reachable, redirects
+      // are re-validated per hop, and the response body is size-capped.
+      const res = await safeFetch(`${cfg.baseUrl.replace(/\/$/, "")}${path}`, {
         method,
         headers: {
           // Postiz public API takes the bare API key as the Authorization value.
@@ -116,22 +118,23 @@ export class PostizAdapter implements PublishingAdapter {
           "content-type": "application/json",
         },
         body: body === undefined ? undefined : JSON.stringify(body),
-        signal: controller.signal,
+        timeoutMs: 30_000,
       });
-      const text = await res.text();
       let json: unknown = null;
       try {
-        json = JSON.parse(text);
+        json = JSON.parse(res.text);
       } catch {
         /* keep text */
       }
       const retryAfterMs = retryAfterHeaderMs(res.headers.get("retry-after"));
-      return { status: res.status, json, body: text, retryAfterMs };
+      return { status: res.status, json, body: res.text, retryAfterMs };
     } catch (err) {
-      if (err instanceof Error && err.name === "AbortError") throw new AIError("Postiz request timed out.");
+      if (err instanceof SafeFetchError) {
+        // Blocked by the SSRF guard (private address, bad redirect, size,
+        // timeout) — permanent for this configuration, not retryable noise.
+        throw new AIError(err.message);
+      }
       throw err;
-    } finally {
-      clearTimeout(timer);
     }
   }
 }
