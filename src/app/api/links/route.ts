@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { apiError, assertSameOrigin, json, parseJson, requireWorkspace, guardRate } from "@/lib/api-utils";
+import { apiError, assertSameOrigin, json, requireWorkspace, guardRate, readJson } from "@/lib/api-utils";
 import { createTrackedLink } from "@/lib/analytics/links";
 import { trackedLinkUrl } from "@/lib/analytics/tracked";
 import { NextRequest } from "next/server";
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
   if (limited) return limited;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
-  const parsed = await parseJson(createSchema, await req.json());
+  const parsed = await readJson(req, createSchema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
 
   if (parsed.data.campaignId) {

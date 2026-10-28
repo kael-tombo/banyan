@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { apiError, assertSameOrigin, json, parseJson, requireWorkspace } from "@/lib/api-utils";
+import { apiError, assertSameOrigin, json, parseJson, requireWorkspace, readJson } from "@/lib/api-utils";
 import { recordActivity, recordMetricEvent } from "@/lib/activity";
 import { NextRequest } from "next/server";
 import { z } from "zod";
@@ -48,7 +48,9 @@ export async function PATCH(req: NextRequest) {
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
 
-  const raw = await req.json().catch(() => ({}));
+  const rawJson = await readJson(req, z.unknown());
+  if (!rawJson.ok) return apiError(rawJson.message, rawJson.status);
+  const raw = rawJson.data;
   // Brand-voice-only updates are also supported on this endpoint.
   const voiceOnly = raw && typeof raw === "object" && "brandVoice" in raw && Object.keys(raw).length === 1;
   const parsed = parseJson(voiceOnly ? brandVoiceUpdate : schema, raw);
@@ -89,11 +91,11 @@ export async function POST(req: NextRequest) {
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
 
-  const parsed = await parseJson(
+  const parsed = await readJson(
+    req,
     z.object({
       planId: z.string().optional(),
-    }),
-    await req.json().catch(() => ({}))
+    })
   );
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
 

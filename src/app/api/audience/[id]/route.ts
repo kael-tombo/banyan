@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { apiError, assertSameOrigin, json, parseJson, requireWorkspace } from "@/lib/api-utils";
+import { apiError, assertSameOrigin, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 
@@ -18,7 +18,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   const existing = await prisma.audienceInsight.findFirst({ where: { id, workspaceId: ctx.workspace.id } });
   if (!existing) return apiError("Insight not found.", 404);
-  const parsed = await parseJson(patchSchema, await req.json());
+  const parsed = await readJson(req, patchSchema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
   const insight = await prisma.audienceInsight.update({ where: { id }, data: parsed.data });
   return json({ insight });

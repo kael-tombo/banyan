@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { apiError, assertSameOrigin, guardRate, json, parseJson, requireWorkspace } from "@/lib/api-utils";
+import { apiError, assertSameOrigin, guardRate, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { attemptPublication, recordManualPublication } from "@/lib/publishing/publish";
 import { NextRequest } from "next/server";
 import { z } from "zod";
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!ctx) return apiError("Unauthorized", 401);
   const { id } = await params;
 
-  const parsed = await parseJson(schema, await req.json());
+  const parsed = await readJson(req, schema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
 
   if (parsed.data.mode === "manual") {

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { apiError, assertSameOrigin, json, parseJson, requireWorkspace } from "@/lib/api-utils";
+import { apiError, assertSameOrigin, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { recordActivity } from "@/lib/activity";
 import { isChannel, isFormatFor } from "@/lib/formats";
 import { NextRequest } from "next/server";
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
 
-  const parsed = await parseJson(createSchema, await req.json());
+  const parsed = await readJson(req, createSchema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
   if (!isChannel(parsed.data.channel)) return apiError("Unknown channel.", 400);
   if (parsed.data.body && !isFormatFor(parsed.data.channel, parsed.data.format)) {

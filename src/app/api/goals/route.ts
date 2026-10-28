@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { apiError, assertSameOrigin, guardRate, json, parseJson, requireWorkspace } from "@/lib/api-utils";
+import { apiError, assertSameOrigin, guardRate, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { recordActivity } from "@/lib/activity";
 import { requireRole } from "@/lib/permissions";
 import { canTransitionGoal } from "@/lib/state-machines";
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   const forbidden = requireRole(ctx.membership.role, "write");
   if (forbidden) return apiError(forbidden, 403);
 
-  const parsed = await parseJson(createSchema, await req.json());
+  const parsed = await readJson(req, createSchema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
   const raw = parsed.data.rawInput;
 

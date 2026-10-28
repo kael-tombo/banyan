@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { apiError, assertSameOrigin, json, parseJson, requireWorkspace } from "@/lib/api-utils";
+import { apiError, assertSameOrigin, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { canTransitionContent } from "@/lib/state-machines";
 import { NextRequest } from "next/server";
 import { z } from "zod";
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const item = await prisma.contentItem.findFirst({ where: { id, workspaceId: ctx.workspace.id }, include: { publications: true } });
   if (!item) return apiError("Content not found.", 404);
 
-  const parsed = await parseJson(schema, await req.json());
+  const parsed = await readJson(req, schema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
 
   if (parsed.data.cancel) {

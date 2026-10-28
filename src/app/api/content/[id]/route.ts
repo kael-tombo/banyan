@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { apiError, assertSameOrigin, json, parseJson, requireWorkspace } from "@/lib/api-utils";
+import { apiError, assertSameOrigin, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { isChannel, contentBodySchema } from "@/lib/formats";
 import { NextRequest } from "next/server";
 import { z } from "zod";
@@ -35,7 +35,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const item = await load(id, ctx.workspace.id);
   if (!item) return apiError("Content not found.", 404);
 
-  const parsed = await parseJson(patchSchema, await req.json());
+  const parsed = await readJson(req, patchSchema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
 
   // Guards: user edits never silently overwrite published/archived content.

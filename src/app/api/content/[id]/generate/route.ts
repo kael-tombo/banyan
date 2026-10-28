@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { apiError, assertSameOrigin, guardRate, json, parseJson, requireWorkspace } from "@/lib/api-utils";
+import { apiError, assertSameOrigin, guardRate, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { generateContent } from "@/lib/ai/generate";
 import { isChannel, isFormatFor } from "@/lib/formats";
 import { canTransitionContent } from "@/lib/state-machines";
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
   }
 
-  const parsed = await parseJson(actionSchema, await req.json());
+  const parsed = await readJson(req, actionSchema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
 
   const channel = parsed.data.targetChannel && isChannel(parsed.data.targetChannel)

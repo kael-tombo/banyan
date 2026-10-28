@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { apiError, assertSameOrigin, json, parseJson, requireWorkspace } from "@/lib/api-utils";
+import { apiError, assertSameOrigin, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { summarizeObservations } from "@/lib/learning";
 import { recordActivity } from "@/lib/activity";
 import { NextRequest } from "next/server";
@@ -63,7 +63,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const experiment = await prisma.experiment.findFirst({ where: { id, workspaceId: ctx.workspace.id } });
   if (!experiment) return apiError("Experiment not found.", 404);
 
-  const parsed = await parseJson(patchSchema, await req.json());
+  const parsed = await readJson(req, patchSchema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
 
   let data: Record<string, unknown> = { ...parsed.data };

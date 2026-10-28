@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { apiError, assertSameOrigin, json, parseJson, requireWorkspace } from "@/lib/api-utils";
+import { apiError, assertSameOrigin, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { recordActivity } from "@/lib/activity";
 import { NextRequest } from "next/server";
 import { z } from "zod";
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   if (csrf) return csrf;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
-  const parsed = await parseJson(schema, await req.json());
+  const parsed = await readJson(req, schema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
   const campaign = await prisma.campaign.findFirst({ where: { id: parsed.data.campaignId, workspaceId: ctx.workspace.id } });
   if (!campaign) return apiError("Campaign not found in this workspace.", 404);

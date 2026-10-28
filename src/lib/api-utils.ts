@@ -90,6 +90,43 @@ export function parseJson<S extends ZodTypeAny>(schema: S, raw: unknown): ParseR
   }
 }
 
+/** Default cap for JSON request bodies (512 KB — generous for every payload Banyan accepts). */
+export const MAX_JSON_BODY_BYTES = 512 * 1024;
+
+/**
+ * Read + size-cap + parse + validate a JSON request body in one step.
+ * The size cap runs before parsing, which closes the memory-exhaustion path
+ * (oversized bodies reaching zod validation) regardless of client-supplied
+ * chunking. Returns 413 for oversized bodies, 400 for malformed JSON or
+ * schema violations.
+ */
+export async function readJson<S extends ZodTypeAny>(
+  req: NextRequest,
+  schema: S,
+  maxBytes: number = MAX_JSON_BODY_BYTES
+): Promise<ParseResult<z.output<S>>> {
+  const declared = Number(req.headers.get("content-length") ?? "");
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    return { ok: false, status: 413, message: "Request body too large." };
+  }
+  let text: string;
+  try {
+    text = await req.text();
+  } catch {
+    return { ok: false, status: 400, message: "Invalid request body." };
+  }
+  if (Buffer.byteLength(text, "utf8") > maxBytes) {
+    return { ok: false, status: 413, message: "Request body too large." };
+  }
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    return { ok: false, status: 400, message: "Invalid JSON body." };
+  }
+  return parseJson(schema, raw);
+}
+
 /** Retry wrapper for transient failures with a labeled number of attempts. */
 export async function withRetry<T>(fn: () => Promise<T>, attempts = 2): Promise<T> {
   let lastError: unknown;

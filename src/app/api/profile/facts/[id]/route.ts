@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { apiError, assertSameOrigin, guardRate, json, parseJson, requireWorkspace } from "@/lib/api-utils";
+import { apiError, assertSameOrigin, guardRate, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { requireRole } from "@/lib/permissions";
 import { z } from "zod";
 import { NextRequest } from "next/server";
@@ -24,7 +24,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const fact = await prisma.profileFact.findFirst({ where: { id, workspaceId: ctx.workspace.id } });
   if (!fact) return apiError("Not found", 404);
 
-  const parsed = await parseJson(patchSchema, await req.json());
+  const parsed = await readJson(req, patchSchema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
   const data = parsed.data;
 

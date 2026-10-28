@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { apiError, assertSameOrigin, json, parseJson, requireWorkspace } from "@/lib/api-utils";
+import { apiError, assertSameOrigin, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { randomSlug } from "@/lib/crypto";
 import { generateDraftPlan } from "@/lib/ai/generate";
 import { NextRequest } from "next/server";
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
 
-  const parsed = await parseJson(stepSchema, await req.json());
+  const parsed = await readJson(req, stepSchema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
 
   const { step, data } = parsed.data;

@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/auth/password";
 import { createSession, sessionCookieOptions, SESSION_COOKIE } from "@/lib/auth/session";
 import { recordActivity, recordMetricEvent } from "@/lib/activity";
-import { apiError, assertSameOrigin, guardRate, parseJson } from "@/lib/api-utils";
+import { apiError, assertSameOrigin, guardRate, readJson } from "@/lib/api-utils";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { cookies } from "next/headers";
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
   const limited = guardRate(req, "signup", 10, 60_000);
   if (limited) return limited;
 
-  const parsed = parseJson(schema, await req.json().catch(() => ({})));
+  const parsed = await readJson(req, schema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
 
   const email = parsed.data.email.toLowerCase();

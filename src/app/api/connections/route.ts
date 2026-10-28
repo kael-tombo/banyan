@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { apiError, assertSameOrigin, json, parseJson, requireWorkspace } from "@/lib/api-utils";
+import { apiError, assertSameOrigin, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { encryptSecret } from "@/lib/crypto";
 import { adapterFor, configFromConnection } from "@/lib/publishing/publish";
 import { recordActivity } from "@/lib/activity";
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
   if (csrf) return csrf;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
-  const parsed = await parseJson(createSchema, await req.json());
+  const parsed = await readJson(req, createSchema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
 
   const exists = await prisma.channelConnection.findFirst({ where: { workspaceId: ctx.workspace.id, channel: parsed.data.channel, adapter: parsed.data.adapter } });

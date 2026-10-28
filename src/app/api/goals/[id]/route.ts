@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { apiError, assertSameOrigin, json, parseJson, requireWorkspace } from "@/lib/api-utils";
+import { apiError, assertSameOrigin, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { recordActivity } from "@/lib/activity";
 import { requireRole } from "@/lib/permissions";
 import { canTransitionGoal } from "@/lib/state-machines";
@@ -40,7 +40,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const goal = await loadGoal(id, ctx.workspace.id);
   if (!goal) return apiError("Not found", 404);
 
-  const parsed = await parseJson(patchSchema, await req.json());
+  const parsed = await readJson(req, patchSchema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
   const data = parsed.data;
 

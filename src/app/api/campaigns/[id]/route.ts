@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { apiError, assertSameOrigin, json, parseJson, requireWorkspace } from "@/lib/api-utils";
+import { apiError, assertSameOrigin, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { recordActivity } from "@/lib/activity";
 import { canTransitionCampaign } from "@/lib/state-machines";
 import { NextRequest } from "next/server";
@@ -42,7 +42,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const campaign = await loadCampaign(id, ctx.workspace.id);
   if (!campaign) return apiError("Campaign not found.", 404);
 
-  const parsed = await parseJson(patchSchema, await req.json());
+  const parsed = await readJson(req, patchSchema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
 
   if (parsed.data.status && !canTransitionCampaign(campaign.status, parsed.data.status)) {

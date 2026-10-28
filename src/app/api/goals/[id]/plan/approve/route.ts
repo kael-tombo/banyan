@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { apiError, assertSameOrigin, guardRate, json, parseJson, requireWorkspace } from "@/lib/api-utils";
+import { apiError, assertSameOrigin, guardRate, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { recordActivity } from "@/lib/activity";
 import { requireRole } from "@/lib/permissions";
 import { canTransitionGoal, canTransitionTask } from "@/lib/state-machines";
@@ -32,7 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!goal) return apiError("Not found", 404);
   if (!goal.plan) return apiError("No plan has been drafted yet.", 400);
 
-  const parsed = await parseJson(schema, await req.json());
+  const parsed = await readJson(req, schema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
 
   if (parsed.data.decision === "approve") {

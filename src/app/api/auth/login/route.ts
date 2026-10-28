@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth/password";
 import { createSession, sessionCookieOptions, SESSION_COOKIE } from "@/lib/auth/session";
-import { apiError, assertSameOrigin, guardRate, parseJson } from "@/lib/api-utils";
+import { apiError, assertSameOrigin, guardRate, readJson } from "@/lib/api-utils";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   const limited = guardRate(req, "login", 10, 60_000);
   if (limited) return limited;
 
-  const parsed = parseJson(schema, await req.json().catch(() => ({})));
+  const parsed = await readJson(req, schema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
 
   const user = await prisma.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });
