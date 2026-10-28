@@ -6,6 +6,7 @@ export type ActivityType =
   | "approval"
   | "rejection"
   | "publication_attempt"
+  | "publication_retry_scheduled"
   | "publication_success"
   | "publication_failed"
   | "publication_blocked"

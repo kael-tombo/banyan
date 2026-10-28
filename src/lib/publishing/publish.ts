@@ -3,6 +3,7 @@ import { isExportableContent } from "@/lib/state-machines";
 import { decryptSecret } from "@/lib/crypto";
 import { ConnectionConfig, PublishingAdapter } from "@/lib/publishing/types";
 import { postizAdapter } from "@/lib/publishing/postiz";
+import { shouldRetryPublication, nextRetryDelayMs } from "@/lib/publishing/retry";
 import { recordActivity } from "@/lib/activity";
 import { randomSlug } from "@/lib/crypto";
 
@@ -147,13 +148,37 @@ export async function executePublication(publicationId: string): Promise<{ ok: b
   });
 
   if (!result.ok) {
+    const attemptNumber = publication.attempts; // incremented before the adapter call
+    const errorMessage = result.error ?? "Provider returned an error.";
+
+    // Bounded retry: transient failures (rate limit, outage, timeout) are
+    // rescheduled with exponential backoff; permanent failures stay terminal.
+    // The retried attempt re-enters executePublication, so approval is
+    // re-verified and the duplicate-publication guard still applies.
+    if (shouldRetryPublication(attemptNumber, result)) {
+      const retryAt = new Date(Date.now() + nextRetryDelayMs(attemptNumber, { retryAfterMs: result.retryAfterMs }));
+      await prisma.publication.update({
+        where: { id: publication.id },
+        data: { status: "scheduled", scheduledFor: retryAt, lastError: errorMessage },
+      });
+      await prisma.contentItem.update({ where: { id: item.id }, data: { status: "scheduled", scheduledFor: retryAt } });
+      await recordActivity({
+        workspaceId: item.workspaceId,
+        type: "publication_retry_scheduled",
+        actorType: "system",
+        summary: `Attempt ${attemptNumber} failed transiently ("${errorMessage.slice(0, 140)}"); retry #${attemptNumber + 1} in ~${Math.round((retryAt.getTime() - Date.now()) / 60_000)} min.`,
+        meta: { contentItemId: item.id, publicationId: publication.id, attemptNumber },
+      });
+      return { ok: false, status: "retry_scheduled", message: `Transient failure — attempt ${attemptNumber + 1} scheduled for ${retryAt.toISOString()}.` };
+    }
+
     await prisma.publication.update({
       where: { id: publication.id },
-      data: { status: "failed", lastError: result.error ?? "Provider returned an error.", providerResponse: JSON.stringify(result.raw).slice(0, 4000) },
+      data: { status: "failed", lastError: errorMessage, providerResponse: JSON.stringify(result.raw).slice(0, 4000) },
     });
     await prisma.contentItem.update({ where: { id: item.id }, data: { status: "failed" } });
-    await recordActivity({ workspaceId: item.workspaceId, type: "publication_failed", actorType: "system", summary: `Publishing failed for "${item.title}": ${result.error ?? "unknown error"}`, meta: { contentItemId: item.id } });
-    return { ok: false, status: "failed", message: result.error ?? "Provider returned an error." };
+    await recordActivity({ workspaceId: item.workspaceId, type: "publication_failed", actorType: "system", summary: `Publishing failed for "${item.title}" after ${attemptNumber} attempt(s): ${errorMessage}`, meta: { contentItemId: item.id } });
+    return { ok: false, status: "failed", message: errorMessage };
   }
 
   // Provider confirmed. Only now does content become published.

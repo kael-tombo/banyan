@@ -25,6 +25,11 @@ export type PublishResult = {
   externalUrl?: string;
   raw: unknown; // always stored for the audit trail
   error?: string;
+  // Transient-failure classification (worker retry policy). Adapters set it
+  // for timeouts, rate limits and provider outages; absent means permanent.
+  retryable?: boolean;
+  // Provider-declared cool-down (e.g. HTTP Retry-After), in milliseconds.
+  retryAfterMs?: number;
 };
 
 export interface PublishingAdapter {

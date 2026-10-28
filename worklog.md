@@ -73,3 +73,39 @@ association for form fields, and a confirmation before deleting an insight.
 | `npm run build` | Pass — 48 routes |
 | `npm run setup` | Pass — migration + seed |
 | Runtime smoke | Public routes 200; protected → redirect to login; tracked link records a click; all authenticated pages 200; styled output confirmed in the browser |
+
+---
+
+## 2026-10-28 — Bounded retry policy for publications
+
+### feat: retry transient publication failures with backoff (commit pending)
+
+Before this change, any provider hiccup permanently failed the publication and
+the content — a 30-second Postiz outage or one 429 killed a scheduled post for
+good, with the user left to notice and restart it by hand.
+
+- **`src/lib/publishing/retry.ts` (new)** — pure retry policy: transient vs
+  permanent classification, `MAX_PUBLISH_ATTEMPTS = 4`, exponential backoff from
+  one minute capped at thirty, deterministic 15% jitter, explicit provider
+  `Retry-After` honored but also capped. Unknown errors are permanent by
+  default — a retry must be a conscious policy decision, not a default.
+- **Postiz adapter** now classifies HTTP statuses (408/429/5xx transient; other
+  4xx permanent), parses `Retry-After`, and marks its own network/timeout
+  failures transient. `PublishResult` gained `retryable` / `retryAfterMs`.
+- **`executePublication`** on a transient failure reschedules the publication
+  and rolls the content back to `scheduled` (a state-machine extension:
+  `publishing → scheduled`), so the worker re-attempts it through the *same*
+  guarded path — approval is re-verified and the duplicate-publication check
+  still applies. Retries keep the existing publication row (same
+  `idempotencyKey`), never create a second one.
+- **Terminal after four attempts**: `publication_failed` with the full attempt
+  count in the audit summary.
+- **12 new tests** (44 total): classification of transient classes, the
+  attempt cap, exponential growth, the cap, `Retry-After` handling, and jitter
+  bounds.
+
+Known limitation recorded honestly: a retry after a partial provider success
+(e.g. the post landed but the response was lost) could duplicate a post, because
+Postiz's public API offers no verified idempotency token. The bounded attempt
+cap keeps the blast radius small; a dedup-by-`group` probe against a live
+account remains the real fix.

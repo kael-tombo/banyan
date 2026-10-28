@@ -37,7 +37,7 @@ export const CONTENT_TRANSITIONS: Record<ContentStatus, ContentStatus[]> = {
   ready_for_review: ["approved", "rejected", "draft", "archived"],
   approved: ["scheduled", "draft", "archived"],
   scheduled: ["publishing", "approved", "failed", "archived"],
-  publishing: ["published", "failed"],
+  publishing: ["published", "failed", "scheduled"], // scheduled: transient failure rolled back for bounded worker retry
   failed: ["draft", "scheduled", "publishing", "archived"],
   published: ["archived"],
   rejected: ["draft", "archived"],

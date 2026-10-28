@@ -69,15 +69,18 @@ export class PostizAdapter implements PublishingAdapter {
       const res = await this.request(cfg, "/public/v1/posts", "POST", payload);
       const raw = res.json ?? res.body;
       if (res.status < 200 || res.status >= 300) {
-        return { ok: false, raw, error: `Postiz responded ${res.status}: ${res.body.slice(0, 300)}` };
+        const outcome = classifyHttpStatus(res.status, res.retryAfterMs);
+        return { ok: false, raw, error: `Postiz responded ${res.status}: ${res.body.slice(0, 300)}`, ...outcome };
       }
       // Response shape: nested map of ids from the Postiz API; parse best-effort,
       // always storing the raw response for audit.
       const parsed = res.json as unknown;
       const externalId = findFirstId(parsed);
-      return { ok: true, externalId, raw: parsed };
+      return { ok: true, externalId, raw: parsed, retryable: false };
     } catch (err) {
-      return { ok: false, raw: { error: (err as Error).message }, error: (err as Error).message };
+      const message = (err as Error).message;
+      // Network errors and our own timeout are transient by definition.
+      return { ok: false, raw: { error: message }, error: message, retryable: true };
     }
   }
 
@@ -101,7 +104,7 @@ export class PostizAdapter implements PublishingAdapter {
     path: string,
     method: "GET" | "POST",
     body?: unknown
-  ): Promise<{ status: number; json: unknown; body: string }> {
+  ): Promise<{ status: number; json: unknown; body: string; retryAfterMs?: number }> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 30_000);
     try {
@@ -122,7 +125,8 @@ export class PostizAdapter implements PublishingAdapter {
       } catch {
         /* keep text */
       }
-      return { status: res.status, json, body: text };
+      const retryAfterMs = retryAfterHeaderMs(res.headers.get("retry-after"));
+      return { status: res.status, json, body: text, retryAfterMs };
     } catch (err) {
       if (err instanceof Error && err.name === "AbortError") throw new AIError("Postiz request timed out.");
       throw err;
@@ -130,6 +134,34 @@ export class PostizAdapter implements PublishingAdapter {
       clearTimeout(timer);
     }
   }
+}
+
+/**
+ * HTTP status → PublishResult failure extras.
+ * Transient: 408, 429 and all 5xx — safe to retry the request.
+ * Permanent: any other 4xx (bad payload, auth failure, unsupported) — retrying
+ * cannot fix it and risks duplicates.
+ */
+function classifyHttpStatus(
+  status: number,
+  retryAfterMs?: number
+): { retryable?: boolean; retryAfterMs?: number } {
+  if (status === 408 || status === 429 || status >= 500) {
+    const out: { retryable?: boolean; retryAfterMs?: number } = { retryable: true };
+    if (retryAfterMs) out.retryAfterMs = retryAfterMs;
+    return out;
+  }
+  return { retryable: false };
+}
+
+/** Parse a Retry-After header (seconds or HTTP-date); seconds only for dates fallback. */
+function retryAfterHeaderMs(value: string | null): number | undefined {
+  if (!value) return undefined;
+  const seconds = Number(value);
+  if (Number.isFinite(seconds) && seconds >= 0) return Math.round(seconds * 1000);
+  const asDate = Date.parse(value);
+  if (Number.isFinite(asDate)) return Math.max(0, asDate - Date.now());
+  return undefined;
 }
 
 function findFirstId(parsed: unknown): string | undefined {
