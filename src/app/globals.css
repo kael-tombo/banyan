@@ -452,6 +452,57 @@ section[id] {
 .lt-root, .lt-spine { transition: stroke-dashoffset 0.5s ease; }
 .lt-branch.is-active { stroke: var(--color-forest); stroke-width: 5.6; }
 
+/* Approval gates — work leaves the trunk only through them. Invisible while
+   the objective stands alone (phase 0), dashed while the plan exists (1–2),
+   solid fig-gold from execution on (3–4). Opening pulses once. */
+.lt-gate {
+  opacity: 0;
+  fill: var(--color-paper);
+  stroke: var(--color-bark);
+  stroke-width: 1.4;
+  stroke-dasharray: 2.5 2;
+  transition: opacity 0.55s var(--lt-ease), fill 0.3s ease, stroke 0.3s ease;
+}
+.lt[data-phase="1"] .lt-gate,
+.lt[data-phase="2"] .lt-gate { opacity: 0.85; }
+.lt[data-phase="3"] .lt-gate,
+.lt[data-phase="4"] .lt-gate {
+  opacity: 1;
+  fill: var(--color-fig);
+  stroke: var(--color-fig);
+  stroke-dasharray: none;
+  animation: lt-gate-open 0.7s var(--lt-ease);
+}
+@keyframes lt-gate-open {
+  0% { stroke-width: 1.4; }
+  50% { stroke-width: 2.8; }
+  100% { stroke-width: 1.4; }
+}
+
+/* Growth rings — one shallow fig arc per completed loop. They mount when the
+   cycle counter increments and never fade on loop restart: learning is kept. */
+.lt-ring {
+  opacity: 0.55;
+  animation: lt-ring-in 0.9s var(--lt-ease) both;
+}
+@keyframes lt-ring-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 0.55; transform: translateY(0); }
+}
+
+/* New ground — where the measured-results return line touches down, a small
+   fig root plants itself. Arrives after the return line finishes drawing. */
+.lt-newground {
+  opacity: 0;
+  transform: translateY(5px);
+  transition: opacity 0.7s var(--lt-ease), transform 0.7s var(--lt-ease);
+}
+.lt[data-phase="4"] .lt-newground {
+  opacity: 1;
+  transform: none;
+  transition-delay: 1.3s;
+}
+
 /* Reduced motion: the finished tree, fully static and fully legible. */
 @media (prefers-reduced-motion: reduce) {
   .lt-trunk, .lt-halo, .lt-seedpulse, .lt-agent { animation: none; }
@@ -468,6 +519,16 @@ section[id] {
     transform: none;
     transition: none;
   }
+  .lt[data-phase] .lt-gate {
+    opacity: 1;
+    fill: var(--color-fig);
+    stroke: var(--color-fig);
+    stroke-dasharray: none;
+    animation: none;
+    transition: none;
+  }
+  .lt-ring { animation: none; opacity: 0.55; }
+  .lt-newground { opacity: 1; transform: none; transition: none; }
 }
 
 /*

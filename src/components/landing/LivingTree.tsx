@@ -23,6 +23,17 @@ import { BRANCHES } from "@/components/landing/branches";
  *   - never starts under prefers-reduced-motion (renders the finished tree),
  *   - yields to manual selection from the phase rail.
  *
+ * The tree also carries the philosophy, not just the mechanics:
+ *   - APPROVAL GATES sit where each aerial root leaves the trunk. They appear
+ *     dashed while the plan is being made (phase 1) and turn solid fig-gold
+ *     only in the execution phase — nothing drops toward a platform until it
+ *     has passed the gate. Planning is not executing; the tree says so.
+ *   - GROWTH RINGS accumulate in the trunk, one per completed loop, and are
+ *     the only thing that never fades at cycle restart — learning compounds.
+ *     The first cycle honestly has none.
+ *   - A NEW-GROUND ROOT appears where measured results touch down, because a
+ *     banyan puts down new roots where its branches reach the ground.
+ *
  * Branch exploration: each workstream tip is focusable/activatable in the SVG
  * AND mirrored as real HTML buttons below it — keyboard and touch never rely
  * on hover. The detail panel states the problem, the coordinated work, the
@@ -31,11 +42,11 @@ import { BRANCHES } from "@/components/landing/branches";
  */
 
 const PHASES = [
-  { key: "objective", label: "Objective", caption: "A single business objective takes root — everything grows from it." },
+  { key: "objective", label: "Objective", caption: "A single objective takes root in your context — everything grows from it." },
   { key: "plan", label: "Plan", caption: "The trunk turns the objective into a coordinated plan with owners and gates." },
   { key: "orchestration", label: "Orchestration", caption: "Branches carry the plan to specialized workstreams." },
-  { key: "execution", label: "Execution", caption: "Approved work reaches your connected platforms — nothing publishes without you." },
-  { key: "deliverables", label: "Deliverables", caption: "Deliverables land, and measured results flow back into the next objective." },
+  { key: "execution", label: "Execution", caption: "Only approved work passes the gate and reaches your connected platforms." },
+  { key: "deliverables", label: "Deliverables", caption: "Deliverables land, measured results flow back — and the trunk keeps a growth ring of what was learned." },
 ] as const;
 
 /** Phase hold times (ms) before auto-advancing. */
@@ -68,6 +79,23 @@ const ROOT_PATHS = [
 ];
 const ROOT_LENS = [160, 160];
 
+/* Approval gates sit at the origin of each aerial root — where work leaves the
+   trunk. Dashed while planned, solid fig once the execution phase opens. */
+const GATES = [
+  { x: 366, y: 332 },
+  { x: 394, y: 332 },
+] as const;
+
+/* Growth rings: one shallow arc per completed loop, stacked up the tapering
+   trunk. The only element that survives the loop restart. */
+const MAX_RINGS = 4;
+const RING_PATHS = [
+  "M360 454 Q380 462 400 454",
+  "M364 444 Q380 451 396 444",
+  "M368 434 Q380 440 392 434",
+  "M370 425 Q380 430 390 425",
+] as const;
+
 const PLATFORM_NODES = [
   { x: 280, w: 118, label: "X — Postiz", solid: true },
   { x: 480, w: 158, label: "LinkedIn — Postiz", solid: true },
@@ -97,18 +125,22 @@ export function LivingTree() {
   const [inView, setInView] = useState(true);
   const [pageVisible, setPageVisible] = useState(true);
   const [active, setActive] = useState(0);
+  const [loops, setLoops] = useState(0);
 
-  /* Motion-disabled users (or missing observers) get the finished tree, static. */
+  /* Motion-disabled users (or missing observers) get the finished tree, static —
+     with two growth rings already kept, as a tree that has lived would have. */
   useEffect(() => {
     try {
       const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
       if (reduce || typeof IntersectionObserver === "undefined") {
         setPhase(PHASES.length - 1);
         setPlaying(false);
+        setLoops(2);
       }
     } catch {
       setPhase(PHASES.length - 1);
       setPlaying(false);
+      setLoops(2);
     }
   }, []);
 
@@ -130,14 +162,18 @@ export function LivingTree() {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, []);
 
-  /* The phase timer: one timeout per phase, gated on play state + visibility. */
+  /* The phase timer: one timeout per phase, gated on play state + visibility.
+     Wrapping past the last phase completes a loop — the trunk keeps a ring. */
   useEffect(() => {
     if (!playing || !inView || !pageVisible) return;
     if (typeof window === "undefined") return;
     try {
       if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
     } catch { /* treat as motion-allowed */ }
-    const t = window.setTimeout(() => setPhase((p) => (p + 1) % PHASES.length), PHASE_MS[phase]);
+    const t = window.setTimeout(() => {
+      if (phase === PHASES.length - 1) setLoops((n) => n + 1);
+      setPhase((phase + 1) % PHASES.length);
+    }, PHASE_MS[phase]);
     return () => window.clearTimeout(t);
   }, [phase, playing, inView, pageVisible]);
 
@@ -164,7 +200,7 @@ export function LivingTree() {
             viewBox="0 0 760 600"
             fill="none"
             role="img"
-            aria-label="Interactive banyan tree: a business objective takes root, the trunk plans, branches reach five workstreams, aerial roots reach connected platforms, and deliverables bloom while measured results flow back."
+            aria-label="Interactive banyan tree: a business objective takes root, the trunk plans, branches reach five workstreams, aerial roots pass an approval gate before reaching connected platforms, and deliverables bloom while measured results flow back — each completed cycle leaves a growth ring of learning in the trunk."
             className="h-auto w-full"
           >
             <defs>
@@ -207,6 +243,21 @@ export function LivingTree() {
                 fill="url(#lt-trunk-grad)"
               />
             </g>
+
+            {/* Growth rings — one per completed loop, never fading. The first
+                cycle honestly has none: nothing has been learned yet. */}
+            {RING_PATHS.slice(0, Math.min(loops, MAX_RINGS)).map((d, i) => (
+              <path
+                key={`ring-${i}`}
+                className="lt-ring"
+                style={{ animationDelay: `${0.5 + i * 0.2}s` }}
+                d={d}
+                stroke="var(--color-fig)"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                aria-hidden="true"
+              />
+            ))}
 
             {/* PHASE 1 — planning: energy climbs the trunk; plan nodes appear. */}
             <g className="lt-plan" aria-hidden="true">
@@ -298,6 +349,21 @@ export function LivingTree() {
             <circle className="lt-agent lt-agent-root" r="3" fill="var(--color-moss)" aria-hidden="true"
               style={{ "--lt-path": `path("${ROOT_PATHS[1]}")`, "--lt-dur": "2.4s" } as React.CSSProperties} />
 
+            {/* Approval gates — work leaves the trunk only through them. Dashed
+                while the plan exists, solid fig once execution is approved. */}
+            <g className="lt-gates" aria-hidden="true">
+              {GATES.map((g) => (
+                <circle key={g.x} className="lt-gate" cx={g.x} cy={g.y} r="4.5" />
+              ))}
+            </g>
+
+            {/* New ground — where measured results touch down, a banyan puts
+                down its next root. Appears only once the return line lands. */}
+            <g className="lt-newground" aria-hidden="true">
+              <line x1="436" y1="462" x2="436" y2="473" stroke="var(--color-fig)" strokeOpacity="0.65" strokeWidth="1.6" strokeLinecap="round" />
+              <ellipse cx="436" cy="474" rx="4.5" ry="1.8" fill="var(--color-fig)" fillOpacity="0.55" />
+            </g>
+
             {/* PHASE 4 — deliverables bloom; measured results flow back. */}
             <g className="lt-deliver">
               {DELIVERABLES.map((d, i) => (
@@ -337,16 +403,26 @@ export function LivingTree() {
             <span className="inline-flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full border border-dashed border-bark/60" aria-hidden="true" /> Prepared as a copy-ready handoff — never faked
             </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full border border-fig" aria-hidden="true" /> One growth ring per cycle — learning is kept
+            </span>
           </p>
         </div>
 
         {/* ————— Phase rail + branch explorer ————— */}
         <div className="min-w-0">
-          {/* Phase rail: OBJECTIVE → PLAN → COORDINATED EXECUTION → DELIVERABLES → MEASUREMENT */}
+          {/* Phase rail: the living loop — objective → plan → orchestration →
+              execution → deliverables → (ring) → back to objective. */}
           <div className="rounded-2xl border border-bark/12 bg-mist/80 p-4">
             <div className="flex items-center justify-between gap-3">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-charcoal-soft">
-                Objective → Plan → Execution → Deliverables
+              <span className="flex min-w-0 items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-charcoal-soft">
+                The living loop
+                <span
+                  className="rounded-full bg-forest/8 px-2 py-0.5 text-[10px] font-semibold normal-case tracking-normal text-forest-deep"
+                  aria-hidden="true"
+                >
+                  Cycle {loops + 1}
+                </span>
               </span>
               <button
                 type="button"
