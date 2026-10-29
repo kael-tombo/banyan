@@ -9,6 +9,41 @@ follow [Keep a Changelog](https://keepachangelog.com); commit hashes refer to
 ## [Unreleased]
 
 ### Added
+- **God-mode landing page redesign: "One goal. A whole business in motion."**
+  (2026-10-29) — the outcome-driven landing experience, implemented against
+  the product's real capability inventory:
+  - **LivingTree** (`src/components/landing/LivingTree.tsx`) — the signature
+    interactive banyan: a five-phase looping animation
+    (Objective → Plan → Orchestration → Execution → Deliverables) driven
+    entirely by a `data-phase` attribute + CSS in `globals.css` (no JS
+    animation loop). The phase timer pauses off-viewport (IntersectionObserver)
+    and on hidden tabs, never starts under `prefers-reduced-motion` (the
+    finished tree renders statically), and yields to the manual phase rail.
+    Branch exploration works from SVG labels (focusable, Enter/Space, hover)
+    AND mirrored HTML chips; a detail panel states each workstream's problem,
+    coordinated work, deliverables, connected tools, and what requires
+    approval. Platform nodes state the truth: X + LinkedIn publish through
+    your Postiz connection; short-video scripts and copy handoffs are
+    rendered as dashed "never faked" chips.
+  - **Shared workstream content** (`src/components/landing/branches.ts`) —
+    one source of truth for branch copy, imported by both the client tree and
+    the server-rendered sections so they cannot drift.
+  - **Six-section result-driven structure** (`src/app/page.tsx`): hero with
+    the exact promise copy and dual CTAs (signup + demo anchor); "From goal
+    to execution" (illustrative campaign with actor tags — agents draft /
+    you decide / you approve / system learns — plus the workflow loop);
+    "One intelligence, many branches" (five workstreams + the connected-ground
+    integration inventory stating Postiz / managed model / short-form video /
+    Fastlane / SocialFlow.ai exactly as the capability registry reports them);
+    "Work that gets done" (real record shapes with the app's actual status
+    vocabulary); "Built for trusted autonomy" (six implemented controls +
+    the planning-vs-execution explainer); final conversion with the exact
+    milestone headline and the URL-into-onboarding accelerator.
+  - SiteNav re-anchored (How it works / Branches / Outputs / Trust & control,
+    CTA "Start building"); metadata retitled to the central promise; legacy
+    `BanyanTree` component and its dead CSS grammar removed.
+
+### Added
 - **Vision pass: the "Distribution OS" workspace mockups applied to the live
   app** (six reference screens, 2026-10-29) — the missing surfaces, built
   strictly from recorded data (no invented scores, no simulated agent runs):

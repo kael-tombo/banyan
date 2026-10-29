@@ -105,26 +105,6 @@ body {
     var(--color-forest-deep);
 }
 
-/* Hero light: white paper with sun coming through the canopy — one drifting
-   radial of leaf-light and one faint ground-glow. Quiet by design. */
-.hero-light {
-  background:
-    radial-gradient(ellipse 55% 45% at 82% -12%, rgba(67, 118, 95, 0.10), transparent 62%),
-    radial-gradient(ellipse 40% 34% at 4% 108%, rgba(205, 219, 208, 0.55), transparent 65%),
-    var(--color-paper);
-}
-@keyframes hero-light-drift {
-  from { background-position: 82% -12%, 4% 108%, 0 0; }
-  50% { background-position: 76% -14%, 9% 105%, 0 0; }
-  to { background-position: 82% -12%, 4% 108%, 0 0; }
-}
-.hero-light-drift {
-  background-size: 130% 130%, 120% 120%, auto;
-  animation: hero-light-drift 26s ease-in-out infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .hero-light-drift { animation: none; background-size: auto; }
-}
 
 /* Soft green-tinted elevation for white cards on white paper. */
 .card-shadow {
@@ -234,118 +214,6 @@ section[id] {
   .flow-arrow { transition: none; animation: none; opacity: 1; }
 }
 
-/*
- * The banyan tree — the hero's one orchestrated visual.
- *
- * Growth order mirrors the real tree and the product: the trunk first (the
- * workspace), then branches (the workflow), then the canopy (shelter for the
- * team), then aerial roots descending to become prop trunks (channels that
- * become load-bearing). Each stage is a CSS class driven by two custom
- * properties: the path length to draw and the delay at which to start.
- */
-
-/* Stroke paths: dash-length is supplied per element so the draw speed is
-   constant regardless of path length. */
-.tree-draw {
-  stroke-dasharray: var(--draw-len, 300);
-  stroke-dashoffset: var(--draw-len, 300);
-  animation: tree-draw 1s cubic-bezier(0.4, 0, 0.2, 1) both;
-  animation-delay: var(--draw-delay, 0s);
-}
-@keyframes tree-draw {
-  to { stroke-dashoffset: 0; }
-}
-
-/* Canopy blobs and fruit: bloom from the branch point outward. */
-.tree-bloom {
-  opacity: 0;
-  transform-box: fill-box;
-  transform-origin: center;
-  transform: scale(0.4);
-  animation: tree-bloom 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
-  animation-delay: var(--bloom-delay, 0s);
-}
-@keyframes tree-bloom {
-  60% { opacity: 1; transform: scale(1.06); }
-  100% { opacity: var(--bloom-opacity, 1); transform: scale(1); }
-}
-
-/* Soft fades (ground, shadow, texture). */
-.tree-fade {
-  opacity: 0;
-  animation: tree-fade 0.8s ease both;
-  animation-delay: var(--fade-delay, 0s);
-}
-@keyframes tree-fade {
-  to { opacity: var(--fade-opacity, 1); }
-}
-
-/* Aerial roots thicken after touching ground: the moment a root becomes a
-   trunk. A heavier stroke fades in over the lower half of the root path. */
-.tree-thicken {
-  opacity: 0;
-  animation: tree-fade 0.7s ease both;
-  animation-delay: var(--fade-delay, 0s);
-}
-
-/* Channel chips at the prop-root tips land with a small spring. */
-.tree-chip {
-  opacity: 0;
-  transform-box: fill-box;
-  transform-origin: center;
-  transform: translateY(6px) scale(0.85);
-  animation: tree-chip 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  animation-delay: var(--pop-delay, 0s);
-}
-@keyframes tree-chip {
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-/* Idle life: the whole canopy breathes on a slow 9s cycle. */
-@keyframes tree-sway {
-  0%, 100% { transform: rotate(-0.35deg); }
-  50% { transform: rotate(0.35deg); }
-}
-.tree-sway {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  animation: tree-sway 9s ease-in-out 3.2s infinite;
-}
-
-/* A slow rise-and-fall for the whole crown (paired with sway, feels alive). */
-@keyframes tree-breathe {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
-}
-.tree-breathe {
-  animation: tree-breathe 11s ease-in-out 3.2s infinite;
-}
-
-/* Leaf particles: two leaves travel downward through the light, forever. */
-@keyframes leaf-drift {
-  0% { opacity: 0; transform: translate(0, -12px) rotate(0deg); }
-  12% { opacity: var(--leaf-opacity, 0.7); }
-  85% { opacity: var(--leaf-opacity, 0.7); }
-  100% { opacity: 0; transform: translate(var(--leaf-x, 18px), var(--leaf-y, 120px)) rotate(var(--leaf-r, 140deg)); }
-}
-.leaf-drift {
-  animation: leaf-drift var(--leaf-dur, 9s) linear var(--leaf-delay, 0s) infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .leaf-drift { animation: none; opacity: 0; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
-  .fade-up, .fade-up-2, .fade-up-3 { animation: none; }
-  .card-lift:hover { transform: none; }
-  .tree-draw { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; }
-  .tree-bloom { animation: none; opacity: var(--bloom-opacity, 1); transform: none; }
-  .tree-fade { animation: none; opacity: var(--fade-opacity, 1); }
-  .tree-thicken { animation: none; opacity: 1; }
-  .tree-chip { animation: none; opacity: 1; transform: none; }
-  .tree-sway, .tree-breathe { animation: none; }
-}
 
 @media (prefers-reduced-motion: reduce) {
   .flow-line, .flow-arrow, .reveal { will-change: auto; }
@@ -356,9 +224,9 @@ section[id] {
  * Modern layer — the 2025 refresh of the landing language.
  *
  * Same palette, new grammar: soft radial glows instead of flat paper, a
- * dot-grid stage for the hero visual, glass panels floating around the tree,
- * a channel marquee, and a geometric banyan whose agent dots travel real
- * branch paths. Everything below is landing-only and reduced-motion safe.
+ * dot-grid stage for the hero visual, glass panels, a channel marquee, and
+ * the LivingTree phase grammar further below. Everything here is
+ * landing-only and reduced-motion safe.
  * ————————————————————————————————————————————————————————————————
  */
 
@@ -420,69 +288,184 @@ section[id] {
   mask-image: linear-gradient(to right, transparent, black 12%, black 88%, transparent);
 }
 
-/*
- * The geometric banyan — new hero visual.
- * Growth order is unchanged (trunk → branches → canopy → aerial roots →
- * channel nodes); the rendering is crisper: filled tapered trunk, layered
- * organic canopy discs with crisp edges, and agent dots that travel real
- * branch and root paths (CSS motion-path, hidden under reduced motion).
- */
-
-/* The filled trunk rises from the ground: scale from its base. */
-.tree-trunk {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  transform: scaleY(0.04);
-  animation: tree-trunk 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
-  animation-delay: var(--trunk-delay, 0.15s);
-}
-@keyframes tree-trunk {
-  to { transform: scaleY(1); }
-}
-
-/* Agent dots: travel along branch/root paths, then rest before looping. */
-.tree-agent {
-  offset-path: var(--agent-path);
-  offset-rotate: 0deg;
-  opacity: 0;
-  animation: tree-agent var(--agent-dur, 7s) ease-in-out var(--agent-delay, 3s) infinite;
-}
-@keyframes tree-agent {
-  0% { offset-distance: 0%; opacity: 0; }
-  6% { opacity: var(--agent-opacity, 0.9); }
-  88% { opacity: var(--agent-opacity, 0.9); }
-  100% { offset-distance: 100%; opacity: 0; }
-}
-
-/* A soft halo that pulses behind the canopy — the tree is alive. */
-.tree-halo {
-  animation: tree-halo 7s ease-in-out 3.4s infinite;
-  transform-box: fill-box;
-  transform-origin: center;
-}
-@keyframes tree-halo {
-  0%, 100% { opacity: 0.5; transform: scale(1); }
-  50% { opacity: 0.85; transform: scale(1.045); }
-}
-
-/* Channel nodes at the root tips: rise from the ground line. */
-.tree-node {
-  opacity: 0;
-  transform-box: fill-box;
-  transform-origin: center bottom;
-  transform: translateY(10px);
-  animation: tree-node 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  animation-delay: var(--node-delay, 2.6s);
-}
-@keyframes tree-node {
-  to { opacity: 1; transform: translateY(0); }
-}
 
 @media (prefers-reduced-motion: reduce) {
   .hero-glow-drift, .float-bob, .float-bob-slow, .float-bob-fast { animation: none; }
   .marquee { animation: none; flex-wrap: wrap; width: auto; justify-content: center; }
-  .tree-trunk { animation: none; transform: none; }
-  .tree-agent { animation: none; opacity: 0; }
-  .tree-halo { animation: none; opacity: 0.55; }
-  .tree-node { animation: none; opacity: 1; transform: none; }
+}
+
+/*
+ * ————————————————————————————————————————————————————————————————
+ * LivingTree — the signature interactive banyan (landing hero).
+ *
+ * All motion is phase-driven: the wrapper carries data-phase="0..4"
+ * (objective → plan → orchestration → execution → deliverables) and CSS
+ * reveals each layer when its phase arrives. Reveals are cumulative within
+ * a cycle; looping back to 0 fades the grown layers for the next objective.
+ * The JS side only advances the phase number and pauses when off-screen,
+ * hidden, reduced-motion, or manually overridden by the phase rail.
+ * ————————————————————————————————————————————————————————————————
+ */
+
+.lt { --lt-ease: cubic-bezier(0.22, 1, 0.36, 1); }
+
+/* Trunk: rises once on mount, then stands. */
+.lt-trunk {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: lt-trunk 0.9s var(--lt-ease) both;
+}
+@keyframes lt-trunk {
+  from { transform: scaleY(0.05); }
+  to { transform: scaleY(1); }
+}
+
+/* Soft life behind the crown. */
+.lt-halo {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: lt-halo 7s ease-in-out 2s infinite;
+}
+@keyframes lt-halo {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 0.95; transform: scale(1.035); }
+}
+
+/* Phase 0 — the seed's intention pulse. */
+.lt-seedpulse {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.lt[data-phase="0"] .lt-seedpulse { animation: lt-seedpulse 2.2s ease-out infinite; }
+@keyframes lt-seedpulse {
+  0% { opacity: 0.8; transform: scale(0.5); }
+  70% { opacity: 0; transform: scale(2.6); }
+  100% { opacity: 0; transform: scale(2.6); }
+}
+
+/* Phase-gated reveal grammar: hidden by default, visible once its phase
+   arrives (cumulative: 1 ≤ plan phases, 2 ≤ branch phases, 3 ≤ execution
+   phases, 4 = deliverables). */
+.lt-plan, .lt-plannode, .lt-label, .lt-cluster, .lt-pnode, .lt-card,
+.lt-connector, .lt-return, .lt-returnlabel, .lt-objective {
+  transition: opacity 0.55s var(--lt-ease), transform 0.55s var(--lt-ease);
+}
+
+.lt-plannode, .lt-pnode, .lt-label, .lt-cluster, .lt-card, .lt-connector,
+.lt-return, .lt-returnlabel {
+  opacity: 0;
+}
+.lt-cluster { transform-box: fill-box; transform-origin: center; transform: scale(0.45); }
+.lt-card { transform: translateY(-8px); }
+.lt-label { transform: translateY(6px); }
+
+/* Stroke draws (branches, roots, planning spine): dash hidden until drawn. */
+.lt-branch, .lt-root, .lt-spine {
+  stroke-dasharray: var(--lt-len, 300);
+  stroke-dashoffset: var(--lt-len, 300);
+}
+.lt-spine { opacity: 0; transition: opacity 0.3s ease; }
+
+/* Phase 1 — planning. */
+.lt[data-phase="1"] .lt-plan, .lt[data-phase="2"] .lt-plan,
+.lt[data-phase="3"] .lt-plan, .lt[data-phase="4"] .lt-plan {
+  opacity: 1;
+}
+.lt[data-phase="1"] .lt-spine, .lt[data-phase="2"] .lt-spine,
+.lt[data-phase="3"] .lt-spine, .lt[data-phase="4"] .lt-spine {
+  opacity: 1;
+  animation: lt-draw 1.4s var(--lt-ease) both;
+  animation-delay: var(--lt-delay, 0s);
+}
+.lt[data-phase="1"] .lt-plannode, .lt[data-phase="2"] .lt-plannode,
+.lt[data-phase="3"] .lt-plannode, .lt[data-phase="4"] .lt-plannode {
+  opacity: 1;
+}
+
+/* Phase 2 — orchestration: branches draw, clusters bloom, labels land. */
+.lt[data-phase="2"] .lt-branch, .lt[data-phase="3"] .lt-branch,
+.lt[data-phase="4"] .lt-branch {
+  animation: lt-draw 0.9s var(--lt-ease) both;
+  animation-delay: var(--lt-delay, 0s);
+}
+.lt[data-phase="2"] .lt-cluster, .lt[data-phase="3"] .lt-cluster,
+.lt[data-phase="4"] .lt-cluster {
+  opacity: 1;
+  transform: scale(1);
+}
+.lt[data-phase="2"] .lt-label, .lt[data-phase="3"] .lt-label,
+.lt[data-phase="4"] .lt-label {
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 0.55s;
+}
+@keyframes lt-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+/* Phase 3 — execution: roots draw, platform nodes rise. */
+.lt[data-phase="3"] .lt-root, .lt[data-phase="4"] .lt-root {
+  animation: lt-draw 1s var(--lt-ease) both;
+  animation-delay: var(--lt-delay, 0s);
+}
+.lt[data-phase="3"] .lt-pnode, .lt[data-phase="4"] .lt-pnode {
+  opacity: 1;
+  transform: translateY(0);
+}
+.lt-pnode { transform: translateY(8px); }
+
+/* Phase 4 — deliverables and the measurement return line. */
+.lt[data-phase="4"] .lt-deliver .lt-card,
+.lt[data-phase="4"] .lt-deliver .lt-connector,
+.lt[data-phase="4"] .lt-deliver .lt-return,
+.lt[data-phase="4"] .lt-deliver .lt-returnlabel {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Agent dots — restrained signals travelling real paths, phase-gated. */
+.lt-agent {
+  offset-path: var(--lt-path);
+  offset-rotate: 0deg;
+  opacity: 0;
+}
+.lt[data-phase="1"] .lt-agent-trunk { animation: lt-agent var(--lt-dur, 2s) ease-in-out infinite; }
+.lt[data-phase="2"] .lt-agent-branch, .lt[data-phase="3"] .lt-agent-branch { animation: lt-agent var(--lt-dur, 3.4s) ease-in-out infinite; }
+.lt[data-phase="3"] .lt-agent-root, .lt[data-phase="4"] .lt-agent-root { animation: lt-agent var(--lt-dur, 2.4s) ease-in-out infinite; }
+@keyframes lt-agent {
+  0% { offset-distance: 0%; opacity: 0; }
+  10% { opacity: 0.95; }
+  85% { opacity: 0.95; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+
+/* Branch interaction states (selection works from SVG, chips, and keyboard). */
+.lt-label { cursor: pointer; }
+.lt-hit { stroke: transparent; }
+.lt-label:focus-visible .lt-hit { stroke: var(--color-fig); stroke-width: 2; }
+.lt-tipdot { fill: var(--color-sage); transition: fill 0.2s ease; }
+.lt-label.is-active .lt-tipdot { fill: var(--color-fig); }
+.lt-labeltext { fill: var(--color-charcoal-soft); transition: fill 0.2s ease; }
+.lt-label.is-active .lt-labeltext { fill: var(--color-forest-deep); }
+.lt-branch { transition: stroke 0.2s ease, stroke-width 0.2s ease, stroke-dashoffset 0.5s ease; }
+.lt-root, .lt-spine { transition: stroke-dashoffset 0.5s ease; }
+.lt-branch.is-active { stroke: var(--color-forest); stroke-width: 5.6; }
+
+/* Reduced motion: the finished tree, fully static and fully legible. */
+@media (prefers-reduced-motion: reduce) {
+  .lt-trunk, .lt-halo, .lt-seedpulse, .lt-agent { animation: none; }
+  .lt-agent { opacity: 0; }
+  .lt-halo { opacity: 0.7; }
+  .lt-branch, .lt-root, .lt-spine {
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+    animation: none;
+  }
+  .lt-plan, .lt-spine, .lt-plannode, .lt-label, .lt-cluster, .lt-pnode,
+  .lt-card, .lt-connector, .lt-return, .lt-returnlabel {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
 }

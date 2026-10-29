@@ -3,18 +3,21 @@ import Link from "next/link";
 import Image from "next/image";
 import { SiteNav } from "@/components/SiteNav";
 import { Reveal } from "@/components/Reveal";
+import { LivingTree } from "@/components/landing/LivingTree";
+import { BRANCHES } from "@/components/landing/branches";
 import { WorkflowFlow } from "@/components/landing/WorkflowFlow";
 import { BuildPlanForm } from "@/components/landing/BuildPlanForm";
 import { WorkspaceMockup } from "@/components/landing/WorkspaceMockup";
 import { Card } from "@/components/ui";
 import {
-  ArrowRight, PenLine, SearchCheck, CalendarClock, LineChart, Sprout,
-  Share2, CheckCircle2, XCircle, FlaskConical, Users, Megaphone,
-  ShieldCheck, Plug, Workflow, GitBranch, Database, Umbrella, Eye, ReceiptText, Lightbulb,
+  ArrowRight, CheckCircle2, Database, FlaskConical, KeyRound, LineChart, ListChecks,
+  PenLine, Plug, ReceiptText, SearchCheck, ShieldCheck, Sprout, Users,
 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: { absolute: "Banyan.ai — Turn your product into a distribution system" },
+  title: { absolute: "Banyan.ai — One goal. A whole business in motion." },
+  description:
+    "Banyan turns your business objectives into coordinated AI-powered work — from strategy and creation to distribution and measurable results.",
 };
 
 const workflow = [
@@ -33,57 +36,119 @@ const marqueeChannels = [
   "Communities", "Threads", "Forums",
 ];
 
-const channels = [
+/* SECTION 2 — the illustrative objective, executed as a coherent workflow.
+   Tags distinguish who acts: agents draft, you decide, the platform responds. */
+const goalSteps = [
   {
-    name: "X",
-    available: "Generate, edit, review, and schedule single posts, threads, discussion starters, and product updates.",
-    integration: "Publishing runs through a Postiz connection you configure. Until then, drafts and approvals work normally.",
+    n: "01", icon: SearchCheck, tag: "Agents draft", title: "Research the audience",
+    body: "Segments and hypothesis-labeled research briefs are drafted from your workspace context — assumptions to validate, never invented market facts.",
   },
   {
-    name: "LinkedIn",
-    available: "Professional insights, founder stories, product-building updates, problem/solution posts, and announcements.",
-    integration: "Also published through Postiz. Setup is a few fields — see /app/publishing once you have an account.",
+    n: "02", icon: Users, tag: "You decide", title: "Develop positioning and messaging",
+    body: "Positioning options arrive with recorded reasoning and confidence. You pick the direction — or edit it — before any work builds on it.",
   },
   {
-    name: "Short-form video",
-    available: "Hooks, scripts, scene-by-scene outlines, suggested visuals, on-screen text, captions, and CTAs.",
-    integration: "Video production itself is manual for now — you record; Banyan scripts and tracks; no fake 'publish'.",
+    n: "03", icon: Sprout, tag: "Agents draft", title: "Create campaign assets",
+    body: "Channel-native drafts in your voice, each hand-off validated against a schema, every revision preserved.",
+  },
+  {
+    n: "04", icon: PenLine, tag: "Agents draft", title: "Adapt content for each platform",
+    body: "The same idea reshaped per surface: an X thread, a LinkedIn post, a short-video script with hooks, scenes, and captions.",
+  },
+  {
+    n: "05", icon: Plug, tag: "You approve", title: "Schedule or publish",
+    body: "Approved posts go out through your Postiz connection; everything else becomes a copy-ready handoff package. The provider's real response is recorded.",
+  },
+  {
+    n: "06", icon: LineChart, tag: "System learns", title: "Measure available results",
+    body: "Tracked links and one-variable experiments turn outcomes into recommendations with evidence and named confidence — feeding the next plan.",
   },
 ];
 
-const principles = [
-  "Distribution is a core product capability, not an afterthought.",
-  "Outcomes matter more than content volume.",
-  "AI agents coordinate the work; human judgment approves it.",
-  "Every campaign produces evidence and learning.",
-  "Never invent customers, traction, or research.",
-  "Prefer measurable progress over technical complexity.",
+/* SECTION 3 — the integration inventory, stated exactly as the capability
+   registry reports it. Nothing here claims availability the product cannot back. */
+const integrations = [
+  {
+    name: "Postiz", role: "Publishing to X and LinkedIn", status: "Available", tone: "ok" as const,
+    detail: "Connect your account in Publishing and approved content schedules and publishes through it. Without a connection, publications are recorded as blocked with setup guidance — never faked.",
+  },
+  {
+    name: "Managed model access", role: "Drafting and planning", status: "Available", tone: "ok" as const,
+    detail: "Live model access with per-workspace daily quotas and a usage ledger. On deployments without credentials, generation uses the clearly labeled template fallback.",
+  },
+  {
+    name: "Short-form video", role: "Scripting and planning", status: "Manual", tone: "manual" as const,
+    detail: "Banyan writes hooks, scripts, scene outlines, and captions — you record and produce the video. It is never marked published until you record the live URL.",
+  },
+  {
+    name: "Fastlane", role: "Short-form creative + post analytics", status: "Needs credentials", tone: "creds" as const,
+    detail: "The adapter is implemented against Fastlane's documented API and reports unverified until a workspace connects a key and a real call succeeds.",
+  },
+  {
+    name: "SocialFlow.ai", role: "Distribution execution", status: "No verified API", tone: "off" as const,
+    detail: "No verifiable API exists (checked October 2026), so Banyan does not pretend otherwise. The manual handoff — copy-ready package, you publish, record the live URL — is the supported path, and the adapter slot is ready when a real API appears.",
+  },
 ];
 
-const growthStages = [
+/* SECTION 4 — the shape of real records, using the app's actual statuses. */
+const outputRecords = [
   {
-    icon: Database,
-    stage: "Roots",
-    title: "Persistent context",
-    body: "A banyan anchors deep before it rises. Banyan.ai keeps your product facts, audience, and voice as provenance-tracked memory — every agent, draft, and plan reads from the same living record.",
+    icon: CheckCircle2, chip: "done", chipCls: "bg-forest/10 text-forest",
+    title: "A completed task",
+    body: "Tasks carry status, owner, and provenance from goal to plan to execution — visible on the goal's live view.",
   },
   {
-    icon: Workflow,
-    stage: "Trunk",
-    title: "One orchestrator",
-    body: "A single trunk carries every branch. One runtime owns the state of every goal, task, and run — claiming work atomically, recovering from crashes with leases, never letting two agents do the same job twice.",
+    icon: PenLine, chip: "ready_for_review", chipCls: "bg-fig/10 text-fig-deep",
+    title: "A generated content asset",
+    body: "Channel drafts with every revision preserved; each agent hand-off is validated against a named schema before the next task starts.",
   },
   {
-    icon: GitBranch,
-    stage: "Aerial roots",
-    title: "Channels that become trunks",
-    body: "A banyan drops roots from its branches; when they touch ground they thicken into load-bearing trunks. Start with one channel and one goal — each root you grow becomes self-supporting.",
+    icon: ListChecks, chip: "planned → in_progress", chipCls: "bg-mist text-charcoal-soft",
+    title: "A prepared campaign",
+    body: "Campaigns move through explicit states — draft, planned, in_progress, completed — enforced server-side, not by convention.",
   },
   {
-    icon: Umbrella,
-    stage: "Canopy",
-    title: "Shelter for judgment",
-    body: "The canopy shades the ground where new life grows. Agents do the carrying; people decide in the shade. Every publish waits for a human approval recorded in the database — by design.",
+    icon: Plug, chip: "health-checked", chipCls: "bg-forest/10 text-forest",
+    title: "A connected integration",
+    body: "Connections report honest health per workspace; a missing setup records as blocked with guidance instead of a fake success.",
+  },
+  {
+    icon: ReceiptText, chip: "published / failed", chipCls: "bg-clay/8 text-clay",
+    title: "A real execution record",
+    body: "Every publishing attempt is stored with the provider's actual response — success, failure, or blocked — and the retry history behind it.",
+  },
+  {
+    icon: LineChart, chip: "first-party", chipCls: "bg-forest/10 text-forest",
+    title: "An available result",
+    body: "Tracked-link clicks and experiment readouts recorded in your workspace. What Banyan reports is what it has measured.",
+  },
+];
+
+/* SECTION 5 — implemented controls only. */
+const controls = [
+  {
+    icon: ShieldCheck, title: "Approval gates",
+    body: "Consequential actions wait for a recorded human decision — stored with who approved and when. Publishing is gated this way by design, not by policy text.",
+  },
+  {
+    icon: KeyRound, title: "Permissions and connected accounts",
+    body: "Connections are scoped to your workspace with health you can inspect. Capabilities declare what they can do today — availability is never assumed.",
+  },
+  {
+    icon: FlaskConical, title: "Execution status and failure visibility",
+    body: "Scheduled, publishing, published, blocked, failed — every state is explicit, with the provider's real response and the bounded retry history attached.",
+  },
+  {
+    icon: ListChecks, title: "Activity history",
+    body: "Every agent action is logged and browsable: what ran, what it produced, and what it cost. Nothing happens in your workspace that you cannot trace.",
+  },
+  {
+    icon: Database, title: "Your constraints",
+    body: "Product facts, audience, and voice stay provenance-tracked in your workspace. Agents draft from your context — uncertainty is disclosed, never guessed away.",
+  },
+  {
+    icon: ReceiptText, title: "Credentials and sensitive data",
+    body: "Use managed credentials or bring your own keys, encrypted at rest. A per-workspace usage ledger records every model call and its cost.",
   },
 ];
 
@@ -114,31 +179,45 @@ export default function LandingPage() {
     <div className="landing min-h-screen bg-paper">
       <SiteNav />
 
-      {/* ————— Hero — the vision: URL in, distribution system out. ————— */}
+      {/* ————— SECTION 1 · THE HERO — the promise, the CTAs, the living tree. ————— */}
       <section className="hero-glow hero-glow-drift relative overflow-hidden">
-        <div className="mx-auto grid max-w-6xl gap-12 px-4 pb-16 pt-12 md:pt-20 lg:grid-cols-[1.04fr_1fr] lg:items-center lg:gap-10">
-          <div className="max-w-2xl">
+        <div className="mx-auto max-w-6xl px-4 pb-10 pt-12 md:pt-16">
+          <div className="mx-auto max-w-3xl text-center">
             <Reveal>
               <span className="inline-flex items-center gap-2 rounded-full border border-forest/20 bg-sage/40 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-forest-deep">
                 <Sprout size={12} className="text-forest" aria-hidden="true" />
-                Distribution workspace
+                Your AI business operating system
               </span>
             </Reveal>
-            <Reveal as="h1" delay={80} className="display mt-6 text-[2.6rem] text-forest-deep sm:text-5xl md:text-[3.35rem]">
-              Turn your product into a{" "}
+            <Reveal as="h1" delay={80} className="display mt-6 text-[2.7rem] text-forest-deep sm:text-5xl md:text-[3.6rem]">
+              One goal.{" "}
               <span className="bg-gradient-to-r from-forest via-moss to-forest bg-clip-text text-transparent">
-                distribution system.
+                A whole business in motion.
               </span>
             </Reveal>
-            <Reveal as="p" delay={160} className="mt-5 max-w-xl text-base leading-relaxed text-charcoal-soft md:text-lg">
-              Start with your website. Get a clear plan, launch focused experiments, and learn what
-              brings customers — agents run the workflow, and every publish waits for your approval.
+            <Reveal as="p" delay={160} className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-charcoal-soft md:text-lg">
+              Banyan turns your business objectives into coordinated AI-powered work — from strategy
+              and creation to distribution and measurable results.
             </Reveal>
             <Reveal delay={240} className="mt-8">
-              <BuildPlanForm />
+              <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+                <Link
+                  href="/signup"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-forest-deep px-7 py-3.5 text-sm font-semibold text-white shadow-[0_14px_34px_-14px_rgba(18,48,40,0.65)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-forest sm:w-auto"
+                >
+                  Start building with Banyan
+                  <ArrowRight size={15} aria-hidden="true" />
+                </Link>
+                <Link
+                  href="#how-it-works"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-bark/20 bg-white px-7 py-3.5 text-sm font-semibold text-forest-deep transition-all duration-200 hover:-translate-y-0.5 hover:border-forest/50 sm:w-auto"
+                >
+                  See how it works
+                </Link>
+              </div>
             </Reveal>
             <Reveal delay={320}>
-              <ul className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-2 text-[13px] text-charcoal-soft">
+              <ul className="mt-7 flex flex-wrap items-center justify-center gap-x-7 gap-y-2 text-[13px] text-charcoal-soft">
                 {[
                   { icon: ShieldCheck, text: "Nothing publishes without your approval" },
                   { icon: Plug, text: "Real connections, or honest blocks" },
@@ -153,17 +232,20 @@ export default function LandingPage() {
             </Reveal>
           </div>
 
-          <Reveal delay={200} className="min-w-0">
-            <WorkspaceMockup />
+          {/* The signature tree: objective → plan → orchestration → execution → deliverables. */}
+          <Reveal delay={200} className="mt-12 md:mt-14">
+            <div className="dot-grid dot-grid-fade rounded-3xl px-2 pb-6 pt-2 sm:px-6">
+              <LivingTree />
+            </div>
           </Reveal>
         </div>
       </section>
 
-      {/* ————— Channel marquee — the ground the tree drops roots into. ————— */}
+      {/* ————— Surfaces marquee — the ground the tree drops roots into. ————— */}
       <section aria-label="Distribution surfaces" className="border-y border-bark/10 bg-white py-5">
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-4">
           <span className="hidden shrink-0 text-xs font-semibold uppercase tracking-[0.14em] text-charcoal-soft/70 md:block">
-            One workflow, everywhere your people are
+            Surfaces Banyan works across today
           </span>
           <div className="marquee-mask min-w-0 flex-1 overflow-hidden">
             <div className="marquee gap-2.5">
@@ -185,380 +267,243 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ————— Problem — three roots that never grew. ————— */}
-      <section className="py-24">
-        <div className="mx-auto max-w-6xl px-4">
-          <SectionHeading
-            eyebrow="The problem"
-            title="Shipping the product was the easy part."
-            sub="A seedling without roots is sheltered by nothing, reached by no one. Most products stall here — in three familiar ways."
-          />
-          <div className="mt-14 grid gap-5 md:grid-cols-3">
-            {[
-              {
-                n: "01", icon: XCircle, title: "Adoption is not automatic",
-                body: "A good product does not announce itself. Launches stall because the work of reaching people is unowned, inconsistent, and unmeasured.",
-              },
-              {
-                n: "02", icon: Share2, title: "Distribution is fragmented",
-                body: "Research in one tab, writing in another, scheduling in a third. The connections between them — the actual decisions — get lost.",
-              },
-              {
-                n: "03", icon: LineChart, title: "Output is not outcome",
-                body: "Publishing more posts is not distribution. Without experiments and honest learning, teams ship volume and call it progress.",
-              },
-            ].map((p, i) => (
-              <Reveal key={p.n} delay={i * 100}>
-                <Card className="card-lift card-shadow h-full rounded-2xl p-6">
-                  <div className="flex items-center justify-between">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-clay/8 text-clay">
-                      <p.icon size={18} aria-hidden="true" />
-                    </span>
-                    <span className="text-sm font-semibold tracking-widest text-bark/40" aria-hidden="true">{p.n}</span>
-                  </div>
-                  <h3 className="mt-5 text-base font-semibold text-charcoal">{p.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">{p.body}</p>
-                </Card>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ————— Bento — the agentic runtime, one tree many trunks. ————— */}
-      <section id="product" className="border-y border-bark/10 bg-mist py-24">
-        <div className="mx-auto max-w-6xl px-4">
-          <SectionHeading
-            eyebrow="The runtime"
-            title="One tree. Many trunks."
-            sub="The runtime grows capabilities the way a banyan grows roots — each one starts thin, then becomes load-bearing on its own. This is what ships today, not a roadmap."
-          />
-
-          <div className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {/* Large: goal → plan → executed work */}
-            <Reveal className="md:col-span-2">
-              <Card className="card-lift card-shadow flex h-full flex-col rounded-2xl p-6">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-forest/6 text-forest">
-                  <Sprout size={18} aria-hidden="true" />
-                </span>
-                <h3 className="tight mt-5 text-xl font-semibold text-forest-deep">Goals that execute themselves</h3>
-                <p className="mt-2 max-w-xl text-sm leading-relaxed text-charcoal-soft">
-                  State a goal in plain language. The planner drafts a task graph — research, strategy,
-                  content, approvals, publishing — with dependencies and gates. An orchestrator claims work
-                  atomically, retries transient failures, and recovers from crashes with leases.
-                </p>
-                <div className="mt-auto pt-7" aria-hidden="true">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    {["research", "strategy", "campaign", "draft", "approval", "publish", "measure"].map((step, i) => (
-                      <span key={step} className="flex items-center gap-1.5">
-                        <span
-                          className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
-                            step === "approval"
-                              ? "border-fig/40 bg-fig/10 text-fig-deep"
-                              : "border-bark/12 bg-paper text-charcoal-soft"
-                          }`}
-                        >
-                          {step}
-                        </span>
-                        {i < 6 && <span className="text-bark/35">→</span>}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="mt-3.5 text-xs text-charcoal-soft/75">
-                    The gold gate is yours: publishing waits for a recorded human decision.
-                  </p>
-                </div>
-              </Card>
-            </Reveal>
-
-            <Reveal delay={90}>
-              <Card className="card-lift card-shadow h-full rounded-2xl p-6">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-forest/6 text-forest">
-                  <Database size={18} aria-hidden="true" />
-                </span>
-                <h3 className="mt-5 text-base font-semibold text-charcoal">Persistent business context</h3>
-                <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">
-                  Product facts, audience, and voice live as provenance-tracked memory. Every draft cites what
-                  it knows; uncertainty is disclosed, never guessed away.
-                </p>
-                <div className="mt-5 flex flex-wrap gap-1.5" aria-hidden="true">
-                  <span className="rounded-full border border-forest/25 bg-forest/6 px-2 py-0.5 text-xs text-forest">verified</span>
-                  <span className="rounded-full border border-bark/12 bg-paper px-2 py-0.5 text-xs text-charcoal-soft">user_provided</span>
-                  <span className="rounded-full border border-bark/12 bg-paper px-2 py-0.5 text-xs text-charcoal-soft">observed</span>
-                </div>
-              </Card>
-            </Reveal>
-
-            <Reveal delay={0}>
-              <Card className="card-lift card-shadow h-full rounded-2xl p-6">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-forest/6 text-forest">
-                  <ShieldCheck size={18} aria-hidden="true" />
-                </span>
-                <h3 className="mt-5 text-base font-semibold text-charcoal">Human approval gates</h3>
-                <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">
-                  Publishing waits for a recorded human decision — stored with who approved and when.
-                  Nothing ships unreviewed.
-                </p>
-                <div className="mt-5 flex items-center justify-between rounded-xl border border-bark/10 bg-mist/70 px-3 py-2.5" aria-hidden="true">
-                  <span className="text-xs font-medium text-charcoal-soft">X thread · v3</span>
-                  <span className="rounded-full bg-forest-deep px-2.5 py-1 text-[10px] font-semibold text-white">Approve</span>
-                </div>
-              </Card>
-            </Reveal>
-
-            <Reveal delay={90}>
-              <Card className="card-lift card-shadow h-full rounded-2xl p-6">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-forest/6 text-forest">
-                  <ReceiptText size={18} aria-hidden="true" />
-                </span>
-                <h3 className="mt-5 text-base font-semibold text-charcoal">Model routing with receipts</h3>
-                <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">
-                  Managed credentials first, your keys when you add them, daily quotas — and a ledger that
-                  records every call and its cost.
-                </p>
-                <div className="mt-5 space-y-1.5 rounded-xl border border-bark/10 bg-mist/70 px-3 py-2.5 font-mono text-[11px] text-charcoal-soft" aria-hidden="true">
-                  <div className="flex justify-between"><span>managed · gpt</span><span>1,204 calls</span></div>
-                  <div className="flex justify-between"><span>fallback · llama</span><span>labeled</span></div>
-                </div>
-              </Card>
-            </Reveal>
-
-            <Reveal delay={180}>
-              <Card className="card-lift card-shadow h-full rounded-2xl p-6">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-forest/6 text-forest">
-                  <Plug size={18} aria-hidden="true" />
-                </span>
-                <h3 className="mt-5 text-base font-semibold text-charcoal">Adapters, honest status</h3>
-                <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">
-                  Integrations declare what they can do today — and never fake a success.
-                </p>
-                <div className="mt-5 flex flex-wrap gap-1.5" aria-hidden="true">
-                  <span className="flex items-center gap-1.5 rounded-full border border-forest/25 bg-forest/6 px-2 py-0.5 text-xs text-forest">
-                    <span className="h-1.5 w-1.5 rounded-full bg-forest" /> available
-                  </span>
-                  <span className="flex items-center gap-1.5 rounded-full border border-bark/12 bg-paper px-2 py-0.5 text-xs text-charcoal-soft">
-                    <span className="h-1.5 w-1.5 rounded-full bg-fig" /> needs credentials
-                  </span>
-                  <span className="flex items-center gap-1.5 rounded-full border border-bark/12 bg-paper px-2 py-0.5 text-xs text-charcoal-soft">
-                    <span className="h-1.5 w-1.5 rounded-full bg-bark/50" /> unverified
-                  </span>
-                </div>
-              </Card>
-            </Reveal>
-
-            <Reveal delay={0}>
-              <Card className="card-lift card-shadow h-full rounded-2xl p-6">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-fig/10 text-fig-deep">
-                  <Eye size={18} aria-hidden="true" />
-                </span>
-                <h3 className="mt-5 text-base font-semibold text-charcoal">Verified outputs, named schemas</h3>
-                <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">
-                  Every agent hand-off is validated against a named schema before the next task starts. Work
-                  is done when it is correct — not when it says it is.
-                </p>
-                <div className="mt-5 rounded-xl border border-bark/10 bg-mist/70 px-3 py-2.5 font-mono text-[11px] text-charcoal-soft" aria-hidden="true">
-                  output.content_draft <span className="text-forest">✓ schema@1</span>
-                </div>
-              </Card>
-            </Reveal>
-
-            <Reveal delay={90} className="lg:col-span-2">
-              <Card className="card-lift card-shadow h-full rounded-2xl p-6">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-fig/10 text-fig-deep">
-                  <Lightbulb size={18} aria-hidden="true" />
-                </span>
-                <h3 className="mt-5 text-base font-semibold text-charcoal">Evidence-backed recommendations</h3>
-                <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">
-                  When the data is thin, the evaluator says so instead of inventing insight. Every
-                  recommendation carries the evidence and confidence behind it.
-                </p>
-                <div className="mt-5 space-y-1.5 rounded-xl border border-bark/10 bg-mist/70 px-3 py-2.5 text-[11px]" aria-hidden="true">
-                  <div className="flex justify-between font-medium text-charcoal-soft">
-                    <span>post at 09:00 · X</span>
-                    <span className="text-forest">medium confidence</span>
-                  </div>
-                  <div className="flex justify-between font-medium text-charcoal-soft/70">
-                    <span>best time to post</span>
-                    <span>not_enough_data</span>
-                  </div>
-                </div>
-              </Card>
-            </Reveal>
-          </div>
-        </div>
-      </section>
-
-      {/* ————— How it works — from product URL to next experiment (the vision's four moves). ————— */}
+      {/* ————— SECTION 2 · FROM GOAL TO EXECUTION — one objective, made real. ————— */}
       <section id="how-it-works" className="py-24">
         <div className="mx-auto max-w-6xl px-4">
           <SectionHeading
-            eyebrow="How it works"
-            title="From product URL to your next growth experiment."
-            sub="Four connected moves. Each one sets up the next — agents coordinate the work, you decide at the approval gate."
+            eyebrow="From goal to execution"
+            title="Watch one objective become finished work."
+            sub='Take a relatable objective — "Launch a new product and build an audience." Here is the shape of that campaign in Banyan: a plan, coordinated tasks, and tangible outputs. The example is illustrative; the workflow is the real one.'
           />
 
-          <ol className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-            {[
-              { n: "1", icon: SearchCheck, title: "Understand your offer", body: "Start from your website. The agents extract your product, value proposition, and differentiation into provenance-tracked context." },
-              { n: "2", icon: Users, title: "Choose the audience", body: "Identify the highest-potential customer segments for your product — with the reasoning and confidence recorded." },
-              { n: "3", icon: FlaskConical, title: "Prepare the experiment", body: "Channel-specific content, messaging angles, and a clear test plan: one variable at a time, success metric declared up front." },
-              { n: "4", icon: LineChart, title: "Measure what works", body: "Track first-party results, learn fast, and double down on what brings customers. Never invented — always sourced." },
-            ].map((s, i) => (
-              <Reveal as="li" key={s.n} delay={i * 110} className="relative">
-                {i < 3 && <span className="absolute left-full top-10 hidden h-px w-5 bg-forest/30 lg:block" aria-hidden="true" />}
-                <Card className="card-lift card-shadow h-full rounded-2xl p-6">
-                  <div className="flex items-center gap-3">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sage/50 text-sm font-semibold text-forest-deep" aria-hidden="true">{s.n}</span>
-                    <s.icon size={18} className="text-forest" aria-hidden="true" />
+          <Reveal delay={100}>
+            <p className="mt-8 inline-flex items-center gap-2 rounded-full border border-bark/15 bg-mist px-4 py-1.5 text-xs font-semibold text-charcoal-soft">
+              <FlaskConical size={13} className="text-forest" aria-hidden="true" />
+              Illustrative example — the shape of a real campaign, not a captured run
+            </p>
+          </Reveal>
+
+          <ol className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {goalSteps.map((s, i) => (
+              <Reveal as="li" key={s.n} delay={i * 90}>
+                <Card className="card-lift card-shadow flex h-full flex-col rounded-2xl p-6">
+                  <div className="flex items-center justify-between">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-forest/6 text-forest">
+                      <s.icon size={18} aria-hidden="true" />
+                    </span>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                        s.tag === "You approve" || s.tag === "You decide"
+                          ? "bg-fig/10 text-fig-deep"
+                          : s.tag === "System learns"
+                            ? "bg-mist text-charcoal-soft"
+                            : "bg-forest/6 text-forest"
+                      }`}
+                    >
+                      {s.tag}
+                    </span>
                   </div>
-                  <h3 className="tight mt-4 text-base font-semibold text-forest-deep">{s.title}</h3>
+                  <h3 className="tight mt-5 text-lg font-semibold text-forest-deep">
+                    <span className="mr-2 text-sm font-semibold tracking-widest text-bark/40" aria-hidden="true">{s.n}</span>
+                    {s.title}
+                  </h3>
                   <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">{s.body}</p>
                 </Card>
               </Reveal>
             ))}
           </ol>
 
-          <div className="mt-16">
-            <WorkflowFlow steps={workflow} />
-          </div>
-
-          <div className="mt-14 grid gap-5 md:grid-cols-2">
-            <Reveal delay={0}>
-              <Card className="card-shadow h-full rounded-2xl p-7">
-                <h3 className="tight text-lg font-semibold text-forest-deep">What you do</h3>
-                <ul className="mt-5 space-y-3.5 text-sm leading-relaxed text-charcoal-soft">
-                  <li className="flex gap-2.5"><Users className="mt-0.5 shrink-0 text-forest" size={16} aria-hidden="true" /> Define your product, audience, positioning, and one clear distribution goal.</li>
-                  <li className="flex gap-2.5"><CheckCircle2 className="mt-0.5 shrink-0 text-forest" size={16} aria-hidden="true" /> Review every piece of content. Nothing publishes without a human approval recorded in the database.</li>
-                  <li className="flex gap-2.5"><Megaphone className="mt-0.5 shrink-0 text-forest" size={16} aria-hidden="true" /> Publish through a genuinely configured connection and see the provider's real response.</li>
-                  <li className="flex gap-2.5"><FlaskConical className="mt-0.5 shrink-0 text-forest" size={16} aria-hidden="true" /> Run small experiments and record what you actually observed — not what you hoped.</li>
-                </ul>
-              </Card>
-            </Reveal>
-            <Reveal delay={120}>
-              <Card className="card-shadow h-full rounded-2xl p-7">
-                <h3 className="tight text-lg font-semibold text-forest-deep">What the system does</h3>
-                <ul className="mt-5 space-y-3.5 text-sm leading-relaxed text-charcoal-soft">
-                  <li className="flex gap-2.5"><SearchCheck className="mt-0.5 shrink-0 text-moss" size={16} aria-hidden="true" /> Drafts research hypotheses and positioning you can accept, edit, or reject.</li>
-                  <li className="flex gap-2.5"><PenLine className="mt-0.5 shrink-0 text-moss" size={16} aria-hidden="true" /> Generates channel-specific content in your brand voice, with revisions preserved.</li>
-                  <li className="flex gap-2.5"><CalendarClock className="mt-0.5 shrink-0 text-moss" size={16} aria-hidden="true" /> Schedules approved content and attempts delivery through the publishing worker — retrying transient failures with backoff.</li>
-                  <li className="flex gap-2.5"><Sprout className="mt-0.5 shrink-0 text-moss" size={16} aria-hidden="true" /> Turns tracked links, publications, and metrics into lessons for the next campaign.</li>
-                </ul>
-              </Card>
-            </Reveal>
-          </div>
-        </div>
-      </section>
-
-      {/* ————— Philosophy — how a banyan grows. ————— */}
-      <section id="philosophy" className="border-y border-bark/10 bg-mist py-24">
-        <div className="mx-auto max-w-6xl px-4">
-          <SectionHeading
-            eyebrow="Philosophy"
-            title="How a banyan grows."
-            sub="The tree the product is named for teaches its design. Every part of a banyan has a job — and so does every part of Banyan.ai."
-          />
-
-          <div className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-            {growthStages.map((g, i) => (
-              <Reveal key={g.stage} delay={i * 100}>
-                <Card className="card-lift card-shadow flex h-full flex-col rounded-2xl bg-white p-6">
-                  <div className="flex items-center justify-between">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-forest/6 text-forest">
-                      <g.icon size={18} aria-hidden="true" />
-                    </span>
-                    <span className="text-xs font-semibold uppercase tracking-widest text-fig-deep">{g.stage}</span>
-                  </div>
-                  <h3 className="tight mt-5 text-lg font-semibold text-forest-deep">{g.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">{g.body}</p>
-                </Card>
-              </Reveal>
-            ))}
-          </div>
-
-          {/* First-customer quote — the founding principle, in practice. */}
           <Reveal delay={120}>
-            <figure className="relative mt-14 overflow-hidden rounded-2xl border border-forest/15 bg-white p-8 card-shadow md:p-10">
-              <span className="pointer-events-none absolute -top-7 left-6 select-none font-serif text-[7rem] leading-none text-forest/8" aria-hidden="true">"</span>
-              <blockquote className="relative max-w-4xl space-y-4 text-[15px] leading-relaxed text-charcoal-soft md:text-base">
-                <p>
-                  Banyan.ai is its own first customer. The workspace you would use if you signed up today is the
-                  same workspace the team uses to distribute Banyan.ai itself — the product researches its own
-                  audience, drafts its own campaign themes, runs its own approval queue, publishes through the
-                  same Postiz integration you would configure, and records its own experiments.
-                </p>
-                <p>
-                  That is the founding principle in practice: if the workflows cannot move a real product's
-                  growth, no amount of interface polish excuses them. Every lesson the team logs in its own
-                  workspace is a prioritization decision for the next build cycle — treating observed
-                  bottlenecks as hypotheses to investigate, not conclusions.
-                </p>
-              </blockquote>
-              <figcaption className="relative mt-6 text-sm font-medium text-forest">The founding principle, in practice</figcaption>
-            </figure>
+            <div className="mt-10 rounded-2xl border border-bark/12 bg-mist/60 p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-charcoal-soft">
+                The loop every objective runs
+              </p>
+              <div className="mt-4">
+                <WorkflowFlow steps={workflow} />
+              </div>
+            </div>
           </Reveal>
-
-          <ul className="mt-10 grid gap-3 text-sm text-charcoal-soft md:grid-cols-2">
-            {principles.map((p, i) => (
-              <Reveal key={p} as="li" delay={i * 60} className="flex items-start gap-2.5 rounded-xl border border-bark/10 bg-white px-4 py-3">
-                <CheckCircle2 className="mt-0.5 shrink-0 text-forest" size={16} aria-hidden="true" />
-                <span className="text-charcoal">{p}</span>
-              </Reveal>
-            ))}
-          </ul>
         </div>
       </section>
 
-      {/* ————— Channels — capability vs integration, stated precisely. ————— */}
-      <section id="channels" className="border-y border-bark/10 bg-mist py-24">
+      {/* ————— SECTION 3 · ONE INTELLIGENCE, MANY BRANCHES — workstreams + honest ground. ————— */}
+      <section id="branches" className="border-y border-bark/10 bg-mist py-24">
         <div className="mx-auto max-w-6xl px-4">
           <SectionHeading
-            eyebrow="Channels"
-            title="Stated precisely"
-            sub="A capability is what the product can do today. An integration is what requires your own credentials. We distinguish the two everywhere."
+            eyebrow="One intelligence, many branches"
+            title="Five workstreams, one shared context."
+            sub="Every branch reads the same provenance-tracked context and reports back into the same plan. Hover, focus, or tap a branch in the tree above — or browse them here."
           />
-          <div className="mt-14 grid gap-5 md:grid-cols-3">
-            {channels.map((c, i) => (
-              <Reveal key={c.name} delay={i * 110}>
-                <Card className="card-lift card-shadow flex h-full flex-col rounded-2xl p-6">
-                  <div className="flex flex-wrap gap-1.5">
-                    <span className="flex items-center gap-1.5 rounded-full border border-forest/25 bg-forest/6 px-2.5 py-0.5 text-[11px] font-semibold text-forest">
-                      <span className="h-1.5 w-1.5 rounded-full bg-forest" /> Available
-                    </span>
-                    <span className="flex items-center gap-1.5 rounded-full border border-fig/30 bg-fig/8 px-2.5 py-0.5 text-[11px] font-semibold text-fig-deep">
-                      <span className="h-1.5 w-1.5 rounded-full bg-fig" /> Needs your credentials
-                    </span>
-                  </div>
-                  <h3 className="tight mt-5 text-xl font-semibold text-forest-deep">{c.name}</h3>
-                  <p className="mt-3 text-sm leading-relaxed text-charcoal-soft">{c.available}</p>
-                  <p className="mt-3 border-t border-bark/10 pt-3 text-sm leading-relaxed text-charcoal-soft">
-                    {c.integration}
+
+          <div className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {BRANCHES.map((b, i) => (
+              <Reveal key={b.label} delay={i * 90} className={i === 4 ? "md:col-span-2 lg:col-span-1" : ""}>
+                <Card className="card-lift card-shadow flex h-full flex-col rounded-2xl bg-white p-6">
+                  <h3 className="tight text-lg font-semibold text-forest-deep">{b.label}</h3>
+                  <p className="mt-2.5 text-sm leading-relaxed text-charcoal">{b.work}</p>
+                  <ul className="mt-4 flex flex-wrap gap-1.5" aria-label={`${b.label} deliverables`}>
+                    {b.deliverables.map((d) => (
+                      <li key={d} className="rounded-full border border-forest/25 bg-forest/6 px-2.5 py-1 text-xs font-medium text-forest">{d}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-auto flex items-start gap-1.5 pt-4 text-[13px] font-medium leading-relaxed text-fig-deep">
+                    <ShieldCheck size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+                    {b.approval}
                   </p>
                 </Card>
               </Reveal>
             ))}
           </div>
+
+          {/* The connected ground — the integration inventory, exactly as reported. */}
+          <div className="mt-16">
+            <Reveal as="h3" className="tight text-2xl font-semibold text-forest-deep">
+              The connected ground
+            </Reveal>
+            <Reveal as="p" delay={80} className="mt-3 max-w-2xl text-sm leading-relaxed text-charcoal-soft md:text-base">
+              Banyan is built to reach many surfaces, but it only claims what the integration
+              inventory proves. Here is the ground under the tree today.
+            </Reveal>
+
+            <ul className="mt-8 space-y-3">
+              {integrations.map((it, i) => (
+                <Reveal as="li" key={it.name} delay={i * 70}>
+                  <div className="rooted card-shadow flex flex-col gap-2 rounded-xl bg-white p-5 sm:flex-row sm:items-start sm:gap-5">
+                    <div className="sm:w-56 sm:shrink-0">
+                      <p className="text-[15px] font-semibold text-forest-deep">{it.name}</p>
+                      <p className="text-xs text-charcoal-soft">{it.role}</p>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                          it.tone === "ok"
+                            ? "bg-forest/10 text-forest"
+                            : it.tone === "creds"
+                              ? "bg-fig/10 text-fig-deep"
+                              : "border border-bark/20 bg-paper text-charcoal-soft"
+                        }`}
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            it.tone === "ok" ? "bg-forest" : it.tone === "creds" ? "bg-fig" : "bg-bark/50"
+                          }`}
+                          aria-hidden="true"
+                        />
+                        {it.status}
+                      </span>
+                      <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">{it.detail}</p>
+                    </div>
+                  </div>
+                </Reveal>
+              ))}
+            </ul>
+          </div>
         </div>
       </section>
 
-      {/* ————— Final CTA — full sun. ————— */}
+      {/* ————— SECTION 4 · WORK THAT GETS DONE — outputs over dashboards. ————— */}
+      <section id="outputs" className="py-24">
+        <div className="mx-auto max-w-6xl px-4">
+          <SectionHeading
+            eyebrow="Work that gets done"
+            title="Deliverables and execution records — not decorative dashboards."
+            sub="Every objective produces named outputs with real status. These are the record shapes Banyan writes today, with the app's actual state vocabulary."
+          />
+
+          <div className="mt-14 grid items-start gap-10 lg:grid-cols-[0.95fr_1.05fr]">
+            <Reveal className="min-w-0">
+              <WorkspaceMockup />
+            </Reveal>
+
+            <ul className="space-y-3">
+              {outputRecords.map((r, i) => (
+                <Reveal as="li" key={r.title} delay={i * 70}>
+                  <div className="card-shadow flex items-start gap-4 rounded-xl border border-bark/10 bg-white p-4.5">
+                    <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-forest/6 text-forest">
+                      <r.icon size={16} aria-hidden="true" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-[15px] font-semibold text-charcoal">{r.title}</h3>
+                        <span className={`rounded-full px-2 py-0.5 font-mono text-[10.5px] font-semibold ${r.chipCls}`}>
+                          {r.chip}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm leading-relaxed text-charcoal-soft">{r.body}</p>
+                    </div>
+                  </div>
+                </Reveal>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* ————— SECTION 5 · BUILT FOR TRUSTED AUTONOMY — you keep the pen. ————— */}
+      <section id="trust" className="border-y border-bark/10 bg-mist py-24">
+        <div className="mx-auto max-w-6xl px-4">
+          <SectionHeading
+            eyebrow="Built for trusted autonomy"
+            title="Agents carry the work. You keep the pen."
+            sub="Autonomy without visibility is just risk. Banyan gives you control where it matters — implemented controls, not promises."
+          />
+
+          <div className="mt-14 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+            {controls.map((c, i) => (
+              <Reveal key={c.title} delay={i * 80}>
+                <Card className="card-lift card-shadow h-full rounded-2xl bg-white p-6">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-forest/6 text-forest">
+                    <c.icon size={18} aria-hidden="true" />
+                  </span>
+                  <h3 className="tight mt-5 text-base font-semibold text-forest-deep">{c.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">{c.body}</p>
+                </Card>
+              </Reveal>
+            ))}
+          </div>
+
+          <Reveal delay={120}>
+            <div className="rooted-fig mt-10 rounded-xl bg-white p-6 card-shadow md:p-7">
+              <h3 className="tight text-lg font-semibold text-forest-deep">Planning an action is not executing it</h3>
+              <p className="mt-2.5 max-w-3xl text-sm leading-relaxed text-charcoal-soft md:text-[15px]">
+                A plan is a proposal. Execution is what happens after you approve — and Banyan keeps
+                the two visibly distinct everywhere: gates before action, status after. When something
+                cannot run for lack of a connection, it says so and records the block with setup
+                guidance instead of pretending.
+              </p>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ————— SECTION 6 · FINAL CONVERSION ————— */}
       <section className="hero-glow relative overflow-hidden py-28">
         <div className="mx-auto max-w-3xl px-4 text-center">
           <Reveal>
             <h2 className="display text-4xl text-forest-deep md:text-5xl">
-              Stop treating distribution
+              Your next business milestone
               <br />
-              as an afterthought.
+              starts with a goal.
             </h2>
-            <p className="mt-5 text-base text-charcoal-soft md:text-lg">
-              Set up your workspace in five minutes. First plan included.
+            <p className="mt-5 text-base leading-relaxed text-charcoal-soft md:text-lg">
+              Tell Banyan what you want to accomplish. Build a plan, coordinate the work
+              and move forward with clarity.
             </p>
             <Link
               href="/signup"
-              className="mt-9 inline-flex items-center gap-2 rounded-full bg-forest-deep px-8 py-3.5 text-sm font-semibold text-white shadow-[0_14px_34px_-14px_rgba(18,48,40,0.65)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-forest"
+              className="mt-8 inline-flex items-center gap-2 rounded-full bg-forest-deep px-8 py-3.5 text-sm font-semibold text-white shadow-[0_14px_34px_-14px_rgba(18,48,40,0.65)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-forest"
             >
-              Build my plan
+              Start building with Banyan
               <ArrowRight size={15} aria-hidden="true" />
             </Link>
+            <div className="mt-9">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-charcoal-soft">
+                Already have a product online? Bring the URL —
+              </p>
+              <div className="mx-auto mt-3 max-w-xl">
+                <BuildPlanForm compact />
+              </div>
+            </div>
           </Reveal>
         </div>
       </section>
@@ -579,17 +524,18 @@ function Footer() {
             <span className="text-lg font-semibold tracking-tight text-forest-deep">Banyan<span className="text-moss">.ai</span></span>
           </span>
           <p className="mt-2.5 max-w-xs text-sm leading-relaxed text-charcoal-soft">
-            Build. Distribute. Grow. — the agentic operating system for product distribution.
+            One goal. A whole business in motion — the agentic operating system for business execution.
           </p>
         </div>
         <div className="flex gap-14">
           <div>
             <h3 className="text-sm font-semibold text-forest-deep">Product</h3>
             <ul className="mt-3.5 space-y-2.5 text-sm text-charcoal-soft">
-              <li><Link href="/#product" className="transition-colors hover:text-forest-deep">Product</Link></li>
               <li><Link href="/#how-it-works" className="transition-colors hover:text-forest-deep">How it works</Link></li>
-              <li><Link href="/#philosophy" className="transition-colors hover:text-forest-deep">Philosophy</Link></li>
-              <li><Link href="/signup" className="transition-colors hover:text-forest-deep">Build my plan</Link></li>
+              <li><Link href="/#branches" className="transition-colors hover:text-forest-deep">Branches</Link></li>
+              <li><Link href="/#outputs" className="transition-colors hover:text-forest-deep">Outputs</Link></li>
+              <li><Link href="/#trust" className="transition-colors hover:text-forest-deep">Trust &amp; control</Link></li>
+              <li><Link href="/signup" className="transition-colors hover:text-forest-deep">Start building</Link></li>
               <li><Link href="/login" className="transition-colors hover:text-forest-deep">Sign in</Link></li>
             </ul>
           </div>

@@ -6,13 +6,13 @@ import { Menu, X } from "lucide-react";
 import { BanyanMark } from "@/components/BanyanMark";
 
 const links = [
-  { href: "/#product", label: "Product" },
   { href: "/#how-it-works", label: "How it works" },
-  { href: "/#channels", label: "Channels" },
-  { href: "/#philosophy", label: "Philosophy" },
+  { href: "/#branches", label: "Branches" },
+  { href: "/#outputs", label: "Outputs" },
+  { href: "/#trust", label: "Trust & control" },
 ];
 
-export function SiteNav({ cta = "Build my plan", ctaHref = "/signup" }: { cta?: string; ctaHref?: string }) {
+export function SiteNav({ cta = "Start building", ctaHref = "/signup" }: { cta?: string; ctaHref?: string }) {
   const [open, setOpen] = useState(false);
   return (
     <header
