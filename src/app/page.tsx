@@ -10,7 +10,7 @@ import { BuildPlanForm } from "@/components/landing/BuildPlanForm";
 import { WorkspaceMockup } from "@/components/landing/WorkspaceMockup";
 import { Card } from "@/components/ui";
 import {
-  ArrowRight, CheckCircle2, Database, FlaskConical, KeyRound, LineChart, ListChecks,
+  ArrowDown, ArrowRight, CheckCircle2, Database, FlaskConical, KeyRound, LineChart, ListChecks,
   PenLine, Plug, ReceiptText, SearchCheck, ShieldCheck, Sprout, Users,
 } from "lucide-react";
 
@@ -34,6 +34,17 @@ const workflow = [
 const marqueeChannels = [
   "X", "LinkedIn", "Short-form video", "Newsletters", "Blogs",
   "Communities", "Threads", "Forums",
+];
+
+/* Hero chain — the whole promise in one scannable line, and the legend for the
+   LivingTree's five phases below it. Same five beats, same order: a visitor who
+   reads this strip can already read the tree. */
+const heroChain = [
+  { label: "One objective", dot: "bg-forest" },
+  { label: "A plan", dot: "bg-moss" },
+  { label: "Coordinated branches", dot: "bg-forest-deep" },
+  { label: "Approved execution", dot: "bg-fig" },
+  { label: "Measured results", dot: "bg-fig-deep" },
 ];
 
 /* SECTION 2 — the illustrative objective, executed as a coherent workflow.
@@ -189,12 +200,17 @@ export default function LandingPage() {
                 Your AI business operating system
               </span>
             </Reveal>
-            <Reveal as="h1" delay={80} className="display mt-6 text-[2.7rem] text-forest-deep sm:text-5xl md:text-[3.6rem]">
-              One goal.{" "}
-              <span className="bg-gradient-to-r from-forest via-moss to-forest bg-clip-text text-transparent">
-                A whole business in motion.
+            {/* The promise lands line by line — each line rises out of its own
+                mask, then the second line keeps a slow gradient shimmer alive
+                (the business literally stays in motion). CSS-only, no JS. */}
+            <h1 className="display mt-6 text-[2.7rem] text-forest-deep sm:text-5xl md:text-[3.6rem]">
+              <span className="hero-line-mask">
+                <span className="hero-line">One goal.</span>
               </span>
-            </Reveal>
+              <span className="hero-line-mask">
+                <span className="hero-line hero-line-shimmer">A whole business in motion.</span>
+              </span>
+            </h1>
             <Reveal as="p" delay={160} className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-charcoal-soft md:text-lg">
               Banyan turns your business objectives into coordinated AI-powered work — from strategy
               and creation to distribution and measurable results.
@@ -203,21 +219,44 @@ export default function LandingPage() {
               <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
                 <Link
                   href="/signup"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-forest-deep px-7 py-3.5 text-sm font-semibold text-white shadow-[0_14px_34px_-14px_rgba(18,48,40,0.65)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-forest sm:w-auto"
+                  className="group inline-flex w-full items-center justify-center gap-2 rounded-full bg-forest-deep px-7 py-3.5 text-sm font-semibold text-white shadow-[0_14px_34px_-14px_rgba(18,48,40,0.65)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-forest sm:w-auto"
                 >
                   Start building with Banyan
-                  <ArrowRight size={15} aria-hidden="true" />
+                  <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
                 </Link>
                 <Link
                   href="#how-it-works"
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-bark/20 bg-white px-7 py-3.5 text-sm font-semibold text-forest-deep transition-all duration-200 hover:-translate-y-0.5 hover:border-forest/50 sm:w-auto"
+                  className="group inline-flex w-full items-center justify-center gap-2 rounded-full border border-bark/20 bg-white px-7 py-3.5 text-sm font-semibold text-forest-deep transition-all duration-200 hover:-translate-y-0.5 hover:border-forest/50 sm:w-auto"
                 >
                   See how it works
+                  <ArrowDown size={15} className="transition-transform duration-200 group-hover:translate-y-0.5" aria-hidden="true" />
                 </Link>
               </div>
             </Reveal>
-            <Reveal delay={320}>
-              <ul className="mt-7 flex flex-wrap items-center justify-center gap-x-7 gap-y-2 text-[13px] text-charcoal-soft">
+            {/* The chain: five beats between the promise and the tree. A pulse
+                travels the dots in order, so the loop reads as motion, not text. */}
+            <Reveal delay={300}>
+              <ol
+                className="mt-7 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-2 text-[12.5px] font-semibold text-charcoal-soft"
+                aria-label="One objective becomes a plan, branches execute it in coordination, and measured results return."
+              >
+                {heroChain.map((step, i) => (
+                  <li key={step.label} className="flex items-center gap-2">
+                    <span
+                      className={`chain-dot ${step.dot}`}
+                      style={{ "--chain-i": i } as React.CSSProperties}
+                      aria-hidden="true"
+                    />
+                    {step.label}
+                    {i < heroChain.length - 1 && (
+                      <ArrowRight size={12} className="ml-0.5 text-bark/35" aria-hidden="true" />
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </Reveal>
+            <Reveal delay={380}>
+              <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-7 gap-y-2 text-[13px] text-charcoal-soft">
                 {[
                   { icon: ShieldCheck, text: "Nothing publishes without your approval" },
                   { icon: Plug, text: "Real connections, or honest blocks" },
@@ -232,9 +271,14 @@ export default function LandingPage() {
             </Reveal>
           </div>
 
-          {/* The signature tree: objective → plan → orchestration → execution → deliverables. */}
+          {/* The signature tree: objective → plan → orchestration → execution → deliverables.
+              The hint line names the interaction — branches are explorable, not decoration. */}
           <Reveal delay={200} className="mt-12 md:mt-14">
             <div className="dot-grid dot-grid-fade rounded-3xl px-2 pb-6 pt-2 sm:px-6">
+              <p className="flex items-center justify-center gap-2 pb-3 pt-4 text-xs text-charcoal-soft/80">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-fig motion-reduce:animate-none" aria-hidden="true" />
+                The loop replays on its own — tap any branch to see the work inside.
+              </p>
               <LivingTree />
             </div>
           </Reveal>

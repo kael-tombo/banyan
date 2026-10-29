@@ -469,3 +469,82 @@ section[id] {
     transition: none;
   }
 }
+
+/*
+ * ————————————————————————————————————————————————————————————————
+ * Hero motion — the promise lands line by line and the loop reads as motion.
+ *
+ * Three ideas, all CSS-only (no JS, no dependencies):
+ *   1. The headline climbs out of its own mask, one line at a time —
+ *      editorial pacing instead of one flat fade.
+ *   2. "A whole business in motion." keeps a slow gradient shimmer after
+ *      it lands — the phrase stays literally in motion.
+ *   3. The goal-chain dots pulse in sequence, so the five-beat loop
+ *      reads as a circulating wave rather than static bullets.
+ * Everything collapses to a static, fully legible hero under
+ * prefers-reduced-motion.
+ * ————————————————————————————————————————————————————————————————
+ */
+
+/* Masked line rise. The mask carries compensating padding/margin so tall
+   glyphs (the g in "goal") are never clipped at rest or mid-flight. */
+.hero-line-mask {
+  display: block;
+  overflow: hidden;
+  padding: 0.04em 0 0.13em;
+  margin: -0.04em 0 -0.13em;
+}
+.hero-line {
+  display: block;
+  transform: translateY(118%);
+  animation: hero-line-rise 1s cubic-bezier(0.22, 1, 0.36, 1) 0.08s both;
+}
+/* Line two rises, then keeps breathing: a slow two-stop pan across the
+   botanical greens. Runs on the same element as the rise via two animations. */
+.hero-line-shimmer {
+  animation:
+    hero-line-rise 1s cubic-bezier(0.22, 1, 0.36, 1) 0.2s both,
+    hero-shimmer 7s ease-in-out 1.6s infinite;
+  background: linear-gradient(
+    100deg,
+    var(--color-forest) 12%,
+    var(--color-moss) 34%,
+    var(--color-forest-deep) 52%,
+    var(--color-moss) 72%,
+    var(--color-forest) 92%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+@keyframes hero-line-rise {
+  to { transform: translateY(0); }
+}
+@keyframes hero-shimmer {
+  0%, 100% { background-position: 0% 0; }
+  50% { background-position: 100% 0; }
+}
+
+/* The goal chain: each dot pulses once per cycle, staggered 1.5s apart, so a
+   single wave travels objective → results every 7.5 seconds. */
+.chain-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  animation: chain-pulse 7.5s ease-in-out infinite;
+  animation-delay: calc(var(--chain-i, 0) * 1.5s);
+}
+@keyframes chain-pulse {
+  0%, 16%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(35, 82, 63, 0); }
+  6% { transform: scale(1.45); box-shadow: 0 0 0 4px rgba(35, 82, 63, 0.14); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-line, .hero-line-shimmer, .chain-dot {
+    animation: none;
+    transform: none;
+  }
+  .hero-line-shimmer { background-position: 0% 0; }
+}
