@@ -187,15 +187,34 @@ function SectionHeading({ eyebrow, title, sub }: { eyebrow: string; title: strin
   );
 }
 
+/* The descent marker — the page's wayfinding device. As the visitor walks
+   down through the tree, each act is named for the anatomy it descends
+   through: crown, branches, ground, fruit, bark, new ground. Decorative
+   only; the section landmarks carry the accessible labels. */
+function DescentMarker({
+  label, tone = "day", short = false,
+}: { label: string; tone?: "day" | "night"; short?: boolean }) {
+  return (
+    <div className={tone === "night" ? "descent descent-night" : "descent"} aria-hidden="true">
+      <span className="descent-line" style={short ? { height: 26 } : undefined} />
+      <span className="descent-node" />
+      <span className="descent-label">{label}</span>
+      <span className="descent-line descent-line-b" style={short ? { height: 26 } : undefined} />
+    </div>
+  );
+}
+
 export default function LandingPage() {
   return (
     <div className="landing min-h-screen bg-paper">
-      <SiteNav />
+      <SiteNav variant="night" />
 
       {/* ————— SECTION 1 · THE HERO — the night stage. Left: the story.
-              Right: the vascular tree, where information is always moving. ————— */}
-      <section className="hero-night relative overflow-hidden" aria-label="Banyan — intelligence in motion">
-        <div className="mx-auto grid w-full max-w-7xl items-center gap-2 px-4 pb-14 pt-10 sm:pt-12 lg:min-h-[92vh] lg:grid-cols-[minmax(0,10fr)_minmax(0,9fr)] lg:gap-10 lg:pb-10 lg:pt-14">
+              Right: the vascular tree, where information is always moving.
+              The hero slides under the transparent night nav (-mt-16), so
+              the stage starts at the very top of the viewport. ————— */}
+      <section className="hero-night relative -mt-16 overflow-hidden" data-night-stage aria-label="Banyan — intelligence in motion">
+        <div className="mx-auto grid w-full max-w-7xl items-center gap-2 px-4 pb-14 pt-24 sm:pt-28 lg:min-h-[92vh] lg:grid-cols-[minmax(0,10fr)_minmax(0,9fr)] lg:gap-10 lg:pb-10 lg:pt-28">
           <div className="mx-auto w-full max-w-2xl lg:mx-0 lg:justify-self-end">
             <Reveal>
               <span className="inline-flex items-center gap-2 rounded-full border border-[#7BE7A5]/25 bg-[#7BE7A5]/10 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9FE8BE]">
@@ -280,7 +299,7 @@ export default function LandingPage() {
       </section>
 
       {/* ————— Surfaces marquee — the ground under the tree, at night. ————— */}
-      <section aria-label="Distribution surfaces" className="border-b border-white/5 bg-[#081511] py-6">
+      <section data-night-stage aria-label="Distribution surfaces" className="border-b border-white/5 bg-[#081511] py-6">
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-4">
           <span className="hidden shrink-0 text-xs font-semibold uppercase tracking-[0.14em] text-[#7FA28E] md:block">
             Surfaces Banyan works across today
@@ -305,11 +324,20 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ————— SECTION 2 · FROM GOAL TO EXECUTION — one objective, made real. ————— */}
-      <section id="how-it-works" className="py-24">
+      {/* ————— The dawn band — night releases the page into morning light.
+              The descent begins: the first act is the crown. ————— */}
+      <div className="dawn-band relative" aria-hidden="true">
+        <div className="mx-auto flex h-[38vh] max-w-6xl flex-col justify-end px-4 pb-6 md:h-[46vh]">
+          <DescentMarker label="The crown" />
+        </div>
+      </div>
+
+      {/* ————— SECTION 2 · THE CROWN — from goal to execution: one objective,
+              made real in the morning light. ————— */}
+      <section id="how-it-works" className="bg-paper pb-24 pt-12">
         <div className="mx-auto max-w-6xl px-4">
           <SectionHeading
-            eyebrow="From goal to execution"
+            eyebrow="The crown — from goal to execution"
             title="Watch one objective become finished work."
             sub='Take a relatable objective — "Launch a new product and build an audience." Here is the shape of that campaign in Banyan: a plan, coordinated tasks, and tangible outputs. The example is illustrative; the workflow is the real one.'
           />
@@ -396,11 +424,16 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ————— SECTION 3 · ONE INTELLIGENCE, MANY BRANCHES — workstreams + honest ground. ————— */}
-      <section id="branches" className="border-y border-bark/10 bg-mist py-24">
+      {/* ————— SECTION 3 · THE BRANCHES — one intelligence, five workstreams,
+              then the ground they stand on. ————— */}
+      <section id="branches" className="bg-mist pb-24 pt-14">
         <div className="mx-auto max-w-6xl px-4">
+          <div className="flex justify-center pb-12">
+            <DescentMarker label="The branches" />
+          </div>
+
           <SectionHeading
-            eyebrow="One intelligence, many branches"
+            eyebrow="The branches — one intelligence, many limbs"
             title="Five workstreams, one shared context."
             sub="Every branch reads the same provenance-tracked context and reports back into the same plan. Hover, focus, or tap a branch in the tree above — or browse them here."
           />
@@ -425,8 +458,13 @@ export default function LandingPage() {
             ))}
           </div>
 
-          {/* The connected ground — the integration inventory, exactly as reported. */}
-          <div className="mt-16">
+          {/* The connected ground — the integration inventory, exactly as
+              reported. The descent reaches the soil: what the tree actually
+              stands on today. */}
+          <div className="mt-20">
+            <div className="flex justify-center pb-12">
+              <DescentMarker label="The ground" short />
+            </div>
             <Reveal as="h3" className="tight text-2xl font-semibold text-forest-deep">
               The connected ground
             </Reveal>
@@ -471,11 +509,16 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ————— SECTION 4 · WORK THAT GETS DONE — outputs over dashboards. ————— */}
-      <section id="outputs" className="py-24">
+      {/* ————— SECTION 4 · THE FRUIT — work that gets done: outputs over
+              dashboards. ————— */}
+      <section id="outputs" className="bg-paper pb-24 pt-14">
         <div className="mx-auto max-w-6xl px-4">
+          <div className="flex justify-center pb-12">
+            <DescentMarker label="The fruit" />
+          </div>
+
           <SectionHeading
-            eyebrow="Work that gets done"
+            eyebrow="The fruit — work that gets done"
             title="Deliverables and execution records — not decorative dashboards."
             sub="Every objective produces named outputs with real status. These are the record shapes Banyan writes today, with the app's actual state vocabulary."
           />
@@ -509,11 +552,16 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ————— SECTION 5 · BUILT FOR TRUSTED AUTONOMY — you keep the pen. ————— */}
-      <section id="trust" className="border-y border-bark/10 bg-mist py-24">
+      {/* ————— SECTION 5 · THE BARK AND THE RINGS — built for trusted
+              autonomy: you keep the pen. ————— */}
+      <section id="trust" className="bg-mist pb-24 pt-14">
         <div className="mx-auto max-w-6xl px-4">
+          <div className="flex justify-center pb-12">
+            <DescentMarker label="The bark" />
+          </div>
+
           <SectionHeading
-            eyebrow="Built for trusted autonomy"
+            eyebrow="The bark and the rings — built for trusted autonomy"
             title="Agents carry the work. You keep the pen."
             sub="Autonomy without visibility is just risk. Banyan gives you control where it matters — implemented controls, not promises."
           />
@@ -546,39 +594,61 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ————— SECTION 6 · FINAL CONVERSION ————— */}
-      <section className="hero-glow relative overflow-hidden py-28">
-        <div className="mx-auto max-w-3xl px-4 text-center">
+      {/* ————— SECTION 6 · NEW GROUND — the dusk grove. Daylight fades as the
+              page reaches for new ground; the closing world matches the
+              opening one. Marked as a partial night stage: the nav returns
+              to night tone once the gradient has actually gone dark. ————— */}
+      <div className="dusk-grove relative" data-night-stage-partial aria-hidden="true">
+        <div className="mx-auto flex h-[44vh] max-w-6xl flex-col justify-end px-4 pb-6 md:h-[54vh]">
+          <DescentMarker label="New ground" tone="night" />
+        </div>
+      </div>
+
+      <section className="night-closing relative overflow-hidden" data-night-stage aria-label="Plant your first objective">
+        <div className="mx-auto max-w-3xl px-4 pb-28 pt-14 text-center md:pt-16">
           <Reveal>
-            <h2 className="display text-4xl text-forest-deep md:text-5xl">
-              Your next business milestone
-              <br />
-              starts with a goal.
+            <div className="flex justify-center" aria-hidden="true">
+              <span className="seed-pulse" />
+            </div>
+            <h2 className="display mt-7 text-4xl text-[#F2F8F3] md:text-5xl">
+              Plant your first objective.
             </h2>
-            <p className="mt-5 text-base leading-relaxed text-charcoal-soft md:text-lg">
-              Tell Banyan what you want to accomplish. Build a plan, coordinate the work
-              and move forward with clarity.
+            <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-[#A9C3B2] md:text-lg">
+              Tell Banyan what you want to accomplish. A plan grows from it, coordinated work
+              moves through the branches, and every result finds its way back to the roots.
             </p>
             <Link
               href="/signup"
-              className="mt-8 inline-flex items-center gap-2 rounded-full bg-forest-deep px-8 py-3.5 text-sm font-semibold text-white shadow-[0_14px_34px_-14px_rgba(18,48,40,0.65)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-forest"
+              className="group mt-8 inline-flex items-center gap-2 rounded-full bg-[#2FA36B] px-8 py-3.5 text-sm font-semibold text-white shadow-[0_14px_38px_-12px_rgba(53,184,117,0.6)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#37B878]"
             >
-              Start building with Banyan
-              <ArrowRight size={15} aria-hidden="true" />
+              Build your network
+              <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
             </Link>
-            <div className="mt-9">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-charcoal-soft">
+            <div className="mt-12">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#7FA28E]">
                 Already have a product online? Bring the URL —
               </p>
-              <div className="mx-auto mt-3 max-w-xl">
-                <BuildPlanForm compact />
+              <div className="mx-auto mt-4 max-w-xl">
+                <BuildPlanForm compact dark />
               </div>
             </div>
+            <ul className="mt-12 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-[13px] text-[#8FB2A0]">
+              {[
+                { icon: ShieldCheck, text: "Nothing publishes without your approval" },
+                { icon: Plug, text: "Real connections, or honest blocks" },
+                { icon: FlaskConical, text: "Measured, never invented" },
+              ].map((t) => (
+                <li key={t.text} className="flex items-center gap-2">
+                  <t.icon className="text-[#7BE7A5]" size={14} aria-hidden="true" />
+                  {t.text}
+                </li>
+              ))}
+            </ul>
           </Reveal>
         </div>
       </section>
 
-      {/* ————— Footer ————— */}
+      {/* ————— Footer — the deepest root: the same soil the page began on. ————— */}
       <Footer />
     </div>
   );
@@ -586,39 +656,39 @@ export default function LandingPage() {
 
 function Footer() {
   return (
-    <footer className="border-t border-bark/10 bg-paper py-14">
+    <footer className="footer-night border-t border-white/5 py-14" data-night-stage>
       <div className="mx-auto flex max-w-6xl flex-wrap items-start justify-between gap-10 px-4">
         <div>
           <span className="flex items-center gap-2.5">
-            <Image src="/brand/symbol-color.png" alt="" width={30} height={30} className="h-[30px] w-[30px]" />
-            <span className="text-lg font-semibold tracking-tight text-forest-deep">Banyan<span className="text-moss">.ai</span></span>
+            <Image src="/brand/symbol-white.png" alt="" width={30} height={30} className="h-[30px] w-[30px]" />
+            <span className="text-lg font-semibold tracking-tight text-[#F2F8F3]">Banyan<span className="text-[#7BE7A5]">.ai</span></span>
           </span>
-          <p className="mt-2.5 max-w-xs text-sm leading-relaxed text-charcoal-soft">
-            One goal. A whole business in motion — the agentic operating system for business execution.
+          <p className="mt-2.5 max-w-xs text-sm leading-relaxed text-[#8FB2A0]">
+            One intelligence. A thousand paths to action — the agentic operating system for business execution.
           </p>
         </div>
         <div className="flex gap-14">
           <div>
-            <h3 className="text-sm font-semibold text-forest-deep">Product</h3>
-            <ul className="mt-3.5 space-y-2.5 text-sm text-charcoal-soft">
-              <li><Link href="/#how-it-works" className="transition-colors hover:text-forest-deep">How it works</Link></li>
-              <li><Link href="/#branches" className="transition-colors hover:text-forest-deep">Branches</Link></li>
-              <li><Link href="/#outputs" className="transition-colors hover:text-forest-deep">Outputs</Link></li>
-              <li><Link href="/#trust" className="transition-colors hover:text-forest-deep">Trust &amp; control</Link></li>
-              <li><Link href="/signup" className="transition-colors hover:text-forest-deep">Start building</Link></li>
-              <li><Link href="/login" className="transition-colors hover:text-forest-deep">Sign in</Link></li>
+            <h3 className="text-sm font-semibold text-[#DCEDE1]">Product</h3>
+            <ul className="mt-3.5 space-y-2.5 text-sm">
+              <li><Link href="/#how-it-works" className="footer-link transition-colors">How it works</Link></li>
+              <li><Link href="/#branches" className="footer-link transition-colors">Branches</Link></li>
+              <li><Link href="/#outputs" className="footer-link transition-colors">Outputs</Link></li>
+              <li><Link href="/#trust" className="footer-link transition-colors">Trust &amp; control</Link></li>
+              <li><Link href="/signup" className="footer-link transition-colors">Start building</Link></li>
+              <li><Link href="/login" className="footer-link transition-colors">Sign in</Link></li>
             </ul>
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-forest-deep">Legal</h3>
-            <ul className="mt-3.5 space-y-2.5 text-sm text-charcoal-soft">
-              <li><Link href="/privacy" className="transition-colors hover:text-forest-deep">Privacy</Link></li>
-              <li><Link href="/terms" className="transition-colors hover:text-forest-deep">Terms</Link></li>
+            <h3 className="text-sm font-semibold text-[#DCEDE1]">Legal</h3>
+            <ul className="mt-3.5 space-y-2.5 text-sm">
+              <li><Link href="/privacy" className="footer-link transition-colors">Privacy</Link></li>
+              <li><Link href="/terms" className="footer-link transition-colors">Terms</Link></li>
             </ul>
           </div>
         </div>
       </div>
-      <p className="mx-auto mt-12 max-w-6xl px-4 text-xs text-charcoal-soft/70">
+      <p className="mx-auto mt-12 max-w-6xl px-4 text-xs text-[#6E8F7D]">
         © {new Date().getFullYear()} Banyan.ai. No invented metrics: what the product reports is what it has measured.
       </p>
     </footer>
