@@ -165,6 +165,9 @@ export function ExperimentManager({ experiments, campaigns, prefillTitle }: { ex
                 <div className="flex items-center gap-2">
                   {e.channel && <Badge variant="charcoal">{e.channel}</Badge>}
                   <StatusBadge status={e.status} />
+                  {e.status === "complete" && !e.interpretation && (
+                    <Badge variant="warm">needs decision</Badge>
+                  )}
                 </div>
               </div>
               <p className="mt-2 text-xs text-charcoal-soft">

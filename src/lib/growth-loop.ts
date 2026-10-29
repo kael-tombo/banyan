@@ -179,6 +179,7 @@ const EVIDENCE_LABELS: Record<string, string> = {
   connectionId: "View connection",
   factId: "View fact",
   publicationId: "View publication",
+  recommendationId: "View opportunity",
 };
 
 const EVIDENCE_HREFS: Record<string, (id: string) => string> = {
@@ -191,6 +192,7 @@ const EVIDENCE_HREFS: Record<string, (id: string) => string> = {
   connectionId: () => `/app/publishing`,
   factId: () => `/app/context`,
   publicationId: () => `/app/publishing`,
+  recommendationId: () => `/app/opportunities`,
 };
 
 /**
@@ -219,6 +221,7 @@ export function resolveActivityEvidence(metaJson: string): ActivityEvidenceLink 
     "taskId",
     "planId",
     "factId",
+    "recommendationId",
   ];
   for (const key of order) {
     const value = meta[key];

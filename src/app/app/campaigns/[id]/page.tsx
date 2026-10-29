@@ -3,8 +3,23 @@ import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireWorkspaceServer } from "@/lib/workspace";
 import { Badge, Card, LinkButton, PageHeader, StatusBadge, EmptyState } from "@/components/ui";
-import { PenLine, Plus } from "lucide-react";
+import { CheckCircle2, Circle, PenLine, Plus, Sparkles } from "lucide-react";
+import {
+  computeCampaignPipeline,
+  computeLaunchChecklist,
+  computeCampaignAttention,
+  hasUtmTags,
+} from "@/lib/campaign-pipeline";
 import { CampaignActions, CampaignEditForm } from "./actions";
+
+const APPROVED_STATUSES = ["approved", "scheduled", "publishing", "published"];
+const SCHEDULED_STATUSES = ["scheduled", "publishing", "published"];
+
+const ATTENTION_TONE: Record<string, string> = {
+  warm: "border-fig/30 bg-fig/5",
+  clay: "border-clay/30 bg-clay/5",
+  forest: "border-forest/20 bg-forest/[0.05]",
+};
 
 export default async function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -15,7 +30,46 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
   });
   if (!campaign) notFound();
 
-  const connections = await prisma.channelConnection.findMany({ where: { workspaceId: ctx.workspace.id } });
+  const [connections, campaignTasks] = await Promise.all([
+    prisma.channelConnection.findMany({ where: { workspaceId: ctx.workspace.id } }),
+    prisma.agentTask.findMany({
+      where: { workspaceId: ctx.workspace.id, campaignId: campaign.id },
+      select: { status: true },
+    }),
+  ]);
+
+  // ——— Recorded counts (no estimates — every number traces to a row) ———
+  const contentApproved = campaign.items.filter((i) => APPROVED_STATUSES.includes(i.status)).length;
+  const contentScheduled = campaign.items.filter((i) => SCHEDULED_STATUSES.includes(i.status)).length;
+  const contentPublished = campaign.items.filter((i) => i.status === "published").length;
+  const itemsInReview = campaign.items.filter((i) => i.status === "ready_for_review").length;
+  const tasksWaitingApproval = campaignTasks.filter((t) => t.status === "waiting_approval").length;
+  const tasksBlocked = campaignTasks.filter((t) => t.status === "blocked").length;
+
+  const pipeline = computeCampaignPipeline({
+    status: campaign.status,
+    contentTotal: campaign.items.length,
+    contentApproved,
+    contentScheduled,
+    contentPublished,
+    metricsRecorded: campaign.metrics.length,
+    completedAt: campaign.completedAt,
+  });
+  const checklist = computeLaunchChecklist({
+    trackedLinkCount: campaign.links.length,
+    utmTaggedLinkCount: campaign.links.filter((l) => hasUtmTags(l.utm, l.targetUrl)).length,
+    approvedItems: contentApproved,
+    liveConnections: connections.length,
+  });
+  const attention = computeCampaignAttention({
+    itemsInReview,
+    tasksWaitingApproval,
+    tasksBlocked,
+    scheduledCount: contentScheduled,
+    publishedCount: contentPublished,
+    checklistReady: checklist.ready,
+  });
+  const checklistDone = checklist.items.filter((i) => i.done).length;
 
   return (
     <>
@@ -37,7 +91,46 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         {campaign.completedAt && <span className="text-xs text-charcoal-soft">completed {campaign.completedAt.toLocaleDateString()}</span>}
       </div>
 
-      <div className="mt-6 grid gap-6 md:grid-cols-2">
+      {/* ————— Five-stage pipeline: Prepare → Create → Review → Publish → Learn ————— */}
+      <Card className="rooted mt-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-medium text-charcoal">Pipeline</h2>
+          {pipeline.done ? (
+            <Badge variant="forest">loop closed</Badge>
+          ) : pipeline.current ? (
+            <Badge variant="moss">now: {pipeline.current}</Badge>
+          ) : null}
+        </div>
+        <ol className="mt-4 grid gap-2 md:grid-cols-5">
+          {pipeline.stages.map((stage, i) => (
+            <li
+              key={stage.key}
+              className={`rounded-[3px] border p-3 ${
+                stage.state === "active"
+                  ? "border-forest/40 bg-forest/[0.04]"
+                  : "border-bark/15 bg-white"
+              } ${stage.state === "upcoming" ? "opacity-60" : ""}`}
+              aria-current={stage.state === "active" ? "step" : undefined}
+            >
+              <div className="flex items-center gap-1.5">
+                {stage.state === "complete" ? (
+                  <CheckCircle2 size={14} className="shrink-0 text-forest" aria-hidden="true" />
+                ) : (
+                  <Circle size={14} className={`shrink-0 ${stage.state === "active" ? "text-forest" : "text-bark/40"}`} aria-hidden="true" />
+                )}
+                <p className="text-sm font-medium text-charcoal">{i + 1}. {stage.label}</p>
+              </div>
+              <p className="mt-0.5 text-[11px] uppercase tracking-wide text-charcoal-soft">{stage.hint}</p>
+              <p className="mt-1.5 text-xs leading-relaxed text-charcoal-soft">{stage.detail}</p>
+            </li>
+          ))}
+        </ol>
+        <p className="mt-3 text-xs text-charcoal-soft">
+          Stage states come straight from recorded rows — content, approvals, publications and metrics. Nothing is inferred.
+        </p>
+      </Card>
+
+      <div className="mt-6 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         <Card>
           <h2 className="mb-2 font-medium text-charcoal">Brief</h2>
           <dl className="space-y-2 text-sm">
@@ -66,6 +159,21 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
           </dl>
           <p className="mt-3 text-xs text-charcoal-soft">Status history is recorded as workspace activity events; see the dashboard feed.</p>
         </Card>
+
+        <Card className="xl:col-span-1">
+          <h2 className="flex items-center gap-2 font-medium text-charcoal">
+            <Sparkles size={15} className="text-fig" aria-hidden="true" /> Campaign coordinator
+          </h2>
+          <ul className="mt-3 space-y-2">
+            {attention.map((a) => (
+              <li key={a.key} className={`rounded-[3px] border p-3 ${ATTENTION_TONE[a.tone]}`}>
+                <p className="text-sm font-medium text-charcoal">{a.label}</p>
+                <p className="mt-0.5 text-xs leading-relaxed text-charcoal-soft">{a.detail}</p>
+                <Link href={a.href} className="mt-1 inline-block text-xs font-medium text-forest hover:underline">Open →</Link>
+              </li>
+            ))}
+          </ul>
+        </Card>
       </div>
 
       <Card className="mt-6">
@@ -89,6 +197,76 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
           <EmptyState title="No content yet" body="Draft your first item — generation will use the brief above, in your brand voice." action={<LinkButton href={`/app/content/new?campaignId=${campaign.id}`} variant="secondary" size="sm"><PenLine size={14} aria-hidden="true" /> Draft content</LinkButton>} icon={<PenLine size={20} className="text-forest" />} />
         )}
       </Card>
+
+      {/* ————— Pre-publish checklist + honest outcome ————— */}
+      <div className="mt-6 grid gap-6 md:grid-cols-2">
+        <Card id="checklist" className={checklist.ready ? "rooted" : ""}>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-medium text-charcoal">Pre-publish checklist</h2>
+            <Badge variant={checklist.ready ? "forest" : "warm"}>{checklistDone} of {checklist.items.length} complete</Badge>
+          </div>
+          <ul className="mt-3 space-y-2.5">
+            {checklist.items.map((item) => (
+              <li key={item.key} className="flex items-start gap-2.5">
+                {item.done ? (
+                  <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-forest" aria-hidden="true" />
+                ) : (
+                  <Circle size={16} className="mt-0.5 shrink-0 text-bark/40" aria-hidden="true" />
+                )}
+                <div className="min-w-0">
+                  <p className="text-sm text-charcoal">{item.label}</p>
+                  {!item.done && <p className="text-xs leading-relaxed text-charcoal-soft">{item.hint}</p>}
+                </div>
+              </li>
+            ))}
+          </ul>
+          {!checklist.ready && contentScheduled > 0 && (
+            <p className="mt-3 rounded-[3px] border border-clay/30 bg-clay/5 px-3 py-2 text-xs text-clay">
+              Scheduled assets may go live before this checklist is complete — attribution will be partial.
+            </p>
+          )}
+        </Card>
+
+        <Card>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-medium text-charcoal">Campaign outcome</h2>
+            <Badge variant={contentPublished > 0 ? "forest" : "warm"}>{contentPublished > 0 ? "live" : "not live yet"}</Badge>
+          </div>
+          {contentPublished > 0 ? (
+            <>
+              <dl className="mt-3 grid grid-cols-3 gap-3 text-center">
+                <div className="rounded-[3px] border border-bark/15 bg-ivory p-3">
+                  <dt className="text-[11px] uppercase tracking-wide text-charcoal-soft">Published</dt>
+                  <dd className="mt-1 font-serif text-xl text-forest-deep">{contentPublished}</dd>
+                </div>
+                <div className="rounded-[3px] border border-bark/15 bg-ivory p-3">
+                  <dt className="text-[11px] uppercase tracking-wide text-charcoal-soft">Tracked clicks</dt>
+                  <dd className="mt-1 font-serif text-xl text-forest-deep">{campaign.links.reduce((s, l) => s + l.clicks, 0)}</dd>
+                </div>
+                <div className="rounded-[3px] border border-bark/15 bg-ivory p-3">
+                  <dt className="text-[11px] uppercase tracking-wide text-charcoal-soft">Metrics</dt>
+                  <dd className="mt-1 font-serif text-xl text-forest-deep">{campaign.metrics.length}</dd>
+                </div>
+              </dl>
+              <p className="mt-3 text-xs text-charcoal-soft">Conversion and learnings come from the experiments and metrics recorded against this campaign — never estimated.</p>
+            </>
+          ) : (
+            <>
+              <p className="mt-2 text-sm text-charcoal-soft">
+                Results will appear here after launch — tracked clicks, recorded metrics and the experiments attached to this campaign. Nothing is projected in advance.
+              </p>
+              <div className="mt-3 grid grid-cols-3 gap-3">
+                {["Qualified signups", "Conversion rate", "Learnings"].map((label) => (
+                  <div key={label} className="rounded-[3px] border border-dashed border-bark/25 bg-ivory p-3 text-center">
+                    <p className="text-[11px] uppercase tracking-wide text-charcoal-soft">{label}</p>
+                    <p className="mt-1 font-serif text-xl text-bark/40">—</p>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </Card>
+      </div>
 
       {(campaign.experiments.length > 0 || campaign.links.length > 0) && (
         <div className="mt-6 grid gap-6 md:grid-cols-2">

@@ -9,6 +9,48 @@ follow [Keep a Changelog](https://keepachangelog.com); commit hashes refer to
 ## [Unreleased]
 
 ### Added
+- **Vision pass: the "Distribution OS" workspace mockups applied to the live
+  app** (six reference screens, 2026-10-29) — the missing surfaces, built
+  strictly from recorded data (no invented scores, no simulated agent runs):
+  - **Campaign pipeline & coordinator** (`/app/campaigns/[id]`) — five-stage
+    Prepare → Create → Review → Publish → Learn strip derived from recorded
+    content/approval/publication/metric state; a pre-publish checklist
+    (tracked link, UTM tags, approval, publishing connection); a coordinator
+    panel with attention items (blocked tasks, items awaiting review, open
+    approval gates, checklist gaps); and an honest "Campaign outcome" card
+    that stays dashed-empty until launch. Pure logic in
+    `src/lib/campaign-pipeline.ts` (unit-tested).
+  - **Product & Audience brief** (`/app/brief`) — the unified evidence-backed
+    brief: completeness % over profile sections + audience insights, the six
+    brief cards (definition / ideal customer / core problem / value prop /
+    proof points / alternatives) each carrying its provenance badge
+    (Verified / Founder input / Observed / Assumption), audience insights with
+    confidence, and an Evidence & assumptions table with per-row next steps.
+    Deliberately NO "ask agents to refresh" button — web research is an
+    unshipped capability and the page says so. Logic in
+    `src/lib/product-brief.ts` (unit-tested).
+  - **Opportunities lifecycle** (`/app/opportunities`) — recommendations as a
+    New / Saved / Dismissed queue with actions that actually transition
+    status: `PATCH /api/recommendations/[id]` (open → accepted → acted_upon,
+    dismiss/restore, workspace-scoped, activity-recorded), "Turn into
+    experiment" pre-fills the experiment form and marks acted-upon. The
+    strategy page keeps the full synthesis; this is the working queue.
+  - **Experiments header** — Running / Needs decision / Concluded / Planned
+    stat cards ("needs decision" = completed without a recorded conclusion,
+    badged on cards too) plus the "conclusions recorded in N of M" honesty
+    line.
+  - **Model usage receipts** (`/app/usage`) — the `ModelCall` ledger finally
+    rendered: 30-day calls/tokens/estimated-cost totals, today's live-call
+    quota, per-provider breakdown, and the 15 most recent calls with
+    fallback/live badges.
+  - **Landing hero mockup refreshed** — the workspace preview now mirrors the
+    real dashboard (goal progress, experiment with the "early read only" caveat
+    instead of a projected lift, agent team, first-party funnel, recommendation
+    banner), keeping the illustrative-preview honesty badge.
+  - Nav: Opportunities, Product & Audience (Plan group) and Model usage
+    (System group); recommendation activity events deep-link to the queue.
+
+### Added
 - **`GET /api/health` deployment diagnostics** — one URL that answers "why
   can't I authenticate?" without shell access to the serverless host. Reports
   which database-URL env name was found (`DATABASE_URL` /

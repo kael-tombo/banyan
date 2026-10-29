@@ -112,10 +112,10 @@ export function Field({ label, hint, required, children, htmlFor }: { label: str
   );
 }
 
-export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
+export function Card({ children, className = "", id }: { children: ReactNode; className?: string; id?: string }) {
   // Sharp-cornered, hairlined, no drop shadow: hierarchy comes from the border
   // and the (optional, via .rooted) left rule, not from floating.
-  return <div className={`rounded-[3px] border border-bark/15 bg-white p-4 ${className}`}>{children}</div>;
+  return <div id={id} className={`rounded-[3px] border border-bark/15 bg-white p-4 ${className}`}>{children}</div>;
 }
 
 const BADGE_VARIANTS: Record<string, string> = {

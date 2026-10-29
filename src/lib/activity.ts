@@ -14,6 +14,7 @@ export type ActivityType =
   | "visit"
   | "onboarding_complete"
   | "experiment_update"
+  | "recommendation"
   | "connection"
   | "metric"
   | "campaign"
