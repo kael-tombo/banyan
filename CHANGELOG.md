@@ -43,11 +43,50 @@ follow [Keep a Changelog](https://keepachangelog.com); commit hashes refer to
     rendered: 30-day calls/tokens/estimated-cost totals, today's live-call
     quota, per-provider breakdown, and the 15 most recent calls with
     fallback/live badges.
+  - **Agent Activity control center** (`/app/activity`, second vision pass,
+    2026-10-29) — the agent audit trail as a control surface: a filterable
+    activity table (agent role × status × 24h/7d/30d, with per-task detail and
+    goal links), the human **approval queue** (task gates + goal-plan
+    approvals with approve/reject wired to the existing server-enforced
+    endpoints), a per-role **agent status** sidebar derived from recorded
+    tasks, and a workspace-wide **pause/resume** control.
+    Logic in `src/lib/agent-activity.ts` (unit-tested).
+  - **Agent pause enforcement** — `Workspace.agentsPausedAt` (migration
+    `20261029090000_agent_pause`) plus `POST /api/agent-activity/pause`;
+    enforced inside `advanceWorkspace`, the single funnel every caller (UI
+    advance, worker tick) goes through, so a paused workspace advances
+    nothing at all. Pausing records an `agent_control` activity event with
+    the acting user.
+  - **Learning & Results** (`/app/results`) — the synthesis page: first-party
+    funnel (tracked visits → signups → activation) with honest
+    period-over-period deltas (zero prior data renders "no prior-period data",
+    not 0%), experiment outcome rows (signal/confidence derived from recorded
+    snapshots — confidence is evidence breadth, never statistical power),
+    open analyst synthesis, a per-campaign "what appears to be working"
+    ranking (strength = absolute activation counts, not rates on two clicks),
+    data health & attribution, and recent agent decisions with evidence.
+    Logic in `src/lib/results.ts` (unit-tested).
+  - **Content Studio upgrades** (`/app/content/[id]`) — estimated script
+    timeline for short-video (hook ~3s / scenes ~6s / CTA ~3s, labeled as
+    estimated pacing), **platform-specific versions** (per-channel adapted
+    copy with real char limits, stored in `videoExtras.adaptations` via the
+    extended `PATCH /api/content/[id]`), a deterministic **review checklist**
+    (draft provenance, evidence linkage, claim lint, human gate — checks that
+    slow publishing down, never clear copy), and an **asset provenance** strip
+    (generated-with, source references, revision count, usage rights).
+    Logic in `src/lib/video-script.ts` (unit-tested).
+  - **Connections catalog** (`/app/connections`) — five honest integration
+    cards (Publishing/Postiz connectable; first-party analytics works today;
+    CRM/Payments/Ads marked "not built yet" with the manual fallback spelled
+    out) — capability vs. integration stated plainly instead of roadmap
+    dressing.
   - **Landing hero mockup refreshed** — the workspace preview now mirrors the
-    real dashboard (goal progress, experiment with the "early read only" caveat
-    instead of a projected lift, agent team, first-party funnel, recommendation
-    banner), keeping the illustrative-preview honesty badge.
-  - Nav: Opportunities, Product & Audience (Plan group) and Model usage
+    vision layout (Product → Audience → Channels → Results spine, audience
+    "strong fit" card, top recommendation with its projected lift labeled
+    "illustrative", channels-to-test row), keeping the illustrative-preview
+    honesty badge.
+  - Nav: Results (Measure group) and Agent activity (System group);
+    Opportunities, Product & Audience (Plan group) and Model usage
     (System group); recommendation activity events deep-link to the queue.
 
 ### Added

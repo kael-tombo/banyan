@@ -48,12 +48,23 @@ export type AdvanceReport = {
   failed: number;
   waitingApproval: number;
   blocked: number;
+  /** True when the workspace's agents are paused by a human — nothing was touched. */
+  paused?: boolean;
 };
 
 export async function advanceWorkspace(workspaceId: string, opts?: { userId?: string | null; maxTasks?: number }): Promise<AdvanceReport> {
   const report: AdvanceReport = { requeuedLeases: 0, promoted: 0, retried: 0, blockedByDeps: 0, executed: 0, completed: 0, failed: 0, waitingApproval: 0, blocked: 0 };
   const now = new Date();
   const maxTasks = opts?.maxTasks ?? 6;
+
+  // Human pause is enforced here — the single funnel every caller (UI advance,
+  // worker tick) goes through. Paused means nothing changes at all: no leases
+  // recovered, no retries, no executions. Resume by clearing the pause.
+  const ws = await prisma.workspace.findUnique({ where: { id: workspaceId }, select: { agentsPausedAt: true } });
+  if (ws?.agentsPausedAt) {
+    report.paused = true;
+    return report;
+  }
 
   const rows = await prisma.agentTask.findMany({ where: { workspaceId } });
   const tasks = rows.map(parseTaskEnvelope);

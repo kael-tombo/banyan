@@ -6,8 +6,10 @@ import { Badge, Card, LinkButton, PageHeader } from "@/components/ui";
 import {
   computeDataFlow,
   computeLoopSetup,
+  CONNECTION_CATALOG,
   timeAgo,
   type FlowHealth,
+  type CatalogStatus,
 } from "@/lib/growth-loop";
 import {
   ArrowRight, AlertTriangle, CheckCircle2, CircleDashed, Lock, KeyRound,
@@ -24,6 +26,12 @@ const HEALTH_STYLE: Record<FlowHealth, { dot: string; label: string }> = {
   flowing: { dot: "bg-forest", label: "Flowing" },
   stalled: { dot: "bg-amber-500", label: "Stalled" },
   not_started: { dot: "bg-bark/30", label: "Not started" },
+};
+
+const CATALOG_STYLE: Record<CatalogStatus, { variant: "forest" | "moss" | "charcoal"; label: string }> = {
+  available: { variant: "forest", label: "Connectable now" },
+  first_party: { variant: "moss", label: "First-party — works today" },
+  not_available: { variant: "charcoal", label: "Not built yet" },
 };
 
 type DataQualityHint = {
@@ -283,7 +291,47 @@ export default async function ConnectionsPage() {
         </div>
       </div>
 
-      {/* ————— 4. Access & data use — how Banyan treats your data ————— */}
+      {/* ————— 4. Connection catalog — what each slot is, honestly ————— */}
+      <Card className="mt-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-medium text-charcoal">Connection catalog</h2>
+          <p className="text-xs text-charcoal-soft">What each integration is today — capability vs. integration, stated plainly.</p>
+        </div>
+        <ul className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {CONNECTION_CATALOG.map((entry) => {
+            const style = CATALOG_STYLE[entry.status];
+            return (
+              <li key={entry.key} className="flex flex-col rounded-[3px] border border-bark/15 bg-ivory/50 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-medium text-charcoal">
+                    {entry.name} <span className="font-normal text-charcoal-soft">· {entry.provider}</span>
+                  </span>
+                  <Badge variant={style.variant}>{style.label}</Badge>
+                </div>
+                <dl className="mt-2 space-y-1.5 text-[11px] leading-relaxed">
+                  <div>
+                    <dt className="font-semibold text-charcoal">Data you&apos;ll get</dt>
+                    <dd className="text-charcoal-soft">{entry.whatYouGet}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-semibold text-charcoal">Use cases</dt>
+                    <dd className="text-charcoal-soft">{entry.useCases}</dd>
+                  </div>
+                  <div>
+                    <dt className="font-semibold text-charcoal">How it works today</dt>
+                    <dd className="text-charcoal-soft">{entry.howToday}</dd>
+                  </div>
+                </dl>
+                <Link href={entry.href} className="mt-auto inline-flex items-center gap-1 pt-2.5 text-xs font-medium text-forest hover:underline">
+                  {entry.cta} <ArrowRight size={11} aria-hidden="true" />
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </Card>
+
+      {/* ————— 5. Access & data use — how Banyan treats your data ————— */}
       <Card className="mt-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-medium text-charcoal">Access &amp; data use</h2>

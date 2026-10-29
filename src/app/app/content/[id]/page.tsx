@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireWorkspaceServer } from "@/lib/workspace";
 import { PageHeader, StatusBadge, Badge } from "@/components/ui";
 import { ContentEditor } from "./editor";
+import { buildVideoTimeline, estimatedRuntime, claimLint, reviewChecklist, normalizeAdaptations } from "@/lib/video-script";
 
 export const metadata: Metadata = { title: "Content editor" };
 
@@ -29,6 +30,19 @@ export default async function ContentEditorPage({ params }: { params: Promise<{ 
   const link = await prisma.trackedLink.findFirst({ where: { workspaceId: ctx.workspace.id, contentItemId: item.id } });
   const timezone = profile?.timezone ?? "UTC";
 
+  // ————— Studio computations (pure, from recorded data) —————
+  const videoExtras = JSON.parse(item.videoExtras || "{}");
+  const timeline = buildVideoTimeline(videoExtras);
+  const claims = claimLint(item.body);
+  const review = reviewChecklist({
+    status: item.status,
+    genMeta: gen.provider ? gen : null,
+    sourceRef: item.sourceRef,
+    campaignEvidence: item.campaign?.evidence || null,
+    claims,
+  });
+  const adaptations = normalizeAdaptations(videoExtras.adaptations as Record<string, string> | undefined);
+
   return (
     <>
       <PageHeader
@@ -45,6 +59,7 @@ export default async function ContentEditorPage({ params }: { params: Promise<{ 
         </Badge>
         {gen.generatedAt && <span>generated {new Date(gen.generatedAt).toLocaleString()}</span>}
         {!gen.provider && <span>Never generated yet — draft as written or generate below.</span>}
+        {review.humanReviewRequired && <Badge variant="warm">human review required</Badge>}
       </div>
 
       <ContentEditor
@@ -60,7 +75,7 @@ export default async function ContentEditorPage({ params }: { params: Promise<{ 
           approvedAt: item.approvedAt?.toISOString() ?? null,
           rejectionReason: item.rejectionReason,
           sourceRef: item.sourceRef,
-          videoExtras: JSON.parse(item.videoExtras || "{}"),
+          videoExtras,
         }}
         revisions={revisions.map((r) => ({ id: r.id, title: r.title, body: r.body.slice(0, 200), note: r.note, authorType: r.authorType, createdAt: r.createdAt.toISOString() }))}
         publications={publications.map((p) => ({
@@ -73,6 +88,18 @@ export default async function ContentEditorPage({ params }: { params: Promise<{ 
         connections={connections.map((c) => ({ id: c.id, label: c.label, status: c.status, lastError: c.lastError }))}
         trackedUrl={link ? `/t/${link.slug}` : null}
         timezone={timezone}
+        timeline={timeline}
+        estimatedSeconds={estimatedRuntime(timeline)}
+        adaptations={adaptations}
+        reviewChecks={review}
+        provenance={{
+          generatedWith: gen.isFallback ? null : gen.provider ?? null,
+          generatedModel: gen.model ?? null,
+          generatedAt: gen.generatedAt ?? null,
+          campaignEvidence: item.campaign?.evidence || null,
+          revisionCount: revisions.length,
+        }}
+        claimFlags={claims}
       />
     </>
   );

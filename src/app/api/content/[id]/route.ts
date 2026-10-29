@@ -4,11 +4,29 @@ import { isChannel, contentBodySchema } from "@/lib/formats";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 
+const videoExtrasSchema = z
+  .object({
+    hook: z.string().max(500).optional(),
+    script: z.string().max(6000).optional(),
+    scenes: z
+      .array(z.object({ scene: z.string().max(500).optional(), visual: z.string().max(500).optional() }).strict())
+      .max(12)
+      .optional(),
+    onScreenText: z.string().max(500).optional(),
+    caption: z.string().max(1000).optional(),
+    cta: z.string().max(500).optional(),
+    // Platform adaptations: channel → copy. Keys are validated against real channels below.
+    adaptations: z.record(z.string().max(6000)).optional(),
+  })
+  .strict()
+  .optional();
+
 const patchSchema = z.object({
   title: z.string().trim().max(200).optional(),
   body: z.string().max(10_000).optional(),
   sourceRef: z.union([z.string().trim().max(500), z.literal("")]).optional(),
   revisionNote: z.string().trim().max(300).optional(),
+  videoExtras: videoExtrasSchema,
 });
 
 async function load(id: string, workspaceId: string) {
@@ -61,6 +79,31 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (parsed.data.body !== undefined) data.body = body;
   if (parsed.data.sourceRef !== undefined) data.sourceRef = parsed.data.sourceRef || null;
   if (parsed.data.revisionNote !== undefined && parsed.data.revisionNote !== "") data.rejectionReason = undefined;
+  if (parsed.data.videoExtras !== undefined) {
+    // Merge with the stored extras so partial updates never wipe recorded fields;
+    // adaptations replace as a whole (the client sends the full map), and keys
+    // are narrowed to the three real channels.
+    let existing: Record<string, unknown> = {};
+    try {
+      const e: unknown = JSON.parse(item.videoExtras || "{}");
+      if (e && typeof e === "object" && !Array.isArray(e)) existing = e as Record<string, unknown>;
+    } catch {
+      existing = {};
+    }
+    const incoming = parsed.data.videoExtras;
+    const adaptations = incoming.adaptations
+      ? Object.fromEntries(
+          Object.entries(incoming.adaptations).filter(([k]) => ["x", "linkedin", "shortvideo"].includes(k))
+        )
+      : undefined;
+    const merged: Record<string, unknown> = { ...existing };
+    for (const [k, v] of Object.entries(incoming)) {
+      if (k === "adaptations") continue;
+      if (v !== undefined) merged[k] = v;
+    }
+    if (adaptations !== undefined) merged.adaptations = adaptations;
+    data.videoExtras = JSON.stringify(merged);
+  }
 
   if (restartFlow) {
     data.status = "draft"; // editing approved content sends it back to draft by rule

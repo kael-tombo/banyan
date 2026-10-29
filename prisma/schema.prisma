@@ -45,6 +45,9 @@ model Workspace {
   slug      String   @unique
   // The seeded Banyan.ai self-distribution workspace is its own first customer.
   isSelf    Boolean  @default(false)
+  // Agent activity control: when set, the orchestrator reconciles but never
+  // executes new task work for this workspace (pause is human-controlled).
+  agentsPausedAt DateTime?
   createdAt DateTime @default(now())
 
   memberships     Membership[]

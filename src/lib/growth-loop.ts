@@ -242,6 +242,89 @@ export function timeAgo(d: Date, now: Date = new Date()): string {
 }
 
 // ---------------------------------------------------------------------------
+// Connection catalog — what each integration slot is, honestly
+// ---------------------------------------------------------------------------
+
+export type CatalogStatus = "available" | "first_party" | "not_available";
+
+export type CatalogEntry = {
+  key: string;
+  name: string;
+  provider: string;
+  category: string;
+  status: CatalogStatus;
+  whatYouGet: string;
+  useCases: string;
+  /** What is actually true today — no roadmap dressing. */
+  howToday: string;
+  href: string;
+  cta: string;
+};
+
+export const CONNECTION_CATALOG: CatalogEntry[] = [
+  {
+    key: "publishing",
+    name: "Publishing",
+    provider: "Postiz",
+    category: "Distribution",
+    status: "available",
+    whatYouGet: "Publish approved content to connected social channels; read back post status and confirmations.",
+    useCases: "Ship approved posts without leaving the approval gate; keep a provider-confirmed publication record.",
+    howToday: "Connect a Postiz API key on the Publishing page. Manual recording with a live URL is always available.",
+    href: "/app/publishing",
+    cta: "Connect Postiz",
+  },
+  {
+    key: "analytics",
+    name: "Website analytics",
+    provider: "First-party + your analytics tool",
+    category: "Measurement",
+    status: "first_party",
+    whatYouGet: "Tracked-link visits, attributed signups and onboarding completions, recorded in your own database.",
+    useCases: "Attribute traffic to content and campaigns; measure the funnel without third-party cookies.",
+    howToday: "Works out of the box through tracked links (/t/…). External tools (Plausible, GA4) are not imported — Banyan shows its own records only.",
+    href: "/app/analytics",
+    cta: "See analytics",
+  },
+  {
+    key: "crm",
+    name: "CRM",
+    provider: "HubSpot or CSV (not built yet)",
+    category: "Outcomes",
+    status: "not_available",
+    whatYouGet: "When built: signup-to-trial-to-deal linkage so campaigns can be judged on pipeline, not clicks.",
+    useCases: "Attribute qualified trials and revenue to the content that earned them.",
+    howToday: "No CRM sync exists today. Record outcomes as context facts and campaign metrics — honestly labelled manual.",
+    href: "/app/context",
+    cta: "Record outcomes manually",
+  },
+  {
+    key: "payments",
+    name: "Payments",
+    provider: "Stripe (not built yet)",
+    category: "Outcomes",
+    status: "not_available",
+    whatYouGet: "When built: paid conversions and revenue per campaign, straight from the billing source.",
+    useCases: "Measure CAC and payback per experiment.",
+    howToday: "No billing integration exists today. Record revenue metrics manually against campaigns.",
+    href: "/app/campaigns",
+    cta: "Record metrics manually",
+  },
+  {
+    key: "ads",
+    name: "Ads",
+    provider: "Google / Meta (not built yet)",
+    category: "Acquisition",
+    status: "not_available",
+    whatYouGet: "When built: spend, clicks and conversions from ad platforms next to organic results.",
+    useCases: "Compare paid and organic distribution in one honest ledger.",
+    howToday: "No ad platform connection exists today. Record spend manually where you track it.",
+    href: "/app/analytics",
+    cta: "Record spend manually",
+  },
+];
+
+// ---------------------------------------------------------------------------
 // Agent team — live per-role status derived from the AgentTask audit trail
 // ---------------------------------------------------------------------------
 

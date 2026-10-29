@@ -4,7 +4,8 @@ import { useState, FormEvent, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Select, StatusBadge, Textarea, Loading } from "@/components/ui";
 import { CHANNEL_META, CHANNEL_FORMATS, isChannel } from "@/lib/formats";
-import { CalendarClock, Save, Sparkles, Send, Ban, CheckCircle2, ExternalLink, Clock, Eye } from "lucide-react";
+import { ADAPTATION_TARGETS, adaptationLimit, type TimelineSegment, type ReviewCheck } from "@/lib/video-script";
+import { CalendarClock, Save, Sparkles, Send, Ban, CheckCircle2, ExternalLink, Clock, Eye, Film, Layers, ShieldCheck } from "lucide-react";
 
 type VideoExtras = { hook?: string; script?: string; scenes?: { scene: string; visual: string }[]; onScreenText?: string; caption?: string; cta?: string };
 
@@ -21,6 +22,7 @@ type PubShape = {
 
 export function ContentEditor({
   item, revisions, publications, campaigns, connections, trackedUrl, timezone,
+  timeline, estimatedSeconds, adaptations, reviewChecks, provenance, claimFlags,
 }: {
   item: ItemShape;
   revisions: { id: string; title: string; body: string; note: string; authorType: string; createdAt: string }[];
@@ -29,6 +31,12 @@ export function ContentEditor({
   connections: { id: string; label: string; status: string; lastError: string | null }[];
   trackedUrl: string | null;
   timezone: string;
+  timeline: TimelineSegment[] | null;
+  estimatedSeconds: number | null;
+  adaptations: Record<string, string>;
+  reviewChecks: { checks: ReviewCheck[]; humanReviewRequired: boolean };
+  provenance: { generatedWith: string | null; generatedModel: string | null; generatedAt: string | null; campaignEvidence: string | null; revisionCount: number };
+  claimFlags: { phrase: string; why: string }[];
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<null | string>(null);
@@ -44,6 +52,8 @@ export function ContentEditor({
   const [manualUrl, setManualUrl] = useState("");
   const [handoffNote, setHandoffNote] = useState<string | null>(null);
   const [tone, setTone] = useState("");
+  const [adaptTexts, setAdaptTexts] = useState<Record<string, string>>(adaptations);
+  const [adaptDirty, setAdaptDirty] = useState(false);
 
   const isChannelNow = isChannel(channel);
 
@@ -146,6 +156,25 @@ export function ContentEditor({
     }
   }
 
+  async function saveAdaptations() {
+    setBusy("adaptations"); setError(null); setNotice(null);
+    try {
+      const res = await fetch(`/api/content/${item.id}`, {
+        method: "PATCH", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ videoExtras: { adaptations: adaptTexts }, revisionNote: "Platform adaptations updated" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Could not save adaptations.");
+      setAdaptDirty(false);
+      setNotice("Platform adaptations saved.");
+      router.refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
+
   const charHint = useMemo(() => {
     if (!isChannelNow) return null;
     if (channel === "x" && format !== "thread") return `${body.length}/280 characters (single post)`;
@@ -196,6 +225,36 @@ export function ContentEditor({
                 {item.videoExtras.onScreenText && <p className="mt-2 text-xs"><strong>On-screen text:</strong> {item.videoExtras.onScreenText}</p>}
                 {item.videoExtras.caption && <p className="mt-1 text-xs"><strong>Caption:</strong> {item.videoExtras.caption}</p>}
                 <p className="mt-2 text-xs text-clay">A script is not a finished video: production and upload remain manual.</p>
+              </div>
+            )}
+
+            {/* Script & timeline — estimated pacing from the recorded structure */}
+            {channel === "shortvideo" && timeline && (
+              <div className="rounded-lg border border-bark/15 bg-white p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="flex items-center gap-1.5 text-sm font-medium text-forest-deep">
+                    <Film size={14} className="text-forest" aria-hidden="true" /> Script &amp; timeline
+                  </p>
+                  <Badge variant="warm">est. {estimatedSeconds}s runtime · pacing estimated</Badge>
+                </div>
+                <ol className="mt-3 space-y-2">
+                  {timeline.map((seg) => (
+                    <li key={seg.key} className="flex items-start gap-2.5">
+                      <span className="w-20 shrink-0 rounded-[3px] bg-ivory px-1.5 py-1 text-center text-[11px] font-semibold text-charcoal-soft">
+                        {seg.startSec}–{seg.endSec}s
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block text-xs font-semibold text-charcoal">{seg.label}</span>
+                        <span className="block text-xs text-charcoal-soft">{seg.text}</span>
+                        {seg.visual && <span className="block text-[11px] text-charcoal-soft/80">visual: {seg.visual}</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+                <p className="mt-2 text-[11px] text-charcoal-soft">
+                  Seconds are estimated pacing (hook ~3s, scenes ~6s, CTA ~3s) — final timing is decided when the video is
+                  recorded.
+                </p>
               </div>
             )}
 
@@ -255,10 +314,83 @@ export function ContentEditor({
             </div>
           </details>
         </Card>
+
+        {/* Platform-specific versions — one asset, per-channel copy with honest limits */}
+        <Card>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 font-medium text-charcoal"><Layers size={15} className="text-forest" aria-hidden="true" /> Platform-specific versions</h2>
+            {adaptDirty && <Badge variant="warm">unsaved</Badge>}
+          </div>
+          <p className="mt-0.5 text-xs text-charcoal-soft">
+            Keep the approved copy intact and maintain a tuned version per platform. These ride along with the item —
+            handoff and publishing notes use the body; adaptations are your execution sheet.
+          </p>
+          <div className="mt-3 flex flex-col gap-3">
+            {ADAPTATION_TARGETS.map((t) => {
+              const text = adaptTexts[t.channel] ?? "";
+              const over = text.length > t.limit;
+              return (
+                <div key={t.channel}>
+                  <div className="flex items-center justify-between gap-2">
+                    <label htmlFor={`adapt-${t.channel}`} className="text-xs font-semibold text-charcoal">{t.label}</label>
+                    <span className={`text-[11px] ${over ? "font-medium text-clay" : "text-charcoal-soft"}`}>{text.length}/{t.limit}</span>
+                  </div>
+                  <Textarea
+                    id={`adapt-${t.channel}`}
+                    value={text}
+                    onChange={(e) => { setAdaptTexts((prev) => ({ ...prev, [t.channel]: e.target.value })); setAdaptDirty(true); }}
+                    rows={t.channel === "x" ? 3 : 4}
+                    disabled={locked}
+                    aria-label={`${t.label} adaptation`}
+                  />
+                  <p className="mt-0.5 text-[11px] text-charcoal-soft">{t.requirement}</p>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-3 flex items-center gap-2">
+            <Button size="sm" onClick={saveAdaptations} disabled={!!busy || locked || !adaptDirty}>
+              <Save size={13} aria-hidden="true" /> {busy === "adaptations" ? "Saving…" : "Save adaptations"}
+            </Button>
+          </div>
+        </Card>
       </div>
 
       {/* Workflow column */}
       <div className="flex flex-col gap-4">
+        {/* Agent-style review checklist — derived state, labeled honestly */}
+        <Card>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 font-medium text-charcoal"><ShieldCheck size={15} className="text-forest" aria-hidden="true" /> Review checklist</h2>
+            <Badge variant={reviewChecks.humanReviewRequired ? "warm" : "forest"}>
+              {reviewChecks.humanReviewRequired ? "Human review required" : "All checks pass"}
+            </Badge>
+          </div>
+          <ul className="mt-3 space-y-2.5">
+            {reviewChecks.checks.map((c) => (
+              <li key={c.key} className="flex items-start gap-2">
+                <span className="mt-0.5 shrink-0" aria-hidden="true">
+                  {c.state === "ready" ? (
+                    <CheckCircle2 size={14} className="text-forest" />
+                  ) : c.state === "needs_review" ? (
+                    <Ban size={14} className="text-clay" />
+                  ) : (
+                    <Eye size={14} className="text-fig-deep" />
+                  )}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-xs font-semibold text-charcoal">{c.label}</span>
+                  <span className="mt-0.5 block text-[11px] leading-relaxed text-charcoal-soft">{c.detail}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 border-t border-bark/10 pt-2 text-[11px] leading-relaxed text-charcoal-soft">
+            These are deterministic checks over recorded state — provenance, evidence linkage, a claim lint, and the
+            human gate. They slow publishing down for a human look; they never clear copy on their own.
+          </p>
+        </Card>
+
         <Card>
           <h2 className="mb-3 flex items-center gap-2 font-medium text-charcoal"><Eye size={15} className="text-clay" aria-hidden="true" /> Review &amp; approval</h2>
           <div className="flex flex-col gap-2 text-sm">
@@ -414,6 +546,46 @@ export function ContentEditor({
             {campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </Select>
           <p className="mt-2 text-xs text-charcoal-soft">Campaign assignment is captured in the revision log; full reassignment lives on the campaign page.</p>
+        </Card>
+
+        {/* Provenance strip — what this asset is and where it came from */}
+        <Card>
+          <h2 className="mb-2.5 font-medium text-charcoal">Asset provenance</h2>
+          <dl className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+            <div>
+              <dt className="font-semibold text-charcoal">Generated with</dt>
+              <dd className="text-charcoal-soft">
+                {provenance.generatedWith
+                  ? `${provenance.generatedWith}${provenance.generatedModel ? ` · ${provenance.generatedModel}` : ""}${provenance.generatedAt ? ` · ${new Date(provenance.generatedAt).toLocaleDateString()}` : ""}`
+                  : "No generation record — drafted by hand."}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-charcoal">Source references</dt>
+              <dd className="text-charcoal-soft">
+                {provenance.campaignEvidence
+                  ? `Campaign evidence: ${provenance.campaignEvidence.slice(0, 90)}`
+                  : item.sourceRef
+                    ? `Source link: ${item.sourceRef.slice(0, 90)}`
+                    : "None linked."}
+              </dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-charcoal">Version history</dt>
+              <dd className="text-charcoal-soft">{provenance.revisionCount} revision(s) recorded — every edit is kept.</dd>
+            </div>
+            <div>
+              <dt className="font-semibold text-charcoal">Usage rights</dt>
+              <dd className="text-charcoal-soft">
+                Your content, your responsibility: claims must survive the review checklist before public use.
+              </dd>
+            </div>
+          </dl>
+          {claimFlags.length > 0 && (
+            <p className="mt-2.5 rounded-[3px] border border-fig/30 bg-fig/5 px-2 py-1.5 text-[11px] text-fig-deep">
+              Claim lint flags: {claimFlags.map((f) => `“${f.phrase}” (${f.why})`).join(", ")} — review before submitting.
+            </p>
+          )}
         </Card>
       </div>
     </div>

@@ -21,7 +21,9 @@ export type ActivityType =
   // Agentic execution runtime
   | "goal"
   | "plan"
-  | "task";
+  | "task"
+  // Human control over the agentic runtime (pause/resume)
+  | "agent_control";
 
 export async function recordActivity(input: {
   workspaceId: string;

@@ -1,33 +1,34 @@
 import {
-  ArrowRight, BadgeCheck, Bot, FileText, Globe, Target, UserPlus,
+  ArrowRight, BadgeCheck, Building2, Mail, Megaphone, Search, Users,
 } from "lucide-react";
 
 /**
- * Hero product mockup — mirrors what the real dashboard actually renders:
- * a goal with progress, an experiment in its honest early-read state, the
- * agent team with live statuses, the first-party funnel, and the
- * recommendation banner that links to it.
+ * Hero product mockup — mirrors the Distribution OS vision for the landing
+ * preview: the growth workspace with an audience read, a top recommendation
+ * with its projected lift, and the channels queued to test — plus the
+ * Product → Audience → Channels → Results spine.
  *
  * Honesty rule: this is marketing imagery, so it is explicitly labeled as an
- * illustrative preview. The live app starts from honest empty states and
- * renders only recorded numbers — the footer badge says exactly that. Even
- * the mockup's experiment carries the "early read" caveat rather than a
- * projected win.
+ * illustrative preview, and the projected lift carries its own "projected,
+ * not measured" caveat inside the mockup. The live app starts from honest
+ * empty states and renders only recorded numbers.
  */
 
-const funnel = [
-  { icon: FileText, label: "Content visits", value: "1,240" },
-  { icon: Globe, label: "Landing visitors", value: "186" },
-  { icon: UserPlus, label: "Sign-ups", value: "14" },
-  { icon: BadgeCheck, label: "Qualified", value: "4" },
+const planSpine = [
+  { icon: Building2, label: "Product", sub: "Your website and offer" },
+  { icon: Users, label: "Audience", sub: "Ideal customer segments" },
+  { icon: Megaphone, label: "Channels", sub: "Highest-potential tests" },
+  { icon: BadgeCheck, label: "Results", sub: "Learn and scale what works" },
 ];
 
-const agents = [
-  { name: "Market Research", line: "Analyzed 42 founder discussions · 8 signals" },
-  { name: "Growth Strategist", line: "Drafted the landing-page message test (v3)" },
-  { name: "Creator", line: "2 short-video drafts awaiting review" },
-  { name: "Analyst", line: "Updated attribution for the last 24 hours" },
+const channelsToTest = [
+  { icon: Mail, name: "LinkedIn", sub: "Founder-led content, thought leadership" },
+  { icon: Search, name: "Search guides", sub: "High-intent keywords, product comparison" },
+  { icon: Megaphone, name: "Communities", sub: "Targeted answers where the audience already is" },
 ];
+
+// Illustrative mini bar chart: 8 weeks of a projected ramp (labeled as projected).
+const bars = [12, 18, 24, 30, 42, 55, 68, 80];
 
 export function WorkspaceMockup() {
   return (
@@ -54,90 +55,85 @@ export function WorkspaceMockup() {
               Growth workspace <span className="font-normal text-charcoal-soft">/ Acme Analytics</span>
             </p>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-forest/25 bg-forest/8 px-2.5 py-1 text-[11px] font-semibold text-forest">
-              <Bot size={11} aria-hidden="true" /> Agents moving the goal forward
+              <BadgeCheck size={11} aria-hidden="true" /> Plan ready for review
             </span>
           </div>
 
-          {/* Goal banner */}
-          <div className="mt-4 rounded-xl border border-bark/10 bg-mist/50 p-3.5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="flex items-center gap-1.5 text-sm font-semibold text-charcoal">
-                <Target size={14} className="text-forest" aria-hidden="true" />
-                Goal: first 100 qualified customers
-              </p>
-              <p className="text-xs font-semibold text-forest">
-                34 / 100 <span className="font-medium text-charcoal-soft">· +18% this week</span>
-              </p>
-            </div>
-            <div className="mt-2 h-2 overflow-hidden rounded-full bg-sage/50" aria-hidden="true">
-              <div className="h-full w-[34%] rounded-full bg-forest" />
-            </div>
-          </div>
-
-          {/* Experiment + agent team */}
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <div className="rounded-xl border border-bark/10 bg-white p-3.5">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-charcoal-soft">Active experiment</p>
-                <span className="rounded-full bg-forest/10 px-2 py-0.5 text-[10px] font-semibold text-forest">Running · day 6/14</span>
-              </div>
-              <p className="mt-2 text-sm font-semibold text-charcoal">Problem-led landing page</p>
-              <dl className="mt-2.5 space-y-1 text-[11px]">
-                <div className="flex justify-between gap-2">
-                  <dt className="text-charcoal-soft">Baseline conversion</dt>
-                  <dd className="font-medium text-charcoal">5.7%</dd>
-                </div>
-                <div className="flex justify-between gap-2">
-                  <dt className="text-charcoal-soft">Current conversion</dt>
-                  <dd className="font-medium text-charcoal">7.5%</dd>
-                </div>
-              </dl>
-              <p className="mt-2.5 inline-flex items-center gap-1 rounded-full border border-fig/30 bg-fig/10 px-2 py-0.5 text-[10px] font-semibold text-fig-deep">
-                Early read only — not enough evidence yet
-              </p>
-            </div>
-
-            <div className="rounded-xl border border-bark/10 bg-white p-3.5">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-charcoal-soft">Agent team</p>
-              <ul className="mt-2 space-y-1.5" aria-hidden="true">
-                {agents.map((a) => (
-                  <li key={a.name} className="flex items-start gap-1.5">
-                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-forest" />
-                    <p className="text-[11px] leading-snug text-charcoal">
-                      <span className="font-semibold">{a.name}</span>{" "}
-                      <span className="text-charcoal-soft">— {a.line}</span>
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          {/* First-party funnel */}
-          <p className="mt-4 text-[11px] font-semibold uppercase tracking-wide text-charcoal-soft">Customer journey · first-party events</p>
-          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-hidden="true">
-            {funnel.map((step, i) => (
-              <div key={step.label} className="relative rounded-xl border border-bark/10 bg-mist/50 px-3 py-2.5 text-center">
-                <step.icon size={13} className="mx-auto text-forest" />
-                <p className="mt-1 text-sm font-semibold text-charcoal">{step.value}</p>
-                <p className="text-[10.5px] leading-snug text-charcoal-soft">{step.label}</p>
-                {i < funnel.length - 1 && (
+          {/* Product → Audience → Channels → Results spine */}
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4" aria-hidden="true">
+            {planSpine.map((step, i) => (
+              <div key={step.label} className="relative rounded-xl border border-bark/10 bg-mist/50 px-3 py-2.5">
+                <step.icon size={13} className="text-forest" />
+                <p className="mt-1 text-[12px] font-semibold text-charcoal">{step.label}</p>
+                <p className="text-[10.5px] leading-snug text-charcoal-soft">{step.sub}</p>
+                {i < planSpine.length - 1 && (
                   <ArrowRight size={11} className="absolute -right-2 top-1/2 hidden -translate-y-1/2 text-bark/35 sm:block" />
                 )}
               </div>
             ))}
           </div>
 
-          {/* Recommended next test */}
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-fig/25 bg-fig/[0.06] p-3.5">
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-fig-deep">Recommended next test</p>
-              <p className="mt-0.5 text-sm font-semibold text-charcoal">Founder-story landing page for solo builders</p>
-              <p className="mt-0.5 text-[11px] text-charcoal-soft">Based on recorded outcomes and audience evidence — with what would disconfirm it.</p>
+          {/* Audience + top recommendation */}
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-bark/10 bg-white p-3.5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-charcoal-soft">Audience</p>
+                <span className="rounded-full bg-forest/10 px-2 py-0.5 text-[10px] font-semibold text-forest">Strong fit</span>
+              </div>
+              <p className="mt-2 text-sm font-semibold text-charcoal">B2B SaaS founders</p>
+              <p className="mt-1 text-[11px] leading-snug text-charcoal-soft">
+                Early-stage to growth-stage founders focused on product-led growth, typically 2–50 employees.
+              </p>
+              <dl className="mt-2.5 space-y-1 text-[11px]">
+                <div className="flex justify-between gap-2">
+                  <dt className="text-charcoal-soft">Company stage</dt>
+                  <dd className="font-medium text-charcoal">Early → Growth</dd>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <dt className="text-charcoal-soft">Primary focus</dt>
+                  <dd className="font-medium text-charcoal">Product-led growth</dd>
+                </div>
+              </dl>
             </div>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-forest-deep px-3.5 py-1.5 text-[11px] font-semibold text-ivory">
-              Review plan <ArrowRight size={11} aria-hidden="true" />
-            </span>
+
+            <div className="rounded-xl border border-bark/10 bg-white p-3.5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-charcoal-soft">Top recommendation</p>
+                <span className="rounded-full border border-fig/30 bg-fig/10 px-2 py-0.5 text-[10px] font-semibold text-fig-deep">Ready for review</span>
+              </div>
+              <p className="mt-2 text-sm font-semibold text-charcoal">LinkedIn founder-led launch</p>
+              <p className="mt-1 text-[11px] leading-snug text-charcoal-soft">
+                Share the founder&apos;s point of view in a focused 2-week content test to drive qualified sign-ups.
+              </p>
+              <p className="mt-1.5 text-[11px] font-medium text-charcoal-soft">5 posts · 2-week test · lead capture</p>
+              <div className="mt-2.5 flex items-end justify-between gap-3">
+                <div className="flex h-10 items-end gap-1" aria-hidden="true">
+                  {bars.map((h, i) => (
+                    <span key={i} className="w-2.5 rounded-t-sm bg-sage" style={{ height: `${h}%` }} data-last={i === bars.length - 1} />
+                  ))}
+                </div>
+                <p className="text-right">
+                  <span className="block text-sm font-semibold text-forest">+62%</span>
+                  <span className="block text-[10px] leading-tight text-charcoal-soft">projected lift<br />(illustrative)</span>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Channels to test */}
+          <p className="mt-4 text-[11px] font-semibold uppercase tracking-wide text-charcoal-soft">Channels to test</p>
+          <div className="mt-2 grid gap-2 sm:grid-cols-3">
+            {channelsToTest.map((c) => (
+              <div key={c.name} className="flex items-center justify-between gap-2 rounded-xl border border-bark/10 bg-mist/50 px-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="flex items-center gap-1.5 text-[12px] font-semibold text-charcoal">
+                    <c.icon size={12} className="text-forest" aria-hidden="true" /> {c.name}
+                  </p>
+                  <p className="truncate text-[10.5px] text-charcoal-soft">{c.sub}</p>
+                </div>
+                <ArrowRight size={12} className="shrink-0 text-bark/40" aria-hidden="true" />
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -145,7 +141,7 @@ export function WorkspaceMockup() {
       {/* Honesty badge */}
       <div className="mt-3 flex justify-center">
         <span className="inline-flex items-center gap-1.5 rounded-full border border-bark/12 bg-white/80 px-3 py-1 text-[11px] font-medium text-charcoal-soft backdrop-blur">
-          <Target size={11} className="text-forest" aria-hidden="true" />
+          <BadgeCheck size={11} className="text-forest" aria-hidden="true" />
           Illustrative preview — the live app starts from honest empty states
         </span>
       </div>
