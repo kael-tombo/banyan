@@ -37,6 +37,13 @@ const marqueeChannels = [
   "Communities", "Threads", "Forums",
 ];
 
+/* The marquee must obey the same honesty rule as the trees: only X and
+   LinkedIn publish through a connection today (Postiz). Every other surface
+   is prepared as a copy-ready handoff. The dots encode exactly that split —
+   filled = publishes via your connection, hollow = prepared copy-ready —
+   the same solid/hollow grammar as the LivingTree's approval gates. */
+const PUBLISH_SURFACES = new Set(["X", "LinkedIn"]);
+
 /* The chain — five beats between the promise and the LivingTree, its legend.
    Same five beats as the tree's phases, same order: a visitor who reads this
    strip can already read the tree. It sits just above the tree in
@@ -298,11 +305,29 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ————— Surfaces marquee — the ground under the tree, at night. ————— */}
-      <section data-night-stage aria-label="Distribution surfaces" className="border-b border-white/5 bg-[#081511] py-6">
+      {/* ————— Surfaces marquee — the ground under the tree, at night.
+              The lead-in carries the honest split: two surfaces publish
+              through your connection, the rest go out copy-ready. ————— */}
+      <section
+        data-night-stage
+        aria-label="Distribution surfaces — X and LinkedIn publish through your connection; the rest are prepared as copy-ready handoffs"
+        className="border-b border-white/5 bg-[#081511] py-6"
+      >
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-4">
-          <span className="hidden shrink-0 text-xs font-semibold uppercase tracking-[0.14em] text-[#7FA28E] md:block">
-            Surfaces Banyan works across today
+          <span className="hidden shrink-0 md:block">
+            <span className="block text-xs font-semibold uppercase tracking-[0.14em] text-[#7FA28E]">
+              Surfaces Banyan works across today
+            </span>
+            <span className="mt-1.5 flex items-center gap-x-4 text-[11px] leading-snug text-[#6E8F7D]">
+              <span className="flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#35B875]" aria-hidden="true" />
+                Publishes via your connection
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="h-1.5 w-1.5 rounded-full border border-[#7FA28E]" aria-hidden="true" />
+                Copy-ready handoff
+              </span>
+            </span>
           </span>
           <div className="marquee-mask min-w-0 flex-1 overflow-hidden">
             <div className="marquee gap-2.5">
@@ -313,7 +338,11 @@ export default function LandingPage() {
                   aria-hidden={i >= marqueeChannels.length}
                 >
                   <span
-                    className={`h-1.5 w-1.5 rounded-full ${["bg-[#7BE7A5]", "bg-[#35B875]", "bg-fig", "bg-sage"][i % 4]}`}
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      PUBLISH_SURFACES.has(name)
+                        ? "bg-[#35B875]"
+                        : "border border-[#7FA28E]"
+                    }`}
                     aria-hidden="true"
                   />
                   {name}
