@@ -66,6 +66,7 @@ model Workspace {
   profileFacts    ProfileFact[]
   recommendations Recommendation[]
   modelCalls      ModelCall[]
+  chatMessages    ChatMessage[]
 }
 
 model Membership {
@@ -551,6 +552,26 @@ model ModelCall {
   error            String?
   createdAt        DateTime  @default(now())
   workspace        Workspace @relation(fields: [workspaceId], references: [id])
+
+  @@index([workspaceId, createdAt])
+}
+
+// Command center chat. One persisted conversation per workspace between the
+// team and the Banyan agent. Role is a validated string ("user" | "assistant")
+// per the schema-wide portability rule. Assistant rows carry the model label
+// and fallback flag so the UI can always show what generated a reply — a live
+// model or the labeled template fallback. Nothing here is simulated: replies
+// are grounded in workspace records at send time.
+model ChatMessage {
+  id          String    @id @default(cuid())
+  workspaceId String
+  role        String
+  content     String
+  modelLabel  String?
+  isFallback  Boolean   @default(false)
+  latencyMs   Int?
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, createdAt])
 }

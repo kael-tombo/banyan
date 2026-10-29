@@ -80,6 +80,7 @@ planned campaign and one planned experiment, and **no results**.
 | `OPENAI_API_KEY` | no | Enables live generation. Without it the labelled template fallback is used |
 | `OPENAI_BASE_URL` | no | Any OpenAI-compatible endpoint (default `https://api.openai.com/v1`) |
 | `OPENAI_MODEL` | no | Model name (default `gpt-4o-mini`) |
+| `OPENAI_EXTRA_HEADERS` | no | JSON object of extra headers for gated OpenAI-compatible gateways, e.g. `{"X-Z-AI-From":"Z","X-Token":"…"}`. Invalid JSON is ignored |
 | `WORKER_SECRET` | no | Bearer secret protecting `POST /api/worker/tick` |
 | `WORKER_INTERVAL_MS` | no | How often `npm run worker` polls the tick endpoint |
 | `WORKER_BASE_URL` | no | Overrides the worker's target base URL (defaults to `NEXT_PUBLIC_APP_URL`) |

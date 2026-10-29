@@ -27,7 +27,8 @@ export type ModelPurpose =
   | "campaign_plan"
   | "content_draft"
   | "evaluation"
-  | "recommendation";
+  | "recommendation"
+  | "chat";
 
 export type ModelRouteRequest = {
   workspaceId: string;

@@ -48,7 +48,11 @@ export class OpenAICompatProvider implements AIProvider {
       `${baseUrl.replace(/\/$/, "")}/chat/completions`,
       {
         method: "POST",
-        headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${apiKey}`,
+          ...parseExtraHeaders(env.OPENAI_EXTRA_HEADERS),
+        },
         body: JSON.stringify({
           model,
           messages: [
@@ -147,6 +151,28 @@ function buildTemplateDraft(userPrompt: string): { text: string } {
 }
 
 // --- Selection ---
+
+/**
+ * Parse the optional OPENAI_EXTRA_HEADERS env value (a JSON object of header
+ * name → value). Forgiving by design: invalid JSON or non-object shapes yield
+ * no extra headers rather than throwing — a misconfigured gateway header must
+ * degrade to the labeled fallback path, never crash the workspace.
+ */
+export function parseExtraHeaders(raw: string): Record<string, string> {
+  const trimmed = raw.trim();
+  if (!trimmed) return {};
+  try {
+    const parsed: unknown = JSON.parse(trimmed);
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return {};
+    const out: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof value === "string" || typeof value === "number") out[key] = String(value);
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
 
 export function getAIProvider(): { provider: AIProvider; usage: UsageMeta } {
   const wantsOpenai = (env.AI_PROVIDER === "openai" || env.AI_PROVIDER === "") && env.OPENAI_API_KEY;

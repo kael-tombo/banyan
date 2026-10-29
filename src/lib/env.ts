@@ -21,6 +21,12 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().default(""),
   OPENAI_BASE_URL: z.string().url().default("https://api.openai.com/v1"),
   OPENAI_MODEL: z.string().default("gpt-4o-mini"),
+  // Optional JSON object of extra HTTP headers merged into every request to
+  // the OpenAI-compatible endpoint. Managed gateways that sit in front of a
+  // model sometimes require routing or auth headers beyond the bearer token
+  // (e.g. {"X-Z-AI-From":"Z","X-Token":"…"}). Invalid JSON is ignored — the
+  // provider must never crash on misconfiguration; the fallback path exists.
+  OPENAI_EXTRA_HEADERS: z.string().default(""),
   WORKER_SECRET: z.string().default(DEV_WORKER_SECRET),
   // Daily cap on live managed-model calls per workspace (quota applies to live
   // calls only; the labeled template fallback is never quota-limited).

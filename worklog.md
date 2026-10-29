@@ -364,3 +364,57 @@ inside it, and the fact that it never stops moving.
   marquee band, S2 tree) with no console errors; canvas exposes
   `role="img"` + descriptive aria-label. Composition is stable across
   reloads (seed 8).
+
+## 2026-10-29 — Command center chat: the conversation at the center
+
+The `/app` dashboard (the command center) now opens with a real, persisted
+conversation with the Banyan agent — not a simulated one. The project rule
+"no simulated chat" is enforced structurally: every reply is grounded in
+workspace records at send time, and every assistant message carries the label
+of what generated it.
+
+- **Grounding** (`src/lib/agents/chat.ts`, pure + unit-tested):
+  `buildWorkspaceBrief` assembles a records-only brief (product profile, goal
+  in motion with progress, approval-gate queue, agent task states, publishing
+  connections with the publish-vs-copy-ready distinction, 14-day first-party
+  funnel numbers with true zeros). `chatSystemPrompt` encodes the philosophy
+  as rules — never estimate or invent numbers, propose-don't-publish, name the
+  unmeasured, end with one concrete next action on a named surface.
+  `fallbackChatReply` builds an honest chat-shaped template reply (records +
+  pointers, explicitly "not generated copy") for deployments without live
+  model credentials. `flattenChatPayload` bounds the model window to the last
+  12 turns.
+- **Persistence** (`ChatMessage` model + migration
+  `20261029100000_command_chat`): one thread per workspace; assistant rows
+  store `modelLabel`, `isFallback`, `latencyMs` so the UI can always show what
+  generated a reply.
+- **API** (`/api/chat` GET/POST/DELETE): same-origin + `guardRate` (15/min
+  send, 3/min clear) + role gates (viewer read-only), zod-validated 1..2000
+  char messages, the user message persisted before the model call so the
+  transcript stays truthful, replies routed through the model router
+  (`purpose: "chat"`, counted against the per-workspace daily live-call
+  quota, ledger row per call).
+- **UI** (`src/components/CommandChat.tsx`): placed as the first section of
+  the dashboard — the conversation literally at the center, above the goal
+  trunk. Suggestion chips when empty, optimistic user bubble with
+  server-reconciliation, `role="log"` + `aria-live="polite"`, Enter sends /
+  Shift+Enter newlines, 2000-char cap, and the honesty label rendered under
+  every assistant reply (fallback replies say "not generated copy").
+- **Provider boundary extension** (`src/lib/ai/provider.ts` +
+  `src/lib/env.ts`): `OPENAI_EXTRA_HEADERS` (JSON object) merges optional
+  headers into OpenAI-compatible requests — managed gateways that require
+  routing/auth headers beyond the bearer token (e.g. `{"X-Z-AI-From":"Z",
+  "X-Token":"…"}`) now work through the existing provider with zero vendor
+  coupling. Invalid JSON is ignored (forgiving, falls back by design).
+- **Sandbox preview runtime** (not committed): no postgres exists in this
+  environment, so the preview runs on SQLite via a derived schema copy
+  (`provider = "sqlite"`, must live inside the package root for `prisma
+  generate` to target the right client) + `db push`; the committed schema and
+  migrations stay PostgreSQL-canonical. The managed model gateway is wired
+  through `AI_PROVIDER=openai` + `OPENAI_EXTRA_HEADERS` in `.env`.
+- Verified: typecheck clean; **313/313 tests** (291 prior + 22 chat tests);
+  production build green; live end-to-end via curl and browser — login →
+  dashboard → suggestion chip → grounded reply labeled `Live model: glm-4.6`
+  (~1.5s), multi-turn context honored (true zeros echoed back), history
+  persisted, ledger rows recorded (`promptTokens`/`completionTokens`/
+  `latencyMs`), DELETE clears the thread.

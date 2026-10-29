@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireWorkspaceServer } from "@/lib/workspace";
 import { Badge, Card, EmptyState, PageHeader, StatusBadge, LinkButton } from "@/components/ui";
 import { Sparkline } from "@/components/Sparkline";
+import CommandChat, { type ChatMessageDTO } from "@/components/CommandChat";
 import {
   computeAgentTeam, attributionCoverage, resolveActivityEvidence, timeAgo,
   AGENT_META, type AgentRoleStatus,
@@ -59,6 +60,7 @@ export default async function DashboardPage() {
     agentTasks,
     activityEvents,
     attributedSignups,
+    chatMessagesRaw,
   ] = await Promise.all([
     prisma.productProfile.findUnique({ where: { workspaceId: wid } }),
     prisma.goal.findMany({ where: { workspaceId: wid, status: { in: ["planning", "awaiting_approval", "active", "paused"] } }, orderBy: { updatedAt: "desc" }, take: 3 }),
@@ -77,9 +79,19 @@ export default async function DashboardPage() {
     prisma.agentTask.findMany({ where: { workspaceId: wid }, orderBy: { updatedAt: "desc" }, take: 120, select: { agentRole: true, status: true, title: true, goalId: true, updatedAt: true } }),
     prisma.activityEvent.findMany({ where: { workspaceId: wid }, orderBy: { createdAt: "desc" }, take: 8, select: { id: true, type: true, actorType: true, actorSummary: true, summary: true, meta: true, createdAt: true } }),
     prisma.metricEvent.count({ where: { workspaceId: wid, type: "signup", createdAt: { gte: d14 }, OR: [{ linkId: { not: null } }, { campaignId: { not: null } }] } }),
+    // Command center chat — last 30 turns of the persisted conversation.
+    prisma.chatMessage.findMany({ where: { workspaceId: wid }, orderBy: { createdAt: "desc" }, take: 30 }),
   ]);
 
   const activeGoal = goals.find((g) => g.status === "active") ?? goals[0] ?? null;
+  const chatMessages: ChatMessageDTO[] = chatMessagesRaw.map((m) => ({
+    id: m.id,
+    role: m.role,
+    content: m.content,
+    modelLabel: m.modelLabel,
+    isFallback: m.isFallback,
+    createdAt: m.createdAt.toISOString(),
+  }));
   const goalTasks = activeGoal
     ? await prisma.agentTask.findMany({ where: { goalId: activeGoal.id }, orderBy: { createdAt: "asc" } })
     : [];
@@ -173,7 +185,11 @@ export default async function DashboardPage() {
         actions={<LinkButton href="/app/experiments" variant="secondary"><FlaskConical size={15} aria-hidden="true" /> New experiment</LinkButton>}
       />
 
+      {/* ————— 0. The conversation at the center ————— */}
+      <CommandChat initialMessages={chatMessages} />
+
       {/* ————— 1. Goal — the trunk everything grows from ————— */}
+      <div className="mt-6">
       {activeGoal ? (
         <Card className="rooted">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -216,6 +232,7 @@ export default async function DashboardPage() {
           action={<LinkButton href="/app/goals">Create your first goal</LinkButton>}
         />
       )}
+      </div>
 
       {/* ————— 2/3. This week's focus + active experiment ————— */}
       <div className="mt-6 grid gap-6 lg:grid-cols-5">
