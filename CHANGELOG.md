@@ -9,6 +9,35 @@ follow [Keep a Changelog](https://keepachangelog.com); commit hashes refer to
 ## [Unreleased]
 
 ### Added
+- **Vascular hero: "One intelligence. A thousand paths to action."**
+  (2026-10-29) — the hero rebuilt as a dark botanical night stage around the
+  Living Vascular Tree: a banyan whose interior transport system is visible,
+  with luminous information continuously moving through it. The tree stays
+  recognizably botanical (bark, tissue, foliage, aerial roots); what it
+  reveals is the network inside.
+  - **Seeded network geometry** (`src/components/landing/vascularGeometry.ts`)
+    — the banyan as a reproducible transport graph: trunk corridor, tiered
+    branches, forks and twigs (endpoints), underground roots and rootlets
+    (intake), aerial roots reaching new ground. Graph invariants (exact
+    anchors, taper, bounds, inventory, determinism) are unit-tested in
+    `tests/vascular-network.test.ts`.
+  - **Canvas engine** (`src/components/landing/VascularTree.tsx`) —
+    zero-dependency 2D canvas; static tree pre-rendered once per size, per
+    frame only moving elements draw. Particles always travel valid connected
+    pathways: outbound (solid green) from root tips up through trunk and
+    branches to endpoint activations; return flows (hollow fig-gold rings —
+    measured results) back to the trunk and down into the roots. Trunk
+    transport bands, junction shimmers, endpoint heat. Pauses off-viewport
+    and on hidden tabs; adapts density/DPR to the device; renders a stable
+    static composition under `prefers-reduced-motion`.
+  - **Hero composition** — left: narrative, headline with dark-stage
+    shimmer, "Build your network" (→ /signup) and "Explore how it works"
+    (→ #how-it-works), integrity trust row; right: the tree with a two-flow
+    legend and an explicit "Illustrative visualization … not live data"
+    caption. No live data is claimed; no integration counts are stated.
+  - The LivingTree (five-phase loop, growth rings, approval gates) and its
+    chain legend moved into "How it works", where the loop is explained; the
+    Surfaces marquee became the night ground under the tree.
 - **God-mode landing page redesign: "One goal. A whole business in motion."**
   (2026-10-29) — the outcome-driven landing experience, implemented against
   the product's real capability inventory:

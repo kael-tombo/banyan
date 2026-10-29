@@ -316,3 +316,51 @@ Gap analysis found four gaps; all closed.
   1440/390px including the data-rich seeded workspace (loop 3/5 connected,
   stalled learning step detected correctly, agent roles with awaiting/queued
   statuses, activity evidence links).
+
+## 2026-10-29 — Vascular hero: the tree you can watch thinking
+
+**`feat(landing): the Living Vascular Tree — a hero where information is
+always moving`** — the hero rebuilt around a living banyan whose vascular
+system is visible, per the GOD-TIER design brief. The tree remains a tree:
+bark, tissue, foliage, aerial roots — what is new is the transport system
+inside it, and the fact that it never stops moving.
+
+- **`src/components/landing/vascularGeometry.ts`** — a seeded, deterministic
+  procedural banyan as a transport graph: trunk corridor, three tiers of
+  branches (lower reach wide, crown arches), secondary forks and twigs
+  (endpoints), underground roots + rootlets (the intake interface), and
+  aerial roots dropped to the ground line ("new ground"). Every edge carries
+  arc-length tables, width taper, and parent/child topology. Unit-tested
+  invariants in `tests/vascular-network.test.ts`: determinism, exact child
+  anchors on parents, monotone arc tables, outward taper, frame bounds, and
+  the full banyan inventory (16 tests).
+- **`src/components/landing/VascularTree.tsx`** — zero-dependency Canvas 2D
+  engine. Static layer (bark with rim light, translucent tissue, vascular
+  channels, foliage, atmosphere, soil) pre-rendered once per size; per frame
+  only the moving elements draw (≤ ~140 sprites, no per-frame React state).
+  Phases run concurrently and continuously: root intake → trunk transport
+  (slow light bands beneath the bark) → branch propagation → endpoint
+  activation (heat + expanding ring) → return flows. Outbound particles are
+  solid green; return flows are hollow fig-gold rings — measured results
+  travel valid connected paths back to the trunk and down into the roots.
+  Lifecycle: pauses off-viewport (IntersectionObserver) and on hidden tabs,
+  ResizeObserver + rAF-debounced resize, DPR capped at 2, density adapts to
+  viewport size / hardwareConcurrency / deviceMemory, per-edge occupancy
+  caps keep the canopy from ever glowing everywhere at once, and
+  `prefers-reduced-motion` renders a stable static composition with the
+  flows frozen as light.
+- **Hero restructure** (`src/app/page.tsx` + `globals.css`): dark botanical
+  night stage (`.hero-night`) — left narrative (Intelligence in motion
+  badge, line-rise headline with dark-stage shimmer, "Build your network" →
+  /signup, "Explore how it works" → #how-it-works, integrity trust row),
+  right the vascular tree with a two-flow legend and an explicit
+  "Illustrative visualization … not live data" caption. The Surfaces marquee
+  restyled as the ground under the tree at night. The LivingTree and its
+  chain legend moved into "How it works" (S2) — the five-phase loop is the
+  explanation; the vascular tree is the feeling. S3's "tree above" copy
+  still holds.
+- Verified: typecheck clean; **291/291 tests** (275 existing + 16 geometry);
+  production build green; browser-verified at 1440×900 and 390×844 (hero,
+  marquee band, S2 tree) with no console errors; canvas exposes
+  `role="img"` + descriptive aria-label. Composition is stable across
+  reloads (seed 8).

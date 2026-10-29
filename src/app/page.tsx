@@ -4,6 +4,7 @@ import Image from "next/image";
 import { SiteNav } from "@/components/SiteNav";
 import { Reveal } from "@/components/Reveal";
 import { LivingTree } from "@/components/landing/LivingTree";
+import { VascularTree } from "@/components/landing/VascularTree";
 import { BRANCHES } from "@/components/landing/branches";
 import { WorkflowFlow } from "@/components/landing/WorkflowFlow";
 import { BuildPlanForm } from "@/components/landing/BuildPlanForm";
@@ -15,7 +16,7 @@ import {
 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: { absolute: "Banyan.ai — One goal. A whole business in motion." },
+  title: { absolute: "Banyan.ai — One intelligence. A thousand paths to action." },
   description:
     "Banyan turns your business objectives into coordinated AI-powered work — from strategy and creation to distribution and measurable results.",
 };
@@ -36,9 +37,10 @@ const marqueeChannels = [
   "Communities", "Threads", "Forums",
 ];
 
-/* Hero chain — the whole promise in one scannable line, and the legend for the
-   LivingTree's five phases below it. Same five beats, same order: a visitor who
-   reads this strip can already read the tree. */
+/* The chain — five beats between the promise and the LivingTree, its legend.
+   Same five beats as the tree's phases, same order: a visitor who reads this
+   strip can already read the tree. It sits just above the tree in
+   "How it works", where the loop is explained. */
 const heroChain = [
   { label: "One objective", dot: "bg-forest" },
   { label: "A plan", dot: "bg-moss" },
@@ -190,80 +192,58 @@ export default function LandingPage() {
     <div className="landing min-h-screen bg-paper">
       <SiteNav />
 
-      {/* ————— SECTION 1 · THE HERO — the promise, the CTAs, the living tree. ————— */}
-      <section className="hero-glow hero-glow-drift relative overflow-hidden">
-        <div className="mx-auto max-w-6xl px-4 pb-10 pt-12 md:pt-16">
-          <div className="mx-auto max-w-3xl text-center">
+      {/* ————— SECTION 1 · THE HERO — the night stage. Left: the story.
+              Right: the vascular tree, where information is always moving. ————— */}
+      <section className="hero-night relative overflow-hidden" aria-label="Banyan — intelligence in motion">
+        <div className="mx-auto grid w-full max-w-7xl items-center gap-2 px-4 pb-14 pt-10 sm:pt-12 lg:min-h-[92vh] lg:grid-cols-[minmax(0,10fr)_minmax(0,9fr)] lg:gap-10 lg:pb-10 lg:pt-14">
+          <div className="mx-auto w-full max-w-2xl lg:mx-0 lg:justify-self-end">
             <Reveal>
-              <span className="inline-flex items-center gap-2 rounded-full border border-forest/20 bg-sage/40 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-forest-deep">
-                <Sprout size={12} className="text-forest" aria-hidden="true" />
-                Your AI business operating system
+              <span className="inline-flex items-center gap-2 rounded-full border border-[#7BE7A5]/25 bg-[#7BE7A5]/10 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9FE8BE]">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#7BE7A5] motion-reduce:animate-none" aria-hidden="true" />
+                Intelligence in motion
               </span>
             </Reveal>
             {/* The promise lands line by line — each line rises out of its own
-                mask, then the second line keeps a slow gradient shimmer alive
-                (the business literally stays in motion). CSS-only, no JS. */}
-            <h1 className="display mt-6 text-[2.7rem] text-forest-deep sm:text-5xl md:text-[3.6rem]">
+                mask; the second keeps a slow gradient shimmer alive. CSS-only. */}
+            <h1 className="display mt-6 text-[2.55rem] text-[#F2F8F3] sm:text-5xl md:text-[3.55rem]">
               <span className="hero-line-mask">
-                <span className="hero-line">One goal.</span>
+                <span className="hero-line">One intelligence.</span>
               </span>
               <span className="hero-line-mask">
-                <span className="hero-line hero-line-shimmer">A whole business in motion.</span>
+                <span className="hero-line hero-line-shimmer">A thousand paths to action.</span>
               </span>
             </h1>
-            <Reveal as="p" delay={160} className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-charcoal-soft md:text-lg">
-              Banyan turns your business objectives into coordinated AI-powered work — from strategy
-              and creation to distribution and measurable results.
+            <Reveal as="p" delay={160} className="mt-5 max-w-xl text-base leading-relaxed text-[#A9C3B2] md:text-lg">
+              Connect your tools, coordinate your agents, and turn objectives into measured
+              outcomes — one continuously connected system.
             </Reveal>
             <Reveal delay={240} className="mt-8">
-              <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+              <div className="flex flex-col gap-3 sm:flex-row">
                 <Link
                   href="/signup"
-                  className="group inline-flex w-full items-center justify-center gap-2 rounded-full bg-forest-deep px-7 py-3.5 text-sm font-semibold text-white shadow-[0_14px_34px_-14px_rgba(18,48,40,0.65)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-forest sm:w-auto"
+                  className="group inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#2FA36B] px-7 py-3.5 text-sm font-semibold text-white shadow-[0_14px_38px_-12px_rgba(53,184,117,0.6)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#37B878] sm:w-auto"
                 >
-                  Start building with Banyan
+                  Build your network
                   <ArrowRight size={15} className="transition-transform duration-200 group-hover:translate-x-0.5" aria-hidden="true" />
                 </Link>
                 <Link
                   href="#how-it-works"
-                  className="group inline-flex w-full items-center justify-center gap-2 rounded-full border border-bark/20 bg-white px-7 py-3.5 text-sm font-semibold text-forest-deep transition-all duration-200 hover:-translate-y-0.5 hover:border-forest/50 sm:w-auto"
+                  className="group inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-white/5 px-7 py-3.5 text-sm font-semibold text-[#DCEDE1] transition-all duration-200 hover:-translate-y-0.5 hover:border-[#7BE7A5]/45 sm:w-auto"
                 >
-                  See how it works
+                  Explore how it works
                   <ArrowDown size={15} className="transition-transform duration-200 group-hover:translate-y-0.5" aria-hidden="true" />
                 </Link>
               </div>
             </Reveal>
-            {/* The chain: five beats between the promise and the tree. A pulse
-                travels the dots in order, so the loop reads as motion, not text. */}
-            <Reveal delay={300}>
-              <ol
-                className="mt-7 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-2 text-[12.5px] font-semibold text-charcoal-soft"
-                aria-label="One objective becomes a plan, branches execute it in coordination, and measured results return."
-              >
-                {heroChain.map((step, i) => (
-                  <li key={step.label} className="flex items-center gap-2">
-                    <span
-                      className={`chain-dot ${step.dot}`}
-                      style={{ "--chain-i": i } as React.CSSProperties}
-                      aria-hidden="true"
-                    />
-                    {step.label}
-                    {i < heroChain.length - 1 && (
-                      <ArrowRight size={12} className="ml-0.5 text-bark/35" aria-hidden="true" />
-                    )}
-                  </li>
-                ))}
-              </ol>
-            </Reveal>
-            <Reveal delay={380}>
-              <ul className="mt-6 flex flex-wrap items-center justify-center gap-x-7 gap-y-2 text-[13px] text-charcoal-soft">
+            <Reveal delay={320}>
+              <ul className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 text-[13px] text-[#8FB2A0]">
                 {[
                   { icon: ShieldCheck, text: "Nothing publishes without your approval" },
                   { icon: Plug, text: "Real connections, or honest blocks" },
                   { icon: FlaskConical, text: "Measured, never invented" },
                 ].map((t) => (
                   <li key={t.text} className="flex items-center gap-2">
-                    <t.icon className="text-forest" size={14} aria-hidden="true" />
+                    <t.icon className="text-[#7BE7A5]" size={14} aria-hidden="true" />
                     {t.text}
                   </li>
                 ))}
@@ -271,24 +251,38 @@ export default function LandingPage() {
             </Reveal>
           </div>
 
-          {/* The signature tree: objective → plan → orchestration → execution → deliverables.
-              The hint line names the interaction — branches are explorable, not decoration. */}
-          <Reveal delay={200} className="mt-12 md:mt-14">
-            <div className="dot-grid dot-grid-fade rounded-3xl px-2 pb-6 pt-2 sm:px-6">
-              <p className="flex items-center justify-center gap-2 pb-3 pt-4 text-xs text-charcoal-soft/80">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-fig motion-reduce:animate-none" aria-hidden="true" />
-                The loop replays on its own — tap any branch to see the work inside.
+          {/* The vascular tree — the network you can watch working. Outbound
+              flows carry objectives toward the endpoints; fig-gold returns
+              bring measured results back to the roots. Illustrative by design:
+              a portrait of the system, never live data. */}
+          <Reveal delay={200} className="w-full">
+            <div className="vascular-stage relative mx-auto w-full max-w-[540px] lg:max-w-[600px]">
+              <VascularTree className="aspect-[10/10.6] w-full" />
+              <ul
+                className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-1.5 text-[11.5px] text-[#8FB2A0]"
+                aria-label="How to read the flows: green particles carry work outward; fig-gold rings carry measured results back."
+              >
+                <li className="flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#7BE7A5] shadow-[0_0_6px_rgba(123,231,165,0.9)]" aria-hidden="true" />
+                  Outbound — objectives becoming work
+                </li>
+                <li className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full border border-[#D6A854]" aria-hidden="true" />
+                  Return — measured results feeding the roots
+                </li>
+              </ul>
+              <p className="mt-2 text-center text-[11px] leading-relaxed text-[#6E8F7D]">
+                Illustrative visualization of coordinated work — a portrait of the system, not live data.
               </p>
-              <LivingTree />
             </div>
           </Reveal>
         </div>
       </section>
 
-      {/* ————— Surfaces marquee — the ground the tree drops roots into. ————— */}
-      <section aria-label="Distribution surfaces" className="border-y border-bark/10 bg-white py-5">
+      {/* ————— Surfaces marquee — the ground under the tree, at night. ————— */}
+      <section aria-label="Distribution surfaces" className="border-b border-white/5 bg-[#081511] py-6">
         <div className="mx-auto flex max-w-6xl items-center gap-6 px-4">
-          <span className="hidden shrink-0 text-xs font-semibold uppercase tracking-[0.14em] text-charcoal-soft/70 md:block">
+          <span className="hidden shrink-0 text-xs font-semibold uppercase tracking-[0.14em] text-[#7FA28E] md:block">
             Surfaces Banyan works across today
           </span>
           <div className="marquee-mask min-w-0 flex-1 overflow-hidden">
@@ -296,11 +290,11 @@ export default function LandingPage() {
               {[...marqueeChannels, ...marqueeChannels].map((name, i) => (
                 <span
                   key={`${name}-${i}`}
-                  className="flex shrink-0 items-center gap-2 rounded-full border border-bark/12 bg-paper px-4 py-1.5 text-sm text-charcoal-soft"
+                  className="flex shrink-0 items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-4 py-1.5 text-sm text-[#A9C3B2]"
                   aria-hidden={i >= marqueeChannels.length}
                 >
                   <span
-                    className={`h-1.5 w-1.5 rounded-full ${["bg-forest", "bg-moss", "bg-fig", "bg-sage"][i % 4]}`}
+                    className={`h-1.5 w-1.5 rounded-full ${["bg-[#7BE7A5]", "bg-[#35B875]", "bg-fig", "bg-sage"][i % 4]}`}
                     aria-hidden="true"
                   />
                   {name}
@@ -325,6 +319,38 @@ export default function LandingPage() {
               <FlaskConical size={13} className="text-forest" aria-hidden="true" />
               Illustrative example — the shape of a real campaign, not a captured run
             </p>
+          </Reveal>
+
+          {/* The LivingTree — the five-phase loop the chain above decodes:
+              objective → plan → orchestration → execution → deliverables, with
+              growth rings, approval gates, and new ground. Branches are
+              explorable, not decoration. */}
+          <Reveal delay={140}>
+            <div className="dot-grid dot-grid-fade mt-10 rounded-3xl px-2 pb-6 pt-2 sm:px-6">
+              <p className="flex items-center justify-center gap-2 pb-3 pt-4 text-xs text-charcoal-soft/80">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-fig motion-reduce:animate-none" aria-hidden="true" />
+                The loop replays on its own — tap any branch to see the work inside.
+              </p>
+              <ol
+                className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-2 pb-4 text-[12.5px] font-semibold text-charcoal-soft"
+                aria-label="One objective becomes a plan, branches execute it in coordination, and measured results return."
+              >
+                {heroChain.map((step, i) => (
+                  <li key={step.label} className="flex items-center gap-2">
+                    <span
+                      className={`chain-dot ${step.dot}`}
+                      style={{ "--chain-i": i } as React.CSSProperties}
+                      aria-hidden="true"
+                    />
+                    {step.label}
+                    {i < heroChain.length - 1 && (
+                      <ArrowRight size={12} className="ml-0.5 text-bark/35" aria-hidden="true" />
+                    )}
+                  </li>
+                ))}
+              </ol>
+              <LivingTree />
+            </div>
           </Reveal>
 
           <ol className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
