@@ -421,7 +421,7 @@ export default async function DashboardPage() {
         <Card className="lg:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="flex items-center gap-2 font-medium text-charcoal"><Bot size={15} className="text-forest" aria-hidden="true" /> Agent team</h2>
-            <Link href="/app/strategy" className="text-xs font-medium text-forest hover:underline">View activity →</Link>
+            <Link href="/app/activity" className="text-xs font-medium text-forest hover:underline">View activity →</Link>
           </div>
           <ul className="mt-3 space-y-3">
             {agentTeam.map((a) => (
@@ -448,7 +448,7 @@ export default async function DashboardPage() {
         <Card className="lg:col-span-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="flex items-center gap-2 font-medium text-charcoal"><Activity size={15} className="text-forest" aria-hidden="true" /> Recent activity</h2>
-            <Link href="/app/analytics" className="text-xs font-medium text-forest hover:underline">View all activity →</Link>
+            <Link href="/app/activity" className="text-xs font-medium text-forest hover:underline">View all activity →</Link>
           </div>
           {activityEvents.length === 0 ? (
             <p className="mt-3 text-sm text-charcoal-soft">

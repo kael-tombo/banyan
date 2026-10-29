@@ -3,7 +3,11 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireWorkspaceServer } from "@/lib/workspace";
 import { Badge, Card, PageHeader, StatusBadge } from "@/components/ui";
-import { AlertTriangle, FileCheck2, Lightbulb } from "lucide-react";
+import {
+  buildDescent, buildLearningRings,
+  type LearningRing, type RingSource,
+} from "@/lib/goal-descent";
+import { AlertTriangle, FileCheck2, FlaskConical, Lightbulb, ShieldCheck } from "lucide-react";
 import GoalLive from "./goal-live";
 import GateActions from "./gate-actions";
 import ProvenanceBadge from "./provenance-badge";
@@ -15,12 +19,12 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
   const ctx = await requireWorkspaceServer();
   const goal = await prisma.goal.findFirst({
     where: { id, workspaceId: ctx.workspace.id },
-    include: { plan: true },
+    include: { plan: { include: { approvedBy: { select: { name: true } } } } },
   });
   if (!goal) notFound();
 
   const tasks = await prisma.agentTask.findMany({ where: { goalId: id }, orderBy: { createdAt: "asc" } });
-  const recommendations = await prisma.recommendation.findMany({ where: { goalId: id }, orderBy: { createdAt: "desc" }, take: 3 });
+  const recommendations = await prisma.recommendation.findMany({ where: { goalId: id }, orderBy: { createdAt: "desc" } });
   const runs = await prisma.taskRun.findMany({
     where: { task: { goalId: id } },
     orderBy: { startedAt: "desc" },
@@ -28,6 +32,48 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
     include: { task: { select: { title: true, type: true } } },
   });
   const campaigns = await prisma.campaign.findMany({ where: { goalId: id }, select: { id: true, name: true, status: true } });
+
+  // The loop's kept learning + its live stage counts — all from recorded rows.
+  const [gatePasses, goalExperiments] = await Promise.all([
+    prisma.agentTask.findMany({
+      where: { goalId: id, type: "approval_gate", status: "completed" },
+      orderBy: { updatedAt: "desc" },
+      take: 5,
+      select: { id: true, title: true, completedAt: true, updatedAt: true },
+    }),
+    prisma.experiment.findMany({
+      where: { campaign: { goalId: id }, status: "complete" },
+      orderBy: { updatedAt: "desc" },
+      take: 5,
+      select: { id: true, title: true, status: true, decidedAt: true, updatedAt: true, interpretation: true },
+    }),
+  ]);
+
+  const ringSource: RingSource = {
+    plan: goal.plan
+      ? { approvedAt: goal.plan.approvedAt, approvedByName: goal.plan.approvedBy?.name ?? null }
+      : null,
+    gatePasses,
+    experiments: goalExperiments,
+    recommendations: recommendations.map((r) => ({
+      id: r.id,
+      title: r.title,
+      status: r.status,
+      confidence: r.confidence,
+      updatedAt: r.updatedAt,
+    })),
+  };
+  const rings: LearningRing[] = buildLearningRings(ringSource);
+
+  const descent = buildDescent({
+    planStatus: goal.plan?.status ?? null,
+    runningTasks: tasks.filter((t) => ["ready", "running"].includes(t.status)).length,
+    queuedTasks: tasks.filter((t) => t.status === "pending").length,
+    waitingGates: tasks.filter((t) => t.status === "waiting_approval" && t.type === "approval_gate").length,
+    completedTasks: tasks.filter((t) => t.status === "completed").length,
+    openRecommendations: recommendations.filter((r) => r.status === "open").length,
+    concludedExperiments: goalExperiments.length,
+  });
 
   const planMeta = goal.plan ? (JSON.parse(goal.plan.generatedMeta || "{}") as { label?: string; isFallback?: boolean }) : null;
   const parsed = (arr: string) => (Array.isArray(JSON.parse(arr || "[]")) ? (JSON.parse(arr) as string[]) : []);
@@ -37,6 +83,20 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
   const blockers = tasks.filter((t) => t.status === "blocked" || t.status === "failed");
   const active = tasks.filter((t) => ["ready", "running"].includes(t.status));
 
+  const STAGE_STYLE: Record<string, { dot: string; text: string; pulse?: boolean }> = {
+    empty: { dot: "bg-sage", text: "text-charcoal-soft" },
+    waiting: { dot: "bg-amber-500", text: "text-amber-700" },
+    moving: { dot: "bg-forest", text: "text-forest", pulse: true },
+    done: { dot: "bg-forest-deep", text: "text-forest-deep" },
+  };
+
+  const RING_ICON = {
+    plan_approved: <FileCheck2 size={13} className="text-forest" aria-hidden="true" />,
+    gate_passed: <ShieldCheck size={13} className="text-forest" aria-hidden="true" />,
+    experiment_concluded: <FlaskConical size={13} className="text-forest" aria-hidden="true" />,
+    recommendation: <Lightbulb size={13} className="text-fig-deep" aria-hidden="true" />,
+  } as const;
+
   return (
     <>
       <PageHeader
@@ -45,6 +105,30 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
         actions={<StatusBadge status={goal.status} />}
       />
 
+      {/* The loop in motion — the same five beats the product is built on:
+          plan → branches → gates → deliverables → learning. Counts and
+          states come straight from the persisted rows above. */}
+      <nav aria-label="The goal's loop: plan, branches, gates, deliverables, learning">
+        <ol className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+          {descent.map((stage) => {
+            const style = STAGE_STYLE[stage.state];
+            return (
+              <li key={stage.key} className="rounded-[3px] border border-bark/10 bg-white p-3">
+                <p className="flex items-center gap-1.5 text-xs font-semibold text-charcoal">
+                  <span
+                    aria-hidden="true"
+                    className={`h-1.5 w-1.5 shrink-0 rounded-full ${style.dot}${style.pulse && stage.count > 0 ? " animate-pulse" : ""}`}
+                  />
+                  {stage.label}
+                  <span className="ml-auto font-serif text-base text-forest-deep">{stage.count}</span>
+                </p>
+                <p className={`mt-1 text-[11px] leading-snug ${style.text}`}>{stage.hint}</p>
+              </li>
+            );
+          })}
+        </ol>
+      </nav>
+
       <GoalLive
         goalId={goal.id}
         initial={{ status: goal.status, progress: goal.progress }}
@@ -52,7 +136,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
       />
 
       {/* Plan */}
-      <Card className="mt-6 rooted">
+      <Card className="mt-6 rooted" id="plan">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h2 className="flex items-center gap-2 font-medium text-charcoal"><FileCheck2 size={16} className="text-forest" aria-hidden="true" /> Execution plan</h2>
@@ -162,7 +246,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
       </div>
 
       {/* Execution plan: task graph */}
-      <Card className="mt-6">
+      <Card className="mt-6" id="tasks">
         <h2 className="font-medium text-charcoal">Tasks (persisted execution state)</h2>
         {tasks.length === 0 ? (
           <p className="mt-2 text-sm text-charcoal-soft">No tasks yet — the workflow starts after the plan is drafted.</p>
@@ -196,7 +280,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
         {recommendations.length === 0 ? (
           <p className="mt-2 text-sm text-charcoal-soft">No recommendation yet — it is produced by the analyst after the workflow measures real outcomes.</p>
         ) : (
-          recommendations.map((r) => {
+          recommendations.slice(0, 3).map((r) => {
             const evidence = Array.isArray(JSON.parse(r.evidence || "[]")) ? (JSON.parse(r.evidence) as { source: string; ref: string; summary: string }[]) : [];
             return (
               <div key={r.id} className="mt-3 border-t border-bark/10 pt-3 first:border-0 first:pt-0">
@@ -218,6 +302,53 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
               </div>
             );
           })
+        )}
+      </Card>
+
+      {/* Learning kept — the rings this goal has grown, one per recorded
+          decision or measured outcome. Open proposals do not appear here:
+          they are not learning yet, they are requests for the next test. */}
+      <Card className="mt-6" id="learning">
+        <h2 className="flex items-center gap-2 font-medium text-charcoal">
+          <ShieldCheck size={16} className="text-forest" aria-hidden="true" /> Learning kept — the rings so far
+        </h2>
+        {rings.length === 0 ? (
+          <p className="mt-2 text-sm text-charcoal-soft">
+            No rings yet. A ring is added when a decision is recorded — the plan approval, a gate passed, a concluded
+            experiment, a recommendation acted on — so the next plan grows from what was actually learned, not from a
+            fresh guess.
+          </p>
+        ) : (
+          <ol className="mt-3 space-y-0">
+            {rings.map((ring, i) => (
+              <li
+                key={`${ring.kind}-${ring.date.getTime()}-${i}`}
+                className="relative flex items-start gap-3 pb-4 last:pb-0"
+              >
+                {/* the ring line — one ring per kept decision */}
+                <span aria-hidden="true" className="relative mt-0.5 flex flex-col items-center">
+                  <span className="flex h-6 w-6 items-center justify-center rounded-full border border-forest/25 bg-forest/5">
+                    {RING_ICON[ring.kind]}
+                  </span>
+                  {i < rings.length - 1 && <span className="mt-1 w-px flex-1 bg-forest/15" />}
+                </span>
+                <span className="min-w-0 flex-1 pb-1">
+                  <span className="flex flex-wrap items-baseline gap-x-2">
+                    <span className="text-sm font-medium text-charcoal">{ring.title}</span>
+                    {ring.confidence && (
+                      <Badge variant={ring.confidence === "high" ? "forest" : ring.confidence === "medium" ? "moss" : "warm"}>
+                        confidence: {ring.confidence}
+                      </Badge>
+                    )}
+                    <span className="text-[11px] text-charcoal-soft/70">
+                      {ring.date.toLocaleDateString([], { month: "short", day: "numeric" })}
+                    </span>
+                  </span>
+                  <span className="mt-0.5 block text-xs leading-relaxed text-charcoal-soft">{ring.detail}</span>
+                </span>
+              </li>
+            ))}
+          </ol>
         )}
       </Card>
 
