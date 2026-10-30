@@ -8,7 +8,40 @@ follow [Keep a Changelog](https://keepachangelog.com); commit hashes refer to
 
 ## [Unreleased]
 
+### Fixed
+- **Short-form video generation no longer blocks the cycle on malformed model
+  output** (2026-10-30) — the video path required JSON and threw when the
+  provider returned prose (which the no-credentials template provider always
+  does), exhausting retries and blocking the approval gate. The generator now
+  accepts valid JSON, structures prose into a reviewable script, or builds a
+  labeled, context-grounded skeleton; all three assets can complete without a
+  live model. Four focused tests.
+- **X and LinkedIn fallbacks are now context-grounded** (2026-10-30) — without a
+  model key, both drafts were generic skeletons that still needed rewriting. The
+  deterministic fallback now builds from the product profile, positioning,
+  campaign key message, recorded evidence and CTA, clipped to the channel's
+  limit (280 for a single X post, 3,000 for LinkedIn). Output remains labelled
+  `isFallback` and editable. Three focused tests.
+
 ### Changed
+- **The landing hero now sells the outcome** (2026-10-30) — the headline is
+  "Your product. Viral content, everywhere." and the supporting line names X,
+  LinkedIn, Facebook and short-video. The rest of the page keeps the evidence
+  boundary explicit: "a repeatable cycle, not a lucky post" and "no virality
+  guarantees." No API, schema or behavior change.
+- **The landing page now leads with the founder's real problem** (2026-10-30) —
+  cut from the tree walkthrough, five-workstream catalogue, integration
+  inventory, six-card proof grid and six-card trust grid to a short scroll. The
+  hero was "You built a product. Not a media company." and a "real problem"
+  section names three concrete moments: a blank composer, the same update
+  rewritten for three channels, and likes that never become signups. A
+  three-step cycle answers each one, the outcomes section was framed as "a
+  finished cycle, not a viral gamble", and the closing CTA returns to "You
+  built it. Banyan gets it out." The URL form still carries a product URL
+  through signup into `/app/cycles/new`, prefilled but not read until the
+  founder asks. The receipt shows a real cycle shape — 3 drafts, 3 approved, 2
+  provider-confirmed publications, 1 manual video handoff — and invents no
+  performance numbers. No API or schema change.
 - **The platform interior redesigned — "Banyan Studio"** (2026-10-30) — a new
   warm-bone/canopy theme, rebuilt UI primitives inherited by every app route, a
   264px grouped rail with a shared navigation model, a contextual top bar with a
@@ -20,6 +53,17 @@ follow [Keep a Changelog](https://keepachangelog.com); commit hashes refer to
   behavior change: 331/331 unit tests and 42/42 acceptance checks still pass.
 
 ### Added
+- **The complete cycle, from a product URL** (2026-10-30) — `/app/cycles/new`
+  reads one public product page through the SSRF-safe fetcher, shows exactly
+  which fields were observed, and asks the founder to correct the snapshot
+  before storing it with `user_provided` provenance. The same intake chooses an
+  objective, metric, target, window and two or three channels; those explicit
+  values win over model extraction and the strategy handler cannot drop a
+  selected channel. `/app/cycles/[goalId]` is the seven-stage cockpit: plan and
+  assumptions, three channel-native assets, the recorded human approval gate,
+  provider-confirmed publications, short-form video as a manual handoff,
+  first-party clicks/signups, blockers with retry, and the next recommendation.
+  Twenty-three new unit tests (354 total). No schema change.
 - **Learning memory: concluded experiments now feed the next plan**
   (2026-10-30) — the loop previously recorded experiment conclusions and then
   forgot them; a new plan read facts and profile only. `src/lib/learning-memory.ts`

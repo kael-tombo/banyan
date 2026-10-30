@@ -13,6 +13,12 @@ import { NextRequest, NextResponse } from "next/server";
 const createSchema = z.object({
   rawInput: z.string().trim().min(10).max(2000),
   description: z.string().trim().max(1000).optional(),
+  // Explicit cycle intake fields. When present they win over model extraction,
+  // so a founder's chosen metric, window and channels are never overwritten.
+  successMetric: z.string().trim().min(2).max(60).optional(),
+  metricTarget: z.number().int().min(0).max(1_000_000).nullable().optional(),
+  deadlineDays: z.number().int().min(1).max(365).optional(),
+  channels: z.array(z.enum(["x", "linkedin", "shortvideo"])).min(1).max(3).optional(),
 });
 
 const GOAL_PARSE_SCHEMA = z.object({
@@ -102,24 +108,39 @@ export async function POST(req: NextRequest) {
     // heuristic result already in place; label stays honest
   }
 
-  // Deadline sanity: the extracted date must be a real date; otherwise fall back to the heuristic parse.
+  // Deadline: the founder's explicit window wins; otherwise use the extracted
+  // or heuristic date. A missing date is never invented.
   let deadline: Date | null = null;
-  const deadlineSource = extracted.deadline ?? heuristic.deadline;
-  if (deadlineSource) {
-    const d = new Date(`${deadlineSource}T23:59:59Z`);
-    if (!Number.isNaN(d.getTime())) deadline = d;
+  if (parsed.data.deadlineDays) {
+    deadline = new Date(Date.now() + parsed.data.deadlineDays * 86_400_000);
+  } else {
+    const deadlineSource = extracted.deadline ?? heuristic.deadline;
+    if (deadlineSource) {
+      const d = new Date(`${deadlineSource}T23:59:59Z`);
+      if (!Number.isNaN(d.getTime())) deadline = d;
+    }
   }
+
+  const successMetric = parsed.data.successMetric || extracted.successMetric;
+  const metricTarget =
+    parsed.data.metricTarget !== undefined ? parsed.data.metricTarget : extracted.metricTarget;
+  const selectedChannels = parsed.data.channels ?? [];
+  const channelConstraint = selectedChannels.length ? `channels: ${selectedChannels.join(", ")}` : "";
+  const constraints = [extracted.constraints.join("; "), channelConstraint]
+    .filter(Boolean)
+    .join("; ")
+    .slice(0, 500);
 
   const goal = await prisma.goal.create({
     data: {
       workspaceId: ctx.workspace.id,
       objective: extracted.objective.slice(0, 300),
       description: parsed.data.description ?? "",
-      successMetric: extracted.successMetric,
-      metricTarget: extracted.metricTarget,
+      successMetric,
+      metricTarget,
       metricUnit: heuristic.metricUnit,
       deadline,
-      constraints: extracted.constraints.join("; ").slice(0, 500),
+      constraints,
       status: canTransitionGoal("draft", "planning") ? "planning" : "draft",
       rawInput: raw,
       createdBy: ctx.user.id,

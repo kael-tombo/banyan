@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, Link2 } from "lucide-react";
 
 /**
- * The landing hero's "Build my plan" control: a product URL goes in, and the
- * founder lands on signup with onboarding pre-seeded to that URL. The URL is
- * carried through `next` → `/onboarding?url=…`, where it prefills the website
- * field — the first real step of "from product URL to your next experiment".
+ * The landing page's "Start my cycle" control: a product URL goes in, and the
+ * founder lands on signup and then the cycle intake, with the URL carried
+ * through `next` → `/app/cycles/new?url=…`. The intake reads one public page
+ * and asks the founder to correct it before anything is stored — the first
+ * real step of the cycle.
  */
 export function BuildPlanForm({ compact = false, dark = false }: { compact?: boolean; dark?: boolean }) {
   const router = useRouter();
@@ -23,9 +24,9 @@ export function BuildPlanForm({ compact = false, dark = false }: { compact?: boo
       router.push("/signup");
       return;
     }
-    // Best-effort normalize; onboarding treats the field as optional text.
+    // Best-effort normalize; the intake form validates and reads the URL.
     const normalized = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-    const next = encodeURIComponent(`/onboarding?url=${encodeURIComponent(normalized)}`);
+    const next = encodeURIComponent(`/app/cycles/new?url=${encodeURIComponent(normalized)}`);
     router.push(`/signup?next=${next}`);
   }
 
@@ -61,12 +62,12 @@ export function BuildPlanForm({ compact = false, dark = false }: { compact?: boo
               : "bg-forest-deep hover:bg-forest"
           }`}
         >
-          Build my plan
+          Start my cycle
           <ArrowRight size={15} aria-hidden="true" />
         </button>
       </div>
       <p className={`mt-2.5 text-xs ${dark ? "form-night-note" : "text-charcoal-soft"}`}>
-        No account connections required to get started.
+        Reads one public page. No publishing connections required to start.
       </p>
     </form>
   );

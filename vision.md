@@ -1,7 +1,10 @@
 # Vision
 
-**Banyan.ai — The Agentic Operating System for Product Distribution.**
-*Build. Distribute. Grow.*
+**Banyan.ai — The Product Distribution OS for founders.**
+*You build it. Banyan gets it out.*
+
+> Customer-facing positioning and MVP scope live in [`STRATEGY.md`](STRATEGY.md).
+> This document remains the internal product vision and engineering philosophy.
 
 ## The problem
 

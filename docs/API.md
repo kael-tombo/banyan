@@ -41,12 +41,19 @@ Rate limits below are per IP, in-process (single node).
 | `PATCH /api/profile/facts/[id]` | `{value?, provenance?}` | 60/min. User corrections reset verification. |
 | `DELETE /api/profile/facts/[id]` | — | 60/min. Removes a fact. |
 
+## Product intake
+
+| Method & path | Body | Notes |
+| --- | --- | --- |
+| `POST /api/product/intake` | `{url}` | 8/min, `write`. Normalizes a bare domain to https, fetches exactly one public HTML page through the SSRF-safe fetcher (protocol/DNS/redirect/size guards), and returns `{snapshot, sourceUrl, fetchedAt, truncated}`. Reads title, Open Graph, meta description and h1 only; never invents problem, audience or positioning. No persistence. |
+| `POST /api/product/snapshot` | `{name, description, website?, stage, problem, valueProp, audience, audiencePain?, audienceOutcome?, sourceUrl?, channels?}` | 20/min, `write`. Saves the founder-reviewed `ProductProfile` and upserts `ProfileFact` rows with `user_provided` provenance. The founder's corrections are not observations from the page. |
+
 ## Goals & the agent runtime
 
 | Method & path | Body | Notes |
 | --- | --- | --- |
 | `GET /api/goals` | — | Goals with plan/tasks/recommendations summary. |
-| `POST /api/goals` | `{rawInput}` (natural language) | 10/min, `write`. NL is parsed heuristically (`nl-goal.ts`) into metric/target/deadline/constraints; creates `Goal` (status `planning`) + draft `GoalPlan` via the model router (labelled fallback without a key). |
+| `POST /api/goals` | `{rawInput, description?, successMetric?, metricTarget?, deadlineDays?, channels?[]}` | 10/min, `write`. NL is parsed heuristically (`nl-goal.ts`) into metric/target/deadline/constraints; explicit intake fields win over extraction and the selected channels are appended as a `channels:` constraint. Creates `Goal` (status `planning`) + draft `GoalPlan` via the model router (labelled fallback without a key). |
 | `GET /api/goals/[id]` | — | Goal detail: plan, tasks (+runs), campaigns, recommendations. |
 | `PATCH /api/goals/[id]` | `{objective?, deadline?, constraints?, status?…}` | `write`; status changes go through the goal state machine (pause/resume/cancel). |
 | `POST /api/goals/[id]/plan/approve` | `{decision: "approve"\|"reject", reason?}` | 30/min, `approve`. Records the human plan decision (`approvedById`). Approve promotes the task tree; reject returns the goal to drafting. |

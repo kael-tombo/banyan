@@ -27,6 +27,12 @@ export default function GoalLive({
   const [note, setNote] = useState<string | null>(null);
   const advancing = useRef(false);
 
+  // Server refreshes carry the authoritative status. Without this sync the
+  // controls keep showing "Approve plan" after the plan was already approved.
+  useEffect(() => {
+    setStatus(initial.status);
+  }, [initial.status]);
+
   const advance = useCallback(async () => {
     if (advancing.current) return;
     advancing.current = true;

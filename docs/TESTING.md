@@ -13,7 +13,7 @@ npm test          # run once
 npm run test:watch
 ```
 
-Current state: **26 files, 331 tests — all passing** (verified 2026-10-30).
+Current state: **28 files, 354 tests — all passing** (verified 2026-10-30).
 Typecheck (`npm run typecheck`) is clean; the production build (`npm run
 build`) is green.
 

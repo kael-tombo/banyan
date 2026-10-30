@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import { recordActivity } from "@/lib/activity";
 import { attemptPublication } from "@/lib/publishing/publish";
 import { generateContent } from "@/lib/ai/generate";
-import { isFormatFor, isChannel, type Channel } from "@/lib/formats";
+import { isFormatFor, isChannel, isManualChannel, type Channel } from "@/lib/formats";
 import { DEFAULT_CHANNEL_FORMATS, contentSpecsForChannels } from "@/lib/agents/workflow-template";
 import { createTasksFromSpecs, loadBusinessContext, makeLogger, safeJSON } from "@/lib/agents/handlers/common";
 import { priorLearningLines } from "@/lib/learning-memory";
@@ -287,9 +287,32 @@ export async function handlePublish(ctx: HandlerContext): Promise<HandlerResult>
     };
   }
 
-  log.push("publishing", `${items.length} approved item(s).`);
+  // Short-form video has no provider integration: it is scripted and prepared,
+  // then recorded/published by hand. Never count it as a live publish attempt.
+  const liveItems = items.filter((item) => !isManualChannel(item.channel));
+  const manualItems = items.filter((item) => isManualChannel(item.channel));
+  const manualHandoff = manualItems.map((item) => ({
+    contentItemId: item.id,
+    channel: item.channel,
+    title: item.title,
+  }));
+  if (liveItems.length === 0) {
+    return {
+      outcome: "blocked",
+      reason: "Only short-form video is approved; that channel is a manual handoff, not a live publish.",
+      actionable:
+        "Approve at least one X or LinkedIn asset so this cycle can publish something measurable, or record the video manually in Publishing.",
+      output: {
+        summary: "Publishing blocked: no live-channel content approved.",
+        refs: {},
+        data: { publicationStatus: "blocked", manualHandoff },
+      },
+    };
+  }
+
+  log.push("publishing", `${liveItems.length} live item(s); ${manualItems.length} manual handoff(s).`);
   const attempts: PublishAttempt[] = [];
-  for (const item of items) {
+  for (const item of liveItems) {
     const res = await attemptPublication({
       contentItemId: item.id,
       workspaceId: ctx.workspaceId,
@@ -336,9 +359,15 @@ export async function handlePublish(ctx: HandlerContext): Promise<HandlerResult>
     return {
       outcome: "completed",
       output: {
-        summary: `${published.length} publication(s) confirmed by the provider.${links.length ? ` ${links.length} tracked link(s) attached for measurement.` : ""}`,
+        summary: `${published.length} publication(s) confirmed by the provider.${links.length ? ` ${links.length} tracked link(s) attached for measurement.` : ""}${manualItems.length ? ` ${manualItems.length} manual handoff(s) prepared.` : ""}`,
         refs: { publicationId: published[0].publicationId ?? "", publicationStatus: "published" },
-        data: { publicationStatus: "published", externalUrl: published[0].externalUrl, publications: attempts, trackedLinks: links },
+        data: {
+          publicationStatus: "published",
+          externalUrl: published[0].externalUrl,
+          publications: attempts,
+          trackedLinks: links,
+          manualHandoff,
+        },
       },
     };
   }
@@ -354,7 +383,7 @@ export async function handlePublish(ctx: HandlerContext): Promise<HandlerResult>
       output: {
         summary: `Publishing blocked: ${published.length}/${attempts.length} confirmed, ${blocked.length} blocked.`,
         refs: { publicationId: (published[0]?.publicationId ?? first.publicationId) ?? "" },
-        data: { publicationStatus: "blocked", publications: attempts },
+        data: { publicationStatus: "blocked", publications: attempts, manualHandoff },
       },
     };
   }
@@ -367,7 +396,7 @@ export async function handlePublish(ctx: HandlerContext): Promise<HandlerResult>
       output: {
         summary: `Provider retry scheduled (${retryScheduled.length} publication(s) in flight).`,
         refs: { publicationId: retryScheduled[0].publicationId ?? "" },
-        data: { publicationStatus: "retry_scheduled", publications: attempts },
+        data: { publicationStatus: "retry_scheduled", publications: attempts, manualHandoff },
       },
     };
   }
@@ -379,7 +408,7 @@ export async function handlePublish(ctx: HandlerContext): Promise<HandlerResult>
     output: {
       summary: `Publishing failed for ${failed.length}/${attempts.length} item(s).`,
       refs: { publicationId: (published[0]?.publicationId ?? failed[0]?.publicationId) ?? "" },
-      data: { publicationStatus: "failed", publications: attempts },
+      data: { publicationStatus: "failed", publications: attempts, manualHandoff },
     },
   };
 }

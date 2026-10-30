@@ -66,6 +66,15 @@ export function isChannel(v: string): v is Channel {
   return (CHANNELS as readonly string[]).includes(v);
 }
 
+/**
+ * Short-form video is scripted and prepared, but publishing it is a manual
+ * handoff: there is no provider integration, so it must never be counted as a
+ * live publish attempt.
+ */
+export function isManualChannel(channel: string): boolean {
+  return channel === "shortvideo";
+}
+
 export function formatsFor(channel: string) {
   return isChannel(channel) ? CHANNEL_FORMATS[channel] : [];
 }

@@ -521,3 +521,79 @@ rule changed.
   SQLite query engine. The Next production build was verified directly, then
   the SQLite client was regenerated after stopping the server. CI (no dev
   server) is unaffected.
+
+## 2026-10-30 — The complete cycle becomes the unit of proof
+
+The strategy work made one recommendation concrete: do not ship a product that
+returns a 20-page report about distribution. Ship one complete cycle. This pass
+built the smallest honest version of that cycle over the existing goal runtime.
+
+### Intake (`/app/cycles/new`)
+
+- **One public page, one guarded read.** `POST /api/product/intake` normalizes a
+  bare domain, calls the existing SSRF-safe fetcher (protocol allow-list, DNS
+  check on every hop, bounded redirects, 750 KB cap, 12 s timeout), and reads
+  only title/Open Graph/meta/h1. It returns the observed fields plus a
+  `observedFields` list; it never invents a problem, audience or positioning.
+- **The founder owns the snapshot.** `/app/cycles/new` labels each observed
+  field, removes the label the moment it is edited, and requires the problem,
+  value proposition and audience before a cycle can start. `POST
+  /api/product/snapshot` stores the reviewed profile and `ProfileFact` rows as
+  `user_provided` with the source URL recorded.
+- **The cycle settings are explicit.** The same form chooses objective, metric,
+  target, window and channels. `POST /api/goals` now accepts those fields and
+  they win over model extraction; the selected channels are stored as a
+  `channels:` constraint.
+
+### The cockpit (`/app/cycles/[goalId]`)
+
+- Seven stage cards (intake → strategy → three assets → approval → publishing →
+  measurement → next move), the plan with assumptions/missing information/risks,
+  the three drafts with per-item status, the approval gate, provider-confirmed
+  publications, the manual video handoff, first-party clicks/signups, blocked
+  work with retry, and the next recommendation. Every count comes from a
+  persisted row; every zero is labelled as a true zero or as absent measurement.
+- Navigation gains **Cycles** in the Plan group and a **Start a complete cycle**
+  quick action; the dashboard's primary CTA and the goal cockpit link into the
+  cycle view.
+
+### Publishing boundary
+
+- `handlePublish` now partitions approved content into live channels and the
+  manual video channel. Short-form video is never passed to a provider, never
+  counted as a publish attempt, and appears in the task output as
+  `manualHandoff`. A cycle with only approved video is blocked with an explicit
+  handoff instruction rather than marked published.
+
+### Video generation repair
+
+- The no-credentials template provider returns prose. The video path required
+  JSON, so every short-form task exhausted its retries and blocked the approval
+  gate. `normalizeVideoExtras` now uses valid JSON directly, structures prose
+  into a reviewable script, salvages a `script` field from incomplete JSON, or
+  builds a labeled context-grounded skeleton. A malformed response can no longer
+  take the cycle down.
+
+### Context-grounded text fallback
+
+- Without a model key, X and LinkedIn drafts were generic template skeletons. They
+  are now built from the profile, campaign key message, recorded evidence and CTA,
+  clipped to the channel's limit (280 for a single X post, 3,000 for LinkedIn,
+  numbered posts for a thread), and still labelled `isFallback` in
+  `generationMeta` so they can never pass as model output.
+
+### Verification
+
+- `npm run typecheck` clean; **354/354 unit tests**; `npx next build` green
+  (all new routes compiled).
+- Live end-to-end in a throwaway workspace: intake returned `Example Domain`
+  with only the name observed; snapshot saved; goal stored `signups`, target 5,
+  14-day deadline and all three channels; plan approved; all three drafts
+  completed; gate waited; approval closed it; publish attempted only LinkedIn
+  and X, recorded both blocked for lack of a connection, and kept the video in
+  `manualHandoff` (no publication row). The cycle page rendered `3 of 3
+  drafted`, `Publishing is blocked`, `Manual handoff: short-form video`, and
+  `No next move has been proposed`. Test workspace and user deleted afterwards.
+- Known limitation: the context-built fallback is grounded and usable, but it is
+  still a deterministic skeleton; a live model produces stronger voice. Real
+  publishing still needs a verified Postiz connection.

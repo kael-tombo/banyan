@@ -1,19 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight, CheckCircle2, Compass, LineChart, PenLine, SearchCheck, Share2, Sprout } from "lucide-react";
+import { ArrowRight, CheckCircle2, Compass, Layers, LineChart, Link2, Share2, Sparkles } from "lucide-react";
 
 /* Icon keys are passed from the server component as plain strings — component
    references can't cross the server/client boundary. */
 const ICONS = {
-  research: SearchCheck,
-  strategize: Compass,
-  create: PenLine,
-  review: CheckCircle2,
+  intake: Link2,
+  strategy: Compass,
+  assets: Layers,
+  approve: CheckCircle2,
   publish: Share2,
   measure: LineChart,
-  learn: Sprout,
-  iterate: ArrowRight,
+  next: Sparkles,
 } as const;
 
 export type Step = { key: string; label: string };

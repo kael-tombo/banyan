@@ -17,15 +17,15 @@ const inter = Inter({
 export const metadata: Metadata = {
   metadataBase: new URL(env.NEXT_PUBLIC_APP_URL),
   title: {
-    default: "Banyan.ai — Build. Distribute. Grow.",
+    default: "Banyan.ai — You build it. Banyan gets it out.",
     template: "%s · Banyan.ai",
   },
   description:
-    "Banyan.ai coordinates AI-powered research, content creation, publishing, and learning into one distribution workflow — helping founders reach the people who need their products.",
+    "One product update becomes a complete distribution cycle — strategy, three channel-native assets, your approval, real publishing, and measured results. The product distribution OS for founders.",
   openGraph: {
-    title: "Banyan.ai — Build. Distribute. Grow.",
+    title: "Banyan.ai — You build it. Banyan gets it out.",
     description:
-      "The Agentic Operating System for Product Distribution. Build your product. Let it find its people.",
+      "The product distribution OS for founders. One complete distribution cycle at a time — strategy, three channel-native assets, your approval, real publishing, measured results, and the next move.",
     siteName: "Banyan.ai",
     type: "website",
   },

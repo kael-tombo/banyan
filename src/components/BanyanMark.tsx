@@ -21,6 +21,7 @@ export function BanyanMark({
       width={size}
       height={size}
       priority
+      style={{ width: size, height: size }}
       className={`${className}`}
     />
   );

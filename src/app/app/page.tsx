@@ -10,7 +10,7 @@ import {
 } from "@/lib/growth-loop";
 import {
   Activity, AlertTriangle, ArrowRight, ArrowUpRight, Bot, CheckCircle2, FlaskConical,
-  Lightbulb, Play, Share2, Sparkles, Target, TrendingDown, TrendingUp, UserPlus,
+  Lightbulb, Play, RefreshCw, Share2, Sparkles, Target, TrendingDown, TrendingUp, UserPlus,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -263,9 +263,14 @@ export default async function DashboardPage() {
             anything unmeasured is labeled as such.
           </p>
         </div>
-        <LinkButton href="/app/experiments" variant="secondary">
-          <FlaskConical size={15} aria-hidden="true" /> New experiment
-        </LinkButton>
+        <div className="flex flex-wrap items-center gap-2">
+          <LinkButton href="/app/cycles/new">
+            <RefreshCw size={15} aria-hidden="true" /> Start a cycle
+          </LinkButton>
+          <LinkButton href="/app/experiments" variant="secondary">
+            <FlaskConical size={15} aria-hidden="true" /> New experiment
+          </LinkButton>
+        </div>
       </div>
 
       {/* ————— 1. State at a glance — the trunk, then the signals ————— */}
@@ -309,8 +314,11 @@ export default async function DashboardPage() {
                     />
                     {activeGoal.status.replace(/_/g, " ")}
                   </span>
-                  <Link href="/app/strategy" className="text-[11.5px] font-medium text-[#E3BE79] underline-offset-4 hover:underline">
-                    View strategy →
+                  <Link href={`/app/cycles/${activeGoal.id}`} className="text-[11.5px] font-medium text-[#E3BE79] underline-offset-4 hover:underline">
+                    View cycle →
+                  </Link>
+                  <Link href="/app/strategy" className="text-[11.5px] font-medium text-sage/60 underline-offset-4 hover:text-[#E3BE79] hover:underline">
+                    Strategy →
                   </Link>
                 </div>
               </div>
@@ -345,18 +353,18 @@ export default async function DashboardPage() {
           <div className="flex min-h-[236px] flex-col justify-between rounded-2xl border border-dashed border-bark/20 bg-white/60 p-6">
             <div>
               <p className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-charcoal-soft/60">
-                {goals.length === 0 ? "No goal planted yet" : "No goal in motion"}
+                {goals.length === 0 ? "No cycle run yet" : "No goal in motion"}
               </p>
               <h2 className="mt-3 font-serif text-[23px] leading-tight tracking-[-0.01em] text-forest-deep">
-                {goals.length === 0 ? "Plant the first goal." : "Everything is resting."}
+                {goals.length === 0 ? "Run the first complete cycle." : "Everything is resting."}
               </h2>
               <p className="mt-2 max-w-md text-[13px] leading-relaxed text-charcoal-soft">
-                State what you want in plain language — the planner drafts a reviewable plan, agents execute it step by
-                step, and nothing publishes without your approval.
+                Paste your product URL, correct the snapshot, and approve one plan. Three channel-native assets, real
+                publishing, measured results, and a proposed next move — nothing publishes without your approval.
               </p>
             </div>
-            <LinkButton href="/app/goals" className="mt-5 self-start">
-              Create a goal <ArrowRight size={14} aria-hidden="true" />
+            <LinkButton href="/app/cycles/new" className="mt-5 self-start">
+              Start a cycle <ArrowRight size={14} aria-hidden="true" />
             </LinkButton>
           </div>
         )}

@@ -10,8 +10,8 @@ Living status board. Updated as work lands. Companion to
 
 | # | Milestone | State | Evidence |
 | --- | --- | --- | --- |
-| 1 | **Capability** — the product can run the whole loop | Met | goal → plan → campaign → content → approval → publish → measure → learn is implemented and reachable; 48 routes build |
-| 2 | **Reliability** — behaves correctly under real conditions | In progress | approvals, idempotency, rate limiting, bounded publication retries, fail-fast env guards, SSRF choke point, uniform body caps enforced server-side; **331 unit tests + 42-check live E2E acceptance (42/42 PASS)**; real publishing still unverified against live Postiz credentials |
+| 1 | **Capability** — the product can run the whole loop | Met | goal → plan → campaign → content → approval → publish → measure → learn is implemented and reachable; the complete-cycle intake and cockpit are live at `/app/cycles`; all app and API routes build |
+| 2 | **Reliability** — behaves correctly under real conditions | In progress | approvals, idempotency, rate limiting, bounded publication retries, fail-fast env guards, SSRF choke point, uniform body caps enforced server-side; **354 unit tests + 42-check live E2E acceptance (42/42 PASS)**; real publishing still unverified against live Postiz credentials |
 | 3 | **Growth** — real campaigns produce measurable outcomes | Not started | requires real attributed signups; none observed |
 
 Milestone 3 is deliberately not claimed. Capability and reliability do not imply it.
@@ -31,8 +31,9 @@ Milestone 3 is deliberately not claimed. Capability and reliability do not imply
 - **Experiments** — create, run, draft evidence-based conclusions.
 - **Growth** — Banyan's own self-distribution view with honest milestones.
 - **Measurement loop** — `/t/[slug]` records clicks and attributes later signups.
-- **Interface** — "Banyan Studio" theme and primitives across every app route; canopy rail with grouped, collapsible navigation; contextual top bar; ⌘K command palette over 22 destinations and six quick actions; goal hero + live signal dashboard; responsive overlay drawer; optional onboarding as a slim prompt, never a gate.
-- **Tooling** — `npm run setup` (migrate + seed), `npm run worker`, 331 unit tests, 42-check E2E acceptance script, Dockerfile + CI workflow.
+- **Complete cycle** — `/app/cycles/new` reads one public product page, shows the observed fields for correction, saves the reviewed snapshot with provenance, and creates a goal with explicit metric/target/window/channels; `/app/cycles/[goalId]` shows the plan, three assets, approval gate, provider-confirmed publications, measured outcomes, and next recommendation. Short-form video is a prepared manual handoff, never a fake publish.
+- **Interface** — "Banyan Studio" theme and primitives across every app route; canopy rail with grouped, collapsible navigation; contextual top bar; ⌘K command palette over the full navigation and seven quick actions; goal hero + live signal dashboard; responsive overlay drawer; optional onboarding as a slim prompt, never a gate.
+- **Tooling** — `npm run setup` (migrate + seed), `npm run worker`, 354 unit tests, 42-check E2E acceptance script, Dockerfile + CI workflow.
 
 ## Partial
 
@@ -46,7 +47,7 @@ Milestone 3 is deliberately not claimed. Capability and reliability do not imply
 ## Not started
 
 - Notifications; PostgreSQL, object storage, multi-user collaboration.
-- Live website scraping (deliberately deferred — avoids the SSRF class for analysis).
+- Automated market/competitor scraping. Product intake reads exactly one public page through the SSRF guard; it does not crawl, log in, or scrape at scale.
 - Fastlane adapter activation (needs `FASTLANE_API_KEY` verification).
 - Reviewed legal copy.
 
@@ -64,7 +65,7 @@ npm install
 cp .env.example .env      # set APP_SECRET
 npm run setup             # migrate + seed
 npm run typecheck         # 0 errors
-npm test                  # 331 passing
+npm test                  # 354 passing
 npm run build             # production build green
 BASE_URL=http://localhost:3000 bash scripts/e2e-acceptance.sh   # 42 checks
 npm run dev               # sign in: SEED_USER_EMAIL / SEED_USER_PASSWORD
@@ -146,3 +147,22 @@ npm run dev               # sign in: SEED_USER_EMAIL / SEED_USER_PASSWORD
 
 **Not started**
 - No visual-regression suite; the design system has no automated screenshot baseline yet.
+
+## Complete cycle intake (2026-10-30)
+
+**Done**
+- `POST /api/product/intake` reads one public product page through the existing SSRF-safe fetcher (8/min, HTML only, no persistence) and returns a deterministic snapshot of title/Open Graph/meta/h1. It never invents problem, audience or positioning.
+- `POST /api/product/snapshot` saves the founder-reviewed profile and `ProfileFact` rows with `user_provided` provenance. `/app/cycles/new` labels observed fields, removes the label when edited, and requires the founder's own problem/audience/value proposition.
+- `POST /api/goals` accepts explicit `successMetric`, `metricTarget`, `deadlineDays` and `channels`; these win over model extraction. The strategy handler reads the channel constraint and cannot drop a selected channel.
+- `/app/cycles` and `/app/cycles/[goalId]` implement the seven-stage cockpit: plan and assumptions, three assets, approval gate, provider-confirmed publications, manual video handoff, measured clicks/signups, blockers with retry, and the next recommendation.
+- Publishing partitions live channels from the manual video channel. A cycle with only approved video content is blocked with an explicit handoff, not marked published. The publish task records `manualHandoff` separately from live attempts.
+- Fixed the no-credentials video path: the template provider returns prose, and the video generator now accepts valid JSON, structures prose, or falls back to a labeled context-built skeleton. A malformed video response can no longer exhaust retries and block the whole cycle.
+- X and LinkedIn fallbacks are now context-grounded rather than generic template prose: they build from the founder's profile, campaign key message, recorded evidence and CTA, clipped to each channel's limit. They remain labelled `isFallback` and editable.
+
+**Verified**
+- `npm run typecheck` clean; **354/354 unit tests** (23 new: intake extractor, channel parser, video normalizer, context-post fallback); `npx next build` green.
+- Live end-to-end in a throwaway workspace: public intake returned `Example Domain` with only the name observed; snapshot saved; goal stored `signups`, target 5, 14-day deadline, `channels: linkedin, x, shortvideo`; plan approved; all three drafts completed; the gate waited for human review; approval closed it; the publish task attempted only LinkedIn and X, recorded both blocked for lack of a connection, and kept the video in `manualHandoff` with no publication row. The cycle page rendered `3 of 3 drafted`, `Publishing is blocked`, `Manual handoff: short-form video`, and `No next move has been proposed`. Test workspace and user removed afterwards.
+
+**Partial**
+- With no `OPENAI_API_KEY`, all three drafts are context-grounded but deterministic. The fallback is labelled and should still be edited for voice before approval; a live model remains the stronger path for nuance.
+- Real publishing remains unverified against live Postiz credentials; a connected channel is required to produce tracked links and measured outcomes.

@@ -6,10 +6,10 @@ import { Menu, X } from "lucide-react";
 import { BanyanMark } from "@/components/BanyanMark";
 
 const links = [
+  { href: "/#problem", label: "Why Banyan" },
   { href: "/#how-it-works", label: "How it works" },
-  { href: "/#branches", label: "Branches" },
-  { href: "/#outputs", label: "Outputs" },
-  { href: "/#trust", label: "Trust & control" },
+  { href: "/#result", label: "The result" },
+  { href: "/#trust", label: "Trust" },
 ];
 
 /**
@@ -26,7 +26,7 @@ const links = [
  * `variant="day"` (default, everywhere else): today's light glass from the
  * first paint. */
 export function SiteNav({
-  cta = "Start building",
+  cta = "Run a cycle",
   ctaHref = "/signup",
   variant = "day",
 }: {

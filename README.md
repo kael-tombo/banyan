@@ -1,8 +1,12 @@
 # Banyan.ai
 
-**The Agentic Operating System for Product Distribution.**
+**The Product Distribution OS for founders.**
 
-Build. Distribute. Grow. — *Build your product. Let it find its people.*
+**You build it. Banyan gets it out.** *Build. Distribute. Grow.*
+
+> Customer-facing positioning, ICP and MVP scope are defined in
+> [`STRATEGY.md`](STRATEGY.md). The technical scope below describes the broader
+> loop the platform implements; the strategy defines what we launch and sell.
 
 Banyan.ai coordinates goals, research, strategy, content, publishing and
 learning into an execution system that helps founders turn a product into
@@ -44,7 +48,7 @@ These rules are enforced in the code, not just documented:
 | AI | Model router over OpenAI-compatible endpoints + usage ledger + quotas |
 | Publishing | Postiz adapter (HTTP) behind a provider-neutral interface |
 | Capabilities | Provider-independent registry (publishing, creative, research, analytics) |
-| Tests | Vitest (331 unit tests) + 42-check live E2E acceptance script |
+| Tests | Vitest (354 unit tests) + 42-check live E2E acceptance script |
 
 ## Quick start
 
@@ -194,16 +198,16 @@ A modular monolith plus one background worker — no premature microservices.
 Public: `/`, `/login`, `/signup`, `/privacy`, `/terms`, `/t/[slug]` (tracked-link
 redirect), `/onboarding`.
 
-Authenticated (`/app`): dashboard, goals, goals/[id], context, workspace,
-audience, campaigns, campaigns/new, campaigns/[id], content, content/new,
-content/[id], approvals, calendar, publishing, analytics, experiments,
-settings, growth.
+Authenticated (`/app`): dashboard, cycles, cycles/new, cycles/[goalId], goals,
+goals/[id], context, workspace, audience, campaigns, campaigns/new,
+campaigns/[id], content, content/new, content/[id], approvals, calendar,
+publishing, analytics, experiments, settings, growth.
 
 API: `auth/{login,logout,signup}`, `profile`, `profile/facts` (+`[id]`),
-`onboarding`, `audience`, `campaigns`, `content` (+`generate`, `review`,
-`schedule`, `publish`), `goals` (+`[id]`, `plan/approve`, `advance`),
-`tasks/[id]` (retry/cancel/gate), `connections`, `links`, `metrics`,
-`experiments`, `usage`, `worker/tick`.
+`product/intake`, `product/snapshot`, `onboarding`, `audience`, `campaigns`,
+`content` (+`generate`, `review`, `schedule`, `publish`), `goals` (+`[id]`,
+`plan/approve`, `advance`), `tasks/[id]` (retry/cancel/gate), `connections`,
+`links`, `metrics`, `experiments`, `usage`, `worker/tick`.
 
 ## The core loop
 
@@ -215,6 +219,26 @@ API: `auth/{login,logout,signup}`, `profile`, `profile/facts` (+`[id]`),
 6. **Publish** — via a connected Postiz integration, or recorded manually with a real URL.
 7. **Measure** — tracked links record first-party visits; signups are attributed only when the visitor cookie is present.
 8. **Learn** — experiments draft conclusions from recorded data (and say "not enough data" otherwise). Concluded interpretations become prompt context for the next plan, strategy and draft, so the loop compounds instead of resetting.
+
+## The complete cycle
+
+The unit of proof is one complete cycle, not a report about one. `/app/cycles/new`
+starts from a product URL: Banyan reads one **public** page through the SSRF guard,
+shows the founder exactly which fields it read, and asks them to correct the
+snapshot before anything is stored. The reviewed snapshot becomes
+`user_provided` business context — never a market fact.
+
+The founder then chooses one objective, metric, target, window and two or three
+channels. `/app/cycles/[goalId]` shows the seven stages (intake, strategy, three
+assets, approval, publishing, measurement, next move), the plan's assumptions
+and missing information, the three channel-native drafts, the recorded approval
+gate, provider-confirmed publications, first-party clicks/signups, and the
+next recommendation. A short-form video is scripted and labelled a **manual
+handoff**; it is never counted as a live publish.
+
+Explicit intake fields win over model extraction: the selected metric, target,
+deadline and channels are stored on the goal, and the strategy handler refuses
+to silently drop a channel the founder chose.
 
 ## Publishing integration
 
@@ -254,7 +278,7 @@ template that is always labelled — it is never presented as live model output.
 ## Tests
 
 ```bash
-npm test        # 331 unit tests across 26 files: state machines,
+npm test        # 354 unit tests across 28 files: state machines,
                 # orchestration graph, failure recovery, verification,
                 # NL goal parsing, quotas, SSRF guard, body caps, env
                 # guards, capabilities honesty, recommendation evidence,
@@ -297,6 +321,7 @@ journey (42 checks) against a live server. See [`docs/TESTING.md`](docs/TESTING.
 
 | Document | What it holds |
 | --- | --- |
+| [`STRATEGY.md`](STRATEGY.md) | Customer-facing category, promise, ICP, MVP scope, pricing and 30-day launch plan |
 | [`vision.md`](vision.md) | Why the product exists, who it is for, milestones and non-goals |
 | [`philosophy.md`](philosophy.md) | Product and engineering beliefs, and where each is enforced in code |
 | [`progress.md`](progress.md) | Living status board: done, partial, not started, next up |

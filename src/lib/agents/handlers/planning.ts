@@ -5,6 +5,8 @@ import { recordActivity } from "@/lib/activity";
 import { contextBlock, loadBusinessContext, routedStructured } from "@/lib/agents/handlers/common";
 import type { HandlerResult } from "@/lib/agents/types";
 import type { ParsedGoal } from "@/lib/agents/nl-goal";
+import { parseChannelConstraint } from "@/lib/agents/channels";
+import type { Channel } from "@/lib/formats";
 
 /**
  * Planning-phase handlers: plan drafting (with human approval gate),
@@ -263,15 +265,20 @@ export async function handleStrategy(ctx: import("@/lib/agents/types").HandlerCo
   const biz = await loadBusinessContext(ctx.workspaceId);
   const researchBrief =
     (ctx.task.inputs.deps as { research?: { data?: ResearchBrief } } | undefined)?.research?.data ?? null;
+  // A complete cycle begins with the channels the founder selected. The model
+  // may propose a focus, but it may never silently drop a required channel.
+  const requiredChannels = parseChannelConstraint(goal?.constraints ?? "");
 
   const system = [
     "You are Banyan.ai's strategy agent. Draft ONE positioning hypothesis and the smallest viable channel focus for the first campaign wave.",
     "Channels available: x, linkedin, shortvideo. Respect the user's constraints. No invented evidence.",
+    "If the human explicitly selected channels in the constraints, choose exactly those channels and no others.",
     'Respond with ONLY JSON: {"positioning": string, "contentThemes": [string], "channelFocus": [channel], "rationale": string, "labelledAs": "hypothesis"}',
   ].join("\n");
 
   const user = [
     contextBlock(biz, goal ? { objective: goal.objective, successMetric: goal.successMetric, metricTarget: goal.metricTarget, deadline: goal.deadline, constraints: goal.constraints } : null),
+    requiredChannels.length > 0 ? `Channels required by the human: ${requiredChannels.join(", ")}. Use exactly these.` : "",
     researchBrief ? `Research brief to build on (hypotheses): ${researchBrief.hypothesisAngles.join(" | ")}` : "",
   ].filter(Boolean).join("\n");
 
@@ -283,8 +290,10 @@ export async function handleStrategy(ctx: import("@/lib/agents/types").HandlerCo
     maxTokens: 900,
     temperature: 0.6,
     schema: STRATEGY_OUTPUT,
-    template: () => templateStrategy(biz, goal),
+    template: () => templateStrategy(biz, goal, requiredChannels),
   });
+
+  const channelFocus = requiredChannels.length > 0 ? requiredChannels : data.channelFocus;
 
   // Persist the positioning hypothesis as inspectable context.
   await prisma.profileFact.upsert({
@@ -305,8 +314,8 @@ export async function handleStrategy(ctx: import("@/lib/agents/types").HandlerCo
   return {
     outcome: "completed",
     output: {
-      summary: `Strategy drafted: focus on ${data.channelFocus.join(", ")} — ${data.positioning.slice(0, 160)}`,
-      data: { ...data },
+      summary: `Strategy drafted: focus on ${channelFocus.join(", ")} — ${data.positioning.slice(0, 160)}`,
+      data: { ...data, channelFocus },
       refs: {},
       generatedLabel: label,
       isFallback,
@@ -316,11 +325,15 @@ export async function handleStrategy(ctx: import("@/lib/agents/types").HandlerCo
 
 export function templateStrategy(
   biz: { profile: { audience?: string | null; audiencePain?: string | null; name?: string | null } | null },
-  goal: { successMetric: string; constraints: string } | null
+  goal: { successMetric: string; constraints: string } | null,
+  requiredChannels: Channel[] = []
 ): StrategyOutput {
   const audience = biz.profile?.audience || "the target audience";
   const pain = biz.profile?.audiencePain || "the core problem";
   const paid = /paid|budget/i.test(goal?.constraints ?? "");
+  const fallbackChannels: StrategyOutput["channelFocus"] = paid ? ["linkedin"] : ["x", "linkedin"];
+  const channelFocus: StrategyOutput["channelFocus"] =
+    requiredChannels.length > 0 ? requiredChannels : fallbackChannels;
   return {
     positioning: `Hypothesis: ${audience} needs a direct, problem-first articulation of ${pain} — and the product is credible precisely because it shows its work instead of promising results.`,
     contentThemes: [
@@ -328,10 +341,12 @@ export function templateStrategy(
       "Hypothesis theme: building in public — what we shipped and what we learned",
       "Hypothesis theme: small experiments with honestly reported results",
     ],
-    channelFocus: paid ? ["linkedin"] : ["x", "linkedin"],
-    rationale: paid
-      ? "Constraint mentions paid spend limits; LinkedIn suits a focused, low-volume, high-trust wave."
-      : "Starting with text channels where iteration is fastest; short-form video joins once a message shows signal.",
+    channelFocus,
+    rationale: requiredChannels.length > 0
+      ? `The human selected ${channelFocus.join(", ")} for this cycle; the wave respects that selection.`
+      : paid
+        ? "Constraint mentions paid spend limits; LinkedIn suits a focused, low-volume, high-trust wave."
+        : "Starting with text channels where iteration is fastest; short-form video joins once a message shows signal.",
     labelledAs: "hypothesis",
   };
 }

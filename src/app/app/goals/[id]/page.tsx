@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireWorkspaceServer } from "@/lib/workspace";
-import { Badge, Card, PageHeader, StatusBadge } from "@/components/ui";
+import { Badge, Card, LinkButton, PageHeader, StatusBadge } from "@/components/ui";
 import {
   buildDescent, buildLearningRings,
   type LearningRing, type RingSource,
@@ -102,7 +102,12 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
       <PageHeader
         title={goal.objective}
         description={`${goal.successMetric}${goal.metricTarget != null ? ` · target ${goal.metricTarget.toLocaleString()}` : ""}${goal.deadline ? ` · deadline ${goal.deadline.toLocaleDateString()}` : " · no deadline"}${goal.constraints ? ` · constraints: ${goal.constraints}` : ""}`}
-        actions={<StatusBadge status={goal.status} />}
+        actions={
+          <div className="flex items-center gap-2">
+            <LinkButton href={`/app/cycles/${goal.id}`} variant="secondary" size="sm">Cycle view</LinkButton>
+            <StatusBadge status={goal.status} />
+          </div>
+        }
       />
 
       {/* The loop in motion — the same five beats the product is built on:

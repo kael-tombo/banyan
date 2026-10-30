@@ -13,6 +13,108 @@ export const videoExtrasSchema = z.object({
 
 export type VideoExtras = z.infer<typeof videoExtrasSchema>;
 
+/** The subset of generation context needed to build a grounded video skeleton. */
+type VideoContext = {
+  profile: { name: string; description: string; valueProp: string; audience: string; positioning?: string };
+  brandVoice: { cta?: string };
+  campaign?: { cta?: string } | null;
+};
+
+function firstSentence(text: string): string {
+  const line = text.split("\n").map((s) => s.trim()).find(Boolean) ?? text;
+  const sentence = line.match(/^[^.!?]{3,}[.!?]?/)?.[0] ?? line;
+  return sentence.trim();
+}
+
+/** A context-grounded skeleton — never invents claims, metrics or testimonials. */
+function contextVideo(ctx: VideoContext): VideoExtras {
+  const product = ctx.profile.name.trim() || "The product";
+  const audience = ctx.profile.audience.trim() || "your audience";
+  const problem = (ctx.profile.valueProp || ctx.profile.description || `${product} in one minute`).trim();
+  const description = ctx.profile.description.trim();
+  const cta = (ctx.brandVoice.cta || ctx.campaign?.cta || `Try ${product}`).trim();
+  const hook = `A quick look at ${product} for ${audience}`.slice(0, 120);
+  const script = [
+    `If you're ${audience}, ${problem}`,
+    description && description !== problem ? description : "",
+    `That is what ${product} is for.`,
+    cta,
+  ].filter(Boolean).join(" ").slice(0, 6000);
+  const safeScript = script.length >= 20 ? script : `${product} is built for ${audience}. ${cta}`;
+  const sentences = safeScript.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
+  const scenes = (sentences.length > 1 ? sentences.slice(1, 4) : [safeScript]).map((scene, i) => ({
+    scene: scene.slice(0, 240),
+    visual: i === 0 ? "Founder to camera or a product screen" : "Product screen or simple b-roll",
+  }));
+  return {
+    hook: hook.length >= 3 ? hook : `A quick look at ${product}`,
+    script: safeScript,
+    scenes: scenes.length ? scenes : [{ scene: safeScript.slice(0, 240), visual: "Product screen" }],
+    onScreenText: hook.slice(0, 120),
+    caption: `${hook} ${cta}`.slice(0, 300),
+    cta: cta.slice(0, 120),
+  };
+}
+
+/**
+ * Coerce model output into a valid video asset. Valid JSON is used directly;
+ * prose is structured into scenes; an unusable response falls back to a
+ * labeled, context-grounded skeleton. This prevents a malformed video response
+ * from exhausting retries and blocking the whole distribution cycle.
+ */
+export function normalizeVideoExtras(
+  raw: string,
+  ctx: VideoContext,
+  opts: { fallback: boolean }
+): { extras: VideoExtras; mode: "json" | "prose" | "template" } {
+  let parsed: unknown = null;
+  try {
+    parsed = extractJSON(raw);
+  } catch {
+    parsed = null;
+  }
+
+  const direct = videoExtrasSchema.safeParse(parsed);
+  if (direct.success) return { extras: direct.data, mode: "json" };
+
+  // A JSON object with a usable script but incomplete structure: keep the
+  // model's words and supply the missing scene structure.
+  const looseScript =
+    parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? (parsed as { script?: unknown }).script
+      : null;
+  const prose = typeof raw === "string" ? raw.trim() : "";
+  const modelText =
+    typeof looseScript === "string" && looseScript.trim().length >= 20
+      ? looseScript.trim()
+      : !opts.fallback && prose.length >= 20 && !prose.startsWith("{")
+        ? prose
+        : "";
+
+  if (modelText) {
+    const template = contextVideo(ctx);
+    const hook = firstSentence(modelText).slice(0, 120);
+    const sentences = modelText.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
+    const scenes = (sentences.length > 1 ? sentences.slice(0, 4) : [modelText]).map((scene, i) => ({
+      scene: scene.slice(0, 240),
+      visual: i === 0 ? "Founder to camera or product screen" : "Product screen or simple b-roll",
+    }));
+    return {
+      extras: {
+        hook: hook.length >= 3 ? hook : template.hook,
+        script: modelText.slice(0, 6000),
+        scenes: scenes.length ? scenes : template.scenes,
+        onScreenText: (hook.length >= 3 ? hook : template.hook).slice(0, 120),
+        caption: `${hook} ${template.cta}`.slice(0, 300),
+        cta: template.cta,
+      },
+      mode: "prose",
+    };
+  }
+
+  return { extras: contextVideo(ctx), mode: "template" };
+}
+
 export const PLAN_SCHEMA = z.object({
   positioning: z.string().min(10).max(500),
   contentThemes: z.array(z.string().min(5).max(120)).min(3).max(3),
@@ -147,6 +249,53 @@ export type ContentGenRequest = {
   instruction?: string; // for improve-hook / shorten / change-tone / adapt operations
 };
 
+function clipAtWord(text: string, limit: number): string {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (clean.length <= limit) return clean;
+  const cut = clean.slice(0, Math.max(0, limit - 1)).replace(/\s+\S*$/, "").trim();
+  return `${cut || clean.slice(0, Math.max(0, limit - 1))}…`;
+}
+
+/**
+ * A context-grounded post for the no-credentials fallback. It uses only the
+ * founder-provided profile and campaign fields (plus recorded campaign
+ * evidence, when present) — never invented testimonials, metrics or traction.
+ */
+export function buildContextPost(req: ContentGenRequest): string {
+  const product = req.profile.name.trim() || "Our product";
+  const audience = req.profile.audience.trim() || "the people we build for";
+  const value = req.profile.valueProp.trim() || req.profile.description.trim() || `${product} for ${audience}`;
+  const description = req.profile.description.trim();
+  const keyMessage = req.campaign?.keyMessage?.trim() || description;
+  const evidence = req.campaign?.evidence?.trim();
+  const cta = (req.brandVoice.cta || req.campaign?.cta || `Try ${product}`).trim();
+  const lead = `${audience}: ${value}`;
+
+  if (req.channel === "x" && req.format === "single") {
+    const suffix = `\n\n${clipAtWord(cta, 80)}`;
+    const hook = clipAtWord(lead, Math.max(40, 280 - suffix.length));
+    return `${hook}${suffix}`.slice(0, 280);
+  }
+
+  if (req.channel === "x" && req.format === "thread") {
+    const posts = [
+      lead,
+      keyMessage && keyMessage !== value ? keyMessage : "",
+      evidence ? `What we can stand behind: ${evidence}` : "",
+      cta,
+    ].filter(Boolean);
+    return posts.map((post, i) => `${i + 1}/ ${clipAtWord(post, 250)}`).join("\n\n").slice(0, 10_000);
+  }
+
+  const lines = [
+    lead,
+    keyMessage && keyMessage !== value ? keyMessage : "",
+    evidence ? `What we can stand behind: ${evidence}` : "",
+    `If that is the problem you are working on, ${cta}.`,
+  ].filter(Boolean);
+  return clipAtWord(lines.join("\n\n"), 3000);
+}
+
 export async function generateContent(req: ContentGenRequest): Promise<{ body: string; videoExtras?: VideoExtras; provider: string; isFallback: boolean; label: string }> {
   if (!isFormatFor(req.channel, req.format)) {
     throw new AIError(`Format "${req.format}" is not valid for channel "${req.channel}".`);
@@ -198,19 +347,44 @@ export async function generateContent(req: ContentGenRequest): Promise<{ body: s
   });
 
   if (req.channel === "shortvideo") {
-    const extras = videoExtrasSchema.parse(extractJSON(data));
-    return { body: extras.script, videoExtras: extras, provider: usage.provider, isFallback: usage.isFallback, label: usage.label };
+    const normalized = normalizeVideoExtras(data, req, { fallback: usage.isFallback });
+    const label =
+      usage.isFallback
+        ? "Development fallback: context-built video skeleton (no model credentials). Edit before use."
+        : normalized.mode === "json"
+          ? usage.label
+          : normalized.mode === "prose"
+            ? "Model returned prose; adapted into a video script for review."
+            : "Model returned unusable JSON; context-built video skeleton for review.";
+    return {
+      body: normalized.extras.script,
+      videoExtras: normalized.extras,
+      provider: usage.provider,
+      isFallback: usage.isFallback || normalized.mode === "template",
+      label,
+    };
   }
   // Plain-posts channel validation: enforce channel length limits server-side.
-  let body = data.trim();
+  const trimmed = data.trim();
+  const isTemplate = usage.isFallback || /^TEMPLATE DRAFT/i.test(trimmed);
+  if (isTemplate || !trimmed) {
+    return {
+      body: buildContextPost(req),
+      provider: usage.provider,
+      isFallback: true,
+      label: isTemplate
+        ? "Development fallback: context-built post from your profile and campaign (no model credentials). Edit before use."
+        : "Model returned empty content; context-built post for review.",
+    };
+  }
+  let body = trimmed;
   const limit = req.channel === "x" ? 280 : 3000;
   if (req.format === "thread" && req.channel === "x") {
     // Threads keep full text (numbered posts validated below in UI rendering)
-    body = data.trim().slice(0, 10_000);
+    body = trimmed.slice(0, 10_000);
   } else if (body.length > limit * (req.channel === "x" ? 4 : 1)) {
     body = body.slice(0, limit * (req.channel === "x" ? 10 : 1));
   }
-  if (!body) throw new AIError("Model returned empty content. Please regenerate.");
   return { body, provider: usage.provider, isFallback: usage.isFallback, label: usage.label };
 }
 

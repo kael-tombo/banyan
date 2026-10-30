@@ -1,8 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import {
   BarChart3, BookOpen, Bot, CalendarDays, CheckCircle2, ClipboardList, Compass, FlaskConical,
-  LayoutDashboard, Lightbulb, LineChart, Link2, Megaphone, Package, PenLine, Receipt, Settings,
-  Share2, Target, Users2,
+  LayoutDashboard, Lightbulb, LineChart, Link2, Megaphone, Package, PenLine, Receipt, RefreshCw,
+  Settings, Share2, Target, Users2,
 } from "lucide-react";
 
 /**
@@ -21,6 +21,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Plan",
     items: [
       { href: "/app", label: "Dashboard", icon: LayoutDashboard, keywords: "home command center overview" },
+      { href: "/app/cycles", label: "Cycles", icon: RefreshCw, keywords: "complete cycle intake product url distribution run" },
       { href: "/app/goals", label: "Goals", icon: Target, keywords: "objective plan target" },
       { href: "/app/strategy", label: "Strategy", icon: Compass, keywords: "positioning messaging recommendation" },
       { href: "/app/opportunities", label: "Opportunities", icon: Lightbulb, keywords: "ideas plays growth" },
@@ -84,6 +85,7 @@ export type QuickAction = NavItem & { hint: string };
 
 /** The verbs that usually bring someone to the palette. */
 export const QUICK_ACTIONS: QuickAction[] = [
+  { href: "/app/cycles/new", label: "Start a complete cycle", icon: RefreshCw, hint: "Product URL → plan → publish", keywords: "cycle intake distribution product" },
   { href: "/app/goals", label: "Set a new goal", icon: Target, hint: "One sentence is enough", keywords: "create objective" },
   { href: "/app/content/new", label: "Create content", icon: PenLine, hint: "Draft for a channel", keywords: "write new post" },
   { href: "/app/campaigns/new", label: "New campaign", icon: Megaphone, hint: "Plan a coordinated push", keywords: "create launch" },
