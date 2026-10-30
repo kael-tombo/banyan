@@ -164,7 +164,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
         title="Learning & Results"
         description="Understand which growth work is creating qualified customer outcomes. Every number below is first-party and recorded — gaps are labelled as gaps, never smoothed over."
         actions={
-          <div className="flex items-center gap-1 rounded-[3px] border border-bark/15 bg-white p-0.5" role="navigation" aria-label="Time range">
+          <div className="flex items-center gap-1 rounded-lg border border-bark/15 bg-white p-0.5" role="navigation" aria-label="Time range">
             {PERIODS.map((d) => (
               <Link
                 key={d}
@@ -185,7 +185,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
           <Card key={stage.key}>
             <p className="text-xs font-medium uppercase tracking-wide text-charcoal-soft">{stage.label}</p>
             <div className="mt-1 flex items-baseline gap-2">
-              <p className="font-serif text-2xl text-forest-deep">{stage.count.toLocaleString()}</p>
+              <p className="num font-serif text-[28px] leading-none tracking-[-0.01em] text-forest-deep">{stage.count.toLocaleString()}</p>
               {stage.deltaPct !== null && (
                 <span className={`text-xs font-medium ${stage.deltaPct >= 0 ? "text-forest" : "text-clay"}`}>
                   {stage.deltaPct >= 0 ? "↑" : "↓"} {Math.abs(stage.deltaPct)}% <span className="font-normal text-charcoal-soft">vs prior {days}d</span>
@@ -245,7 +245,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
                       )}
                       <p className="mt-1 text-xs leading-relaxed text-charcoal-soft/90">{row.signalDetail}</p>
                       {row.decision && (
-                        <p className="mt-1.5 rounded-[3px] bg-forest/5 px-2 py-1 text-xs text-forest-deep">
+                        <p className="mt-1.5 rounded-lg bg-forest/5 px-2 py-1 text-xs text-forest-deep">
                           <span className="font-semibold">Recorded next step:</span> {row.decision}
                         </p>
                       )}
@@ -278,7 +278,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
                   let evidenceCount = 0;
                   try { evidenceCount = (JSON.parse(r.evidence) as unknown[]).length; } catch { /* recorded as zero */ }
                   return (
-                    <li key={r.id} className="rounded-[3px] border border-bark/15 bg-ivory/60 p-2.5">
+                    <li key={r.id} className="rounded-lg border border-bark/15 bg-ivory/60 p-2.5">
                       <p className="text-sm font-medium text-charcoal">{r.title}</p>
                       <p className="mt-0.5 text-xs leading-relaxed text-charcoal-soft">{r.rationale.slice(0, 180)}</p>
                       <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] text-charcoal-soft">

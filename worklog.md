@@ -461,3 +461,63 @@ a second table.
   reflects the recorded interpretation, not statistical significance. An
   experiment marked complete without conclusions stays out until someone
   records what it meant.
+
+## 2026-10-30 — The platform gets its own room: Banyan Studio
+
+The marketing site was finished; the signed-in product still read as a generic
+admin with a brand paint job. This pass rebuilt the interior as a working
+studio — not a restyle of one screen. No API, schema, workflow or copy-honesty
+rule changed.
+
+### Theme — "Banyan Studio" (`src/app/globals.css`)
+
+- **Warm bone paper** `#f7f4ec` replaces the murky lichen canvas; **canopy ink**
+  `#0e2a21` is now the gradient rail rather than a flat block; **fig gold** is
+  reserved for what needs a human; leaf green for measured progress. Inter runs
+  the interface, the existing Charter/Georgia serif now carries page titles and
+  measured figures. Tabular numbers wherever figures are compared.
+- Surfaces became whole rounded sheets: 16px cards with layered, green-tinted
+  shadows; 10px controls; pills for recorded state. The old "left root rule"
+  accent is retired inside the app (scoped CSS, so the landing keeps it).
+- `src/components/ui.tsx` rebuilt — Button, LinkButton, Input, Textarea, Select,
+  Field, Card, Badge, EmptyState, PageHeader, SectionHeader, TabBar. Every one of
+  the ~50 app routes inherits the new language through these primitives.
+
+### Shell (`AppShell.tsx`, `app-nav.ts`, `CommandPalette.tsx`)
+
+- **264px canopy rail**: brand, workspace + goal card, five collapsible groups
+  (Plan · Context · Distribute · Measure · System), active route as an ivory
+  pill, approvals count, pinned user footer. The navigation model now lives in
+  `app-nav.ts`, shared by rail, drawer and palette — a route cannot exist in one
+  and be missing from another.
+- **56px contextual top bar**: breadcrumb, live "N waiting on you" pill,
+  quick-jump. The onboarding prompt is a slim strip, still optional and
+  non-blocking; the app remains fully usable without setup.
+- **Command palette** (⌘K / Ctrl-K): all 22 destinations + six quick actions,
+  scored search, arrow/Enter/Escape handling, ARIA combobox/listbox with
+  `aria-activedescendant`, focus restoration and scroll lock.
+- **Mobile**: overlay drawer with backdrop, Escape, focus moved to the close
+  control and restored on exit, body scroll lock.
+
+### Dashboard
+
+- The goal moved into a canopy hero with a 46px progress figure and the real
+  task counts; four live signal tiles (waiting on you, tasks in motion, tracked
+  visits, signups) carry honest 14-day deltas with no invented baseline. Chat
+  sits below state, not above it. Focus, experiment, journey, publishing, agent
+  team, activity and recommendation panels keep their existing data and
+  semantics; only hierarchy and presentation changed.
+- Loading skeleton, auth split-screen and the optional onboarding wizard were
+  brought onto the same system (including a stepped progress track and larger
+  page titles).
+
+### Verification
+
+- `npm run typecheck` clean; **331/331 unit tests**; `npx next build` green;
+  **E2E acceptance 42/42** on the live dev server; the seeded `/app` renders
+  HTTP 200 with the new command-center markers.
+- Environment caveat, recorded rather than hidden: `npm run build`'s
+  `prisma generate` step hit Windows `EPERM` because the dev server held the
+  SQLite query engine. The Next production build was verified directly, then
+  the SQLite client was regenerated after stopping the server. CI (no dev
+  server) is unaffected.

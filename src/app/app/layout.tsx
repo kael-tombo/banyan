@@ -17,6 +17,21 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   });
   if (!membership) redirect("/onboarding");
 
+  // One count for the things only a human can move: content awaiting review
+  // plus execution gates paused mid-workflow. Shown in the rail and top bar.
+  const [awaitingContent, awaitingGates] = await Promise.all([
+    prisma.contentItem.count({
+      where: { workspaceId: membership.workspace.id, status: "ready_for_review" },
+    }),
+    prisma.agentTask.count({
+      where: {
+        workspaceId: membership.workspace.id,
+        type: "approval_gate",
+        status: "waiting_approval",
+      },
+    }),
+  ]);
+
   return (
     <AppShell
       user={{ name: user.name, email: user.email }}
@@ -24,6 +39,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       product={membership.workspace.profile?.name ?? ""}
       goal={membership.workspace.profile?.goal ?? ""}
       onboardingComplete={Boolean(user.onboardingCompletedAt)}
+      attention={{ approvals: awaitingContent + awaitingGates }}
     >
       {children}
     </AppShell>

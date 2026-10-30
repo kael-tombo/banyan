@@ -48,12 +48,12 @@ export default async function AnalyticsPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <p className="text-xs font-medium uppercase tracking-wide text-charcoal-soft">Tracked visits</p>
-          <p className="mt-1 font-serif text-2xl text-forest-deep">{funnelCount("visit").toLocaleString()}</p>
+          <p className="mt-1 num font-serif text-[28px] leading-none tracking-[-0.01em] text-forest-deep">{funnelCount("visit").toLocaleString()}</p>
           <p className="mt-1 text-xs text-charcoal-soft">Clicks recorded through Banyan tracked links.</p>
         </Card>
         <Card>
           <p className="text-xs font-medium uppercase tracking-wide text-charcoal-soft">Signups</p>
-          <p className="mt-1 font-serif text-2xl text-forest-deep">{funnelCount("signup").toLocaleString()}</p>
+          <p className="mt-1 num font-serif text-[28px] leading-none tracking-[-0.01em] text-forest-deep">{funnelCount("signup").toLocaleString()}</p>
           <p className="mt-1 text-xs text-charcoal-soft">
             {funnelCount("signup") > 0
               ? "Attributed only when the visitor arrived via a tracked link."
@@ -62,7 +62,7 @@ export default async function AnalyticsPage() {
         </Card>
         <Card>
           <p className="text-xs font-medium uppercase tracking-wide text-charcoal-soft">Confirmed publications</p>
-          <p className="mt-1 font-serif text-2xl text-forest-deep">{publicationCount.toLocaleString()}</p>
+          <p className="mt-1 num font-serif text-[28px] leading-none tracking-[-0.01em] text-forest-deep">{publicationCount.toLocaleString()}</p>
           <p className="mt-1 text-xs text-charcoal-soft">Provider-confirmed or manually recorded live posts.</p>
         </Card>
       </div>

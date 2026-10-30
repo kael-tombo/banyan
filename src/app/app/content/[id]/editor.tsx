@@ -240,7 +240,7 @@ export function ContentEditor({
                 <ol className="mt-3 space-y-2">
                   {timeline.map((seg) => (
                     <li key={seg.key} className="flex items-start gap-2.5">
-                      <span className="w-20 shrink-0 rounded-[3px] bg-ivory px-1.5 py-1 text-center text-[11px] font-semibold text-charcoal-soft">
+                      <span className="w-20 shrink-0 rounded-lg bg-ivory px-1.5 py-1 text-center text-[11px] font-semibold text-charcoal-soft">
                         {seg.startSec}–{seg.endSec}s
                       </span>
                       <span className="min-w-0">
@@ -582,7 +582,7 @@ export function ContentEditor({
             </div>
           </dl>
           {claimFlags.length > 0 && (
-            <p className="mt-2.5 rounded-[3px] border border-fig/30 bg-fig/5 px-2 py-1.5 text-[11px] text-fig-deep">
+            <p className="mt-2.5 rounded-lg border border-fig/30 bg-fig/5 px-2 py-1.5 text-[11px] text-fig-deep">
               Claim lint flags: {claimFlags.map((f) => `“${f.phrase}” (${f.why})`).join(", ")} — review before submitting.
             </p>
           )}

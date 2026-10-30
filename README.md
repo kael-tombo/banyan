@@ -152,7 +152,8 @@ unavailable external services.
 A modular monolith plus one background worker — no premature microservices.
 
 - **Experience** — `src/app` (landing, auth, onboarding, and the `/app` product)
-  and `src/components` (design system in `ui.tsx`, app chrome in `AppShell.tsx`).
+  and `src/components` (design system in `ui.tsx`, app chrome in `AppShell.tsx`,
+  shared navigation model in `app-nav.ts`, ⌘K palette in `CommandPalette.tsx`).
 - **Domain / tools** — `src/lib`:
   - `agents/` — the orchestration runtime: pure graph logic (`graph.ts`),
     output verification, NL goal parsing, the workflow template, agent
@@ -237,11 +238,13 @@ live URL as a user-confirmed manual publication).
 The visual identity uses the official [`banyan-logo-kit`](#) assets: the banyan
 symbol (`public/brand/symbol-color.png`, `symbol-white.png` on canopy/dark
 surfaces), the favicon set, and the 1200×630 social-share image. The design
-system ("rooted canopy", `src/app/globals.css`) takes its palette from the logo:
-deep canopy ink `#123028`, leaf green `#23523f`, cool lichen paper `#e9ede3`,
-and banyan-fig gold `#b98c35` reserved for accents. Auth screens use a
-split-screen canopy layout; the hero carries the white symbol as a quiet
-watermark.
+system ("Banyan Studio", `src/app/globals.css`) takes its palette from the logo:
+canopy ink `#0e2a21`, leaf green `#23523f`, warm bone paper `#f7f4ec`, and
+banyan-fig gold `#b88a33` reserved for what needs a human. The marketing site is
+the white, sunlit expression of the brand; the signed-in app is the working
+studio — a canopy rail, a quiet contextual top bar, and a ⌘K command palette over
+the shared navigation model. Auth uses the same split-screen canopy language;
+the hero carries the white symbol as a quiet watermark.
 
 ## AI provider
 

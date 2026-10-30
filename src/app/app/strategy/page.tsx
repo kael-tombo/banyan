@@ -188,7 +188,7 @@ export default async function GrowthStrategyPage() {
               {recommendations.map((r, i) => {
                 const evidence = parseEvidence(r.evidence);
                 return (
-                  <li key={r.id} className="card-lift flex flex-col gap-3 rounded-[3px] border border-bark/15 bg-white p-4 sm:flex-row sm:items-start">
+                  <li key={r.id} className="card-lift flex flex-col gap-3 rounded-lg border border-bark/15 bg-white p-4 sm:flex-row sm:items-start">
                     <span className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sage/50 text-xs font-semibold text-forest-deep sm:flex" aria-hidden="true">{i + 1}</span>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
@@ -239,7 +239,7 @@ export default async function GrowthStrategyPage() {
             ) : (
               <ul className="mt-3 space-y-2">
                 {risks.map((risk, i) => (
-                  <li key={`risk-${i}`} className="flex flex-wrap items-start justify-between gap-3 rounded-[3px] border border-bark/15 bg-white p-3.5">
+                  <li key={`risk-${i}`} className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-bark/15 bg-white p-3.5">
                     <div className="flex min-w-0 items-start gap-2.5">
                       <TriangleAlert size={15} className="mt-0.5 shrink-0 text-fig" aria-hidden="true" />
                       <p className="min-w-0 text-sm text-charcoal">{risk}</p>
@@ -250,7 +250,7 @@ export default async function GrowthStrategyPage() {
                   </li>
                 ))}
                 {assumptions.map((a, i) => (
-                  <li key={`assumption-${i}`} className="flex flex-wrap items-start justify-between gap-3 rounded-[3px] border border-bark/15 bg-white p-3.5">
+                  <li key={`assumption-${i}`} className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-bark/15 bg-white p-3.5">
                     <div className="flex min-w-0 items-start gap-2.5">
                       <Lightbulb size={15} className="mt-0.5 shrink-0 text-bark/60" aria-hidden="true" />
                       <p className="min-w-0 text-sm text-charcoal"><span className="text-charcoal-soft">Assumption:</span> {a}</p>
@@ -261,7 +261,7 @@ export default async function GrowthStrategyPage() {
                   </li>
                 ))}
                 {missingInfo.map((m, i) => (
-                  <li key={`missing-${i}`} className="flex flex-wrap items-start justify-between gap-3 rounded-[3px] border border-dashed border-bark/25 bg-ivory p-3.5">
+                  <li key={`missing-${i}`} className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-dashed border-bark/25 bg-ivory p-3.5">
                     <p className="min-w-0 text-sm text-charcoal-soft"><span className="font-medium text-bark">Missing information:</span> {m}</p>
                     <Link href={`/app/context`} className="shrink-0 text-xs font-medium text-forest hover:underline">Record it →</Link>
                   </li>
@@ -298,7 +298,7 @@ export default async function GrowthStrategyPage() {
             )}
           </Card>
 
-          <div className="rounded-[3px] border border-forest/20 bg-forest/[0.05] p-4">
+          <div className="rounded-lg border border-forest/20 bg-forest/[0.05] p-4">
             <p className="flex items-center gap-2 text-sm font-semibold text-forest-deep">
               <CheckCircle2 size={15} className="text-forest" aria-hidden="true" /> Recommendations are explainable
             </p>

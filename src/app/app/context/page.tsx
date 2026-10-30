@@ -59,7 +59,7 @@ export default async function ContextPage() {
         </p>
 
         {memory.length === 0 ? (
-          <div className="mt-4 rounded-[3px] border border-dashed border-bark/20 bg-ivory-deep/40 p-4">
+          <div className="mt-4 rounded-lg border border-dashed border-bark/20 bg-ivory-deep/40 p-4">
             <p className="text-sm text-charcoal">No concluded experiment with an interpretation yet.</p>
             <p className="mt-1 text-xs leading-relaxed text-charcoal-soft">
               Draft conclusions from recorded data in{" "}
@@ -70,7 +70,7 @@ export default async function ContextPage() {
         ) : (
           <ol className="mt-4 space-y-3">
             {memory.map((m) => (
-              <li key={m.id} className="rounded-[3px] border border-bark/12 bg-white p-3">
+              <li key={m.id} className="rounded-lg border border-bark/12 bg-white p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="text-sm font-medium text-charcoal">{m.title}</p>
                   <Badge variant="warm">{m.successMetric}</Badge>

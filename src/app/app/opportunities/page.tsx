@@ -35,7 +35,7 @@ function parseEvidence(raw: string): { source?: string; summary?: string }[] {
 function OpportunityCard({ rec }: { rec: Rec }) {
   const evidence = parseEvidence(rec.evidence);
   return (
-    <li className="card-lift flex flex-col gap-3 rounded-[3px] border border-bark/15 bg-white p-4">
+    <li className="card-lift flex flex-col gap-3 rounded-lg border border-bark/15 bg-white p-4">
       <div className="flex flex-wrap items-center gap-2">
         <p className="text-sm font-medium text-charcoal">{rec.title}</p>
         <Badge variant={CONFIDENCE_VARIANT[rec.confidence as keyof typeof CONFIDENCE_VARIANT] ?? "warm"}>
@@ -117,7 +117,7 @@ export default async function OpportunitiesPage({
             body="Opportunities come from the analyst agent after real outcomes are measured — audience research, recorded metrics, experiment learnings. They are never invented to fill a queue. Create a goal to start the loop."
             icon={<Lightbulb size={22} className="text-forest" />}
             action={
-              <a href="/app/goals" className="inline-flex items-center justify-center gap-2 rounded-[4px] bg-forest-deep px-4 py-2 text-sm font-medium text-ivory transition-colors hover:bg-forest">
+              <a href="/app/goals" className="inline-flex items-center justify-center gap-2 rounded-lg bg-forest-deep px-4 py-2 text-sm font-medium text-ivory transition-colors hover:bg-forest">
                 Create a goal
               </a>
             }

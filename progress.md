@@ -4,7 +4,7 @@ Living status board. Updated as work lands. Companion to
 [`worklog.md`](worklog.md) (what changed, when) and
 [`docs/IMPLEMENTATION_REPORT.md`](docs/IMPLEMENTATION_REPORT.md) (detailed report).
 
-**Last updated:** 2026-10-28
+**Last updated:** 2026-10-30
 
 ## Milestones
 
@@ -31,6 +31,7 @@ Milestone 3 is deliberately not claimed. Capability and reliability do not imply
 - **Experiments** — create, run, draft evidence-based conclusions.
 - **Growth** — Banyan's own self-distribution view with honest milestones.
 - **Measurement loop** — `/t/[slug]` records clicks and attributes later signups.
+- **Interface** — "Banyan Studio" theme and primitives across every app route; canopy rail with grouped, collapsible navigation; contextual top bar; ⌘K command palette over 22 destinations and six quick actions; goal hero + live signal dashboard; responsive overlay drawer; optional onboarding as a slim prompt, never a gate.
 - **Tooling** — `npm run setup` (migrate + seed), `npm run worker`, 331 unit tests, 42-check E2E acceptance script, Dockerfile + CI workflow.
 
 ## Partial
@@ -63,7 +64,7 @@ npm install
 cp .env.example .env      # set APP_SECRET
 npm run setup             # migrate + seed
 npm run typecheck         # 0 errors
-npm test                  # 200 passing
+npm test                  # 331 passing
 npm run build             # production build green
 BASE_URL=http://localhost:3000 bash scripts/e2e-acceptance.sh   # 42 checks
 npm run dev               # sign in: SEED_USER_EMAIL / SEED_USER_PASSWORD
@@ -128,3 +129,20 @@ npm run dev               # sign in: SEED_USER_EMAIL / SEED_USER_PASSWORD
 
 **Not started**
 - Cross-workspace or cross-product learning; automatic re-running of a follow-up experiment from a conclusion.
+
+## Platform interior redesign (2026-10-30)
+
+**Done**
+- "Banyan Studio" theme: warm bone canvas, canopy gradient rail, Inter interface type with serif page titles/figures, tabular numbers, rounded layered surfaces; old micro-radius/flat-card grammar retired inside the app (landing unchanged by scoping).
+- Rebuilt primitives (`src/components/ui.tsx`) inherited by all app routes: buttons, fields, cards, badges, empty states, page headers, section headers, segmented tabs.
+- New shell: 264px grouped/collapsible canopy rail, workspace + goal card, approvals count, contextual top bar with breadcrumb and live waiting-on-you pill, mobile overlay drawer with Escape/focus/scroll handling.
+- Shared navigation model (`src/components/app-nav.ts`) feeding rail, drawer and the command palette (⌘K / Ctrl-K) — 22 destinations + 6 quick actions, keyboard-driven, ARIA combobox/listbox.
+- Dashboard: canopy goal hero with honest task-completion figure; four live signal tiles (waiting, in motion, tracked visits, signups) with true-zero-safe 14-day deltas; restructured panel hierarchy with chat below state.
+- Auth and onboarding restyled; onboarding remains optional and non-blocking.
+
+**Verified**
+- Typecheck clean; 331/331 unit tests; `npx next build` green; E2E acceptance 42/42 on a live server; seeded `/app` returns HTTP 200 with the new command-center markers.
+- Environment note: `npm run build`'s Prisma generate can hit Windows `EPERM` while a dev server holds the SQLite engine. The Next build itself was verified directly and the local SQLite client regenerated after stopping the server; CI does not run a concurrent dev server.
+
+**Not started**
+- No visual-regression suite; the design system has no automated screenshot baseline yet.

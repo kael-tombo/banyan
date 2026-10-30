@@ -113,7 +113,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
           {descent.map((stage) => {
             const style = STAGE_STYLE[stage.state];
             return (
-              <li key={stage.key} className="rounded-[3px] border border-bark/10 bg-white p-3">
+              <li key={stage.key} className="rounded-lg border border-bark/10 bg-white p-3">
                 <p className="flex items-center gap-1.5 text-xs font-semibold text-charcoal">
                   <span
                     aria-hidden="true"

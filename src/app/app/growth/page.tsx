@@ -122,7 +122,7 @@ function Metric({ label, value, note }: { label: string; value: number; note: st
   return (
     <Card>
       <p className="text-xs font-medium text-charcoal-soft">{label}</p>
-      <p className="mt-1 font-serif text-2xl text-forest-deep">{value.toLocaleString()}</p>
+      <p className="mt-1 num font-serif text-[28px] leading-none tracking-[-0.01em] text-forest-deep">{value.toLocaleString()}</p>
       <p className="mt-1 text-xs text-charcoal-soft">{note}</p>
     </Card>
   );

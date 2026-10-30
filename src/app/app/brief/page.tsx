@@ -138,7 +138,7 @@ export default async function ProductAudiencePage() {
               ) : (
                 <ul className="mt-3 space-y-3">
                   {insights.slice(0, 5).map((i) => (
-                    <li key={i.id} className="rounded-[3px] border border-bark/15 p-3">
+                    <li key={i.id} className="rounded-lg border border-bark/15 p-3">
                       <div className="flex items-start justify-between gap-2">
                         <p className="text-sm font-medium text-charcoal">{i.title}</p>
                         <Badge variant={i.confidence === "high" ? "forest" : "warm"}>{i.confidence}</Badge>
@@ -158,7 +158,7 @@ export default async function ProductAudiencePage() {
               )}
             </Card>
 
-            <div className="rounded-[3px] border border-forest/20 bg-forest/[0.05] p-4">
+            <div className="rounded-lg border border-forest/20 bg-forest/[0.05] p-4">
               <p className="flex items-center gap-2 text-sm font-semibold text-forest-deep">
                 <Compass size={15} className="text-forest" aria-hidden="true" /> Why provenance matters
               </p>

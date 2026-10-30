@@ -121,27 +121,35 @@ export function OnboardingWizard({ workspaceName, initialSteps }: { workspaceNam
   }
 
   return (
-    <div className="grain min-h-screen bg-ivory">
-      <div className="mx-auto max-w-3xl px-4 py-10">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+    <div className="app-canvas min-h-screen">
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:py-12">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Link href="/" className="flex items-center gap-2.5" aria-label="Banyan.ai home">
             <BanyanMark size={24} />
-            <span className="font-serif text-lg text-forest-deep">
-              Banyan<span className="text-moss">.ai</span>
+            <span className="font-serif text-[17px] text-forest-deep">
+              Banyan<span className="text-fig-deep">.ai</span>
             </span>
-          </div>
+          </Link>
           <div className="flex items-center gap-3">
             <Badge variant="warm">{workspaceName}</Badge>
-            <Link href="/app" className="text-sm text-charcoal-soft hover:text-forest-deep">
+            <Link href="/app" className="text-[12.5px] font-medium text-charcoal-soft underline-offset-4 hover:text-forest-deep hover:underline">
               Skip for now
             </Link>
           </div>
         </div>
 
-        <p className="mt-4 text-sm text-charcoal-soft">
-          Optional — your workspace is already created and usable. Finish these steps whenever you like to ground
-          generation in your real product.
-        </p>
+        <div className="mt-9">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-charcoal-soft/70">
+            Workspace setup · optional
+          </p>
+          <h1 className="mt-2 font-serif text-[32px] leading-[1.1] tracking-[-0.02em] text-forest-deep">
+            Ground the system in your product.
+          </h1>
+          <p className="mt-2 max-w-xl text-[13.5px] leading-relaxed text-charcoal-soft">
+            Your workspace is already created and usable. Finish these steps whenever you like so generation is
+            grounded in your real product, audience and voice.
+          </p>
+        </div>
 
         <ProgressTrack current={stepIdx} labels={steps} />
 
@@ -188,17 +196,29 @@ export function OnboardingWizard({ workspaceName, initialSteps }: { workspaceNam
 
 function ProgressTrack({ current, labels }: { current: number; labels: string[] }) {
   return (
-    <div className="mt-8 mb-2 flex flex-wrap items-center gap-x-2 gap-y-2" aria-label={`Step ${current + 1} of ${labels.length}: ${labels[current]}`}>
-      {labels.map((l, i) => (
-        <div key={l} className="flex items-center gap-2">
-          <span
-            className={`h-2 w-2 rounded-full ${i < current ? "bg-forest" : i === current ? "bg-clay" : "bg-bark/20"}`}
-            aria-hidden="true"
-          />
-          <span className={`text-xs ${i === current ? "font-semibold text-forest-deep" : "text-charcoal-soft"}`}>{l}</span>
-          {i < labels.length - 1 && <span className="h-px w-4 bg-bark/15" aria-hidden="true" />}
-        </div>
-      ))}
+    <div className="mt-8" aria-label={`Step ${current + 1} of ${labels.length}: ${labels[current]}`}>
+      <ol className="grid grid-cols-3 gap-x-3 gap-y-3 sm:grid-cols-6">
+        {labels.map((l, i) => (
+          <li key={l} aria-current={i === current ? "step" : undefined} className="min-w-0">
+            <span
+              className={`block h-1 rounded-full ${
+                i < current ? "bg-forest" : i === current ? "bg-fig" : "bg-bark/15"
+              }`}
+              aria-hidden="true"
+            />
+            <span
+              className={`mt-2 flex items-baseline gap-1.5 text-[11px] ${
+                i === current ? "font-semibold text-forest-deep" : "text-charcoal-soft/75"
+              }`}
+            >
+              <span className="num text-[10px] opacity-60" aria-hidden="true">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <span className="truncate">{l}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
@@ -382,7 +402,7 @@ function PlanStep({ plan, planError }: { plan: { plan: PlanShape; isFallback: bo
         {plan.label}
       </Badge>
 
-      <div className="rounded-[3px] border border-bark/15 bg-ivory-deep/50 p-4 text-sm">
+      <div className="rounded-lg border border-bark/15 bg-ivory-deep/50 p-4 text-sm">
         <h3 className="font-semibold text-forest-deep">Proposed positioning</h3>
         <p className="mt-1 text-charcoal-soft">{p.positioning}</p>
       </div>
@@ -403,7 +423,7 @@ function PlanStep({ plan, planError }: { plan: { plan: PlanShape; isFallback: bo
         </p>
       </div>
 
-      <div className="rounded-[3px] rooted-fig border border-forest/20 bg-white p-4 text-sm">
+      <div className="rounded-lg rooted-fig border border-forest/20 bg-white p-4 text-sm">
         <h3 className="font-semibold text-forest-deep">Starter campaign</h3>
         <p className="mt-1 font-medium text-charcoal">{p.initialCampaign.name}</p>
         <p className="mt-1 text-charcoal-soft">{p.initialCampaign.keyMessage}</p>
@@ -430,11 +450,18 @@ function PlanStep({ plan, planError }: { plan: { plan: PlanShape; isFallback: bo
 
 function StepIntro({ step, title, body, icon }: { step: string; title: string; body: string; icon: React.ReactNode }) {
   return (
-    <div className="flex items-start gap-3">
-      <span className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-forest/10 text-sm font-semibold text-forest-deep" aria-hidden="true">{step}</span>
+    <div className="flex items-start gap-3.5">
+      <span
+        className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-forest/15 bg-forest/[0.06] text-[12px] font-semibold text-forest num"
+        aria-hidden="true"
+      >
+        {String(step).padStart(2, "0")}
+      </span>
       <div>
-        <h2 className="serif flex items-center gap-2 text-xl font-semibold text-forest-deep">{title} {icon}</h2>
-        <p className="mt-1 mb-2 text-sm text-charcoal-soft">{body}</p>
+        <h2 className="flex items-center gap-2 font-serif text-[22px] leading-tight tracking-[-0.01em] text-forest-deep">
+          {title} <span className="text-forest" aria-hidden="true">{icon}</span>
+        </h2>
+        <p className="mb-2 mt-1 text-[13px] leading-relaxed text-charcoal-soft">{body}</p>
       </div>
     </div>
   );

@@ -8,6 +8,17 @@ follow [Keep a Changelog](https://keepachangelog.com); commit hashes refer to
 
 ## [Unreleased]
 
+### Changed
+- **The platform interior redesigned — "Banyan Studio"** (2026-10-30) — a new
+  warm-bone/canopy theme, rebuilt UI primitives inherited by every app route, a
+  264px grouped rail with a shared navigation model, a contextual top bar with a
+  live waiting-on-you count, and a keyboard-driven command palette (⌘K) over all
+  destinations and common actions. The dashboard now leads with a goal hero and
+  four record-backed signal tiles; chat, focus, experiment, journey, publishing,
+  agent and activity panels keep their data and semantics. Auth and the optional
+  onboarding wizard were brought onto the same system. No API, schema or
+  behavior change: 331/331 unit tests and 42/42 acceptance checks still pass.
+
 ### Added
 - **Learning memory: concluded experiments now feed the next plan**
   (2026-10-30) — the loop previously recorded experiment conclusions and then

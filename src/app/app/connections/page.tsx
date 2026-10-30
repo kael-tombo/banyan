@@ -203,7 +203,7 @@ export default async function ConnectionsPage() {
           {flow.map((step, i) => {
             const style = HEALTH_STYLE[step.health];
             return (
-              <li key={step.key} className="relative rounded-[3px] border border-bark/15 bg-ivory/60 p-3">
+              <li key={step.key} className="relative rounded-lg border border-bark/15 bg-ivory/60 p-3">
                 {i < flow.length - 1 && (
                   <ArrowRight className="absolute -right-2.5 top-4 z-10 hidden text-bark/40 lg:block" size={13} aria-hidden="true" />
                 )}
@@ -301,7 +301,7 @@ export default async function ConnectionsPage() {
           {CONNECTION_CATALOG.map((entry) => {
             const style = CATALOG_STYLE[entry.status];
             return (
-              <li key={entry.key} className="flex flex-col rounded-[3px] border border-bark/15 bg-ivory/50 p-3">
+              <li key={entry.key} className="flex flex-col rounded-lg border border-bark/15 bg-ivory/50 p-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-sm font-medium text-charcoal">
                     {entry.name} <span className="font-normal text-charcoal-soft">· {entry.provider}</span>

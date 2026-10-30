@@ -93,7 +93,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
  * gets a calm, uncluttered column. Collapses to a stacked layout on mobile. */
 export function AuthShell({ mode }: { mode: "login" | "signup" }) {
   return (
-    <div className="grid min-h-screen bg-ivory lg:grid-cols-2">
+    <div className="app-canvas grid min-h-screen lg:grid-cols-2">
       {/* Brand panel — canopy */}
       <aside className="canopy relative hidden flex-col justify-between p-10 text-ivory lg:flex" aria-hidden={false}>
         <Link href="/" className="flex items-center gap-2.5" aria-label="Banyan.ai home">
@@ -124,9 +124,9 @@ export function AuthShell({ mode }: { mode: "login" | "signup" }) {
           </Link>
           <Link href="/" className="text-xs text-sage/80 hover:text-ivory">← Back to site</Link>
         </div>
-        <main className="flex flex-1 items-start justify-center bg-ivory px-4 py-10 sm:items-center sm:px-6">
-          <div className="fade-up w-full max-w-md rounded-[3px] border border-bark/15 bg-white p-8 rooted">
-            <h1 className="serif text-2xl font-semibold text-forest-deep">
+        <main className="flex flex-1 items-start justify-center px-4 py-10 sm:items-center sm:px-6">
+          <div className="fade-up card-shadow w-full max-w-md rounded-2xl border border-bark/12 bg-white p-8">
+            <h1 className="font-serif text-[28px] leading-tight tracking-[-0.02em] text-forest-deep">
               {mode === "signup" ? "Start distributing" : "Welcome back"}
             </h1>
             <p className="mb-6 mt-1 text-sm text-charcoal-soft">

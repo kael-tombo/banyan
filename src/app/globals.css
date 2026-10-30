@@ -1,37 +1,37 @@
 @import "tailwindcss";
 
 /*
- * Design system — "White Banyan".
+ * Design system — "Banyan Studio".
  *
  * The banyan metaphor is the organizing idea: one trunk, many aerial roots,
- * each becoming load-bearing — exactly the product's story. This theme turns
- * the surface of the marketing site into white paper flooded with light: the
- * feeling of standing under a banyan in full sun. Deep forest green is the
- * ink, banyan-fig gold appears only where it earns its place, and decoration
- * must come from the subject (the tree itself), never be applied over it.
+ * each becoming load-bearing — exactly the product's story. The marketing
+ * site is the white, sunlit expression of that brand. The app interior is its
+ * working studio: warm bone paper, a deep forest canopy rail, and fig-gold
+ * reserved for the moments that need a human. Surfaces are quiet; hierarchy
+ * comes from type scale and space, not from borders around everything.
  *
  * Token names keep their historical API so the large codebase stays coherent.
- * The app interior continues to use `canopy` ink bands; the landing page is
- * the white expression of the same brand.
+ * The app interior runs on `app-canvas` + `canopy`; the landing page is the
+ * white expression of the same brand and opts into its own type rules.
  */
 @theme {
-  --color-ivory: #e9ede3;        /* app paper: cool, green-cast (app interior) */
-  --color-ivory-deep: #dde4d7;   /* sunken paper: wells, quiet bands */
+  --color-ivory: #f7f4ec;        /* app canvas: warm bone paper */
+  --color-ivory-deep: #eee9dd;   /* sunken paper: wells, quiet bands */
   --color-paper: #ffffff;        /* landing paper: pure white canvas */
-  --color-mist: #f3f7f2;         /* tinted landing band: light through leaves */
+  --color-mist: #f2f6f1;         /* tinted landing band: light through leaves */
   --color-forest: #23523f;       /* the green of the leaf itself */
-  --color-forest-deep: #123028;  /* canopy ink: headings, brand moments */
-  --color-moss: #43765f;         /* young growth */
-  --color-bark: #43503f;         /* hairlines and muted ink text */
-  --color-charcoal: #172119;     /* body text — faint green cast, reads near-black */
-  --color-charcoal-soft: #4c5849;
-  --color-sage: #cddbd0;         /* fresh leaf highlight */
-  --color-fig: #b98c35;          /* banyan-fig gold: energetic accents only */
-  --color-fig-deep: #96701f;
-  --color-clay: #93382a;         /* ember — danger and degradation only */
+  --color-forest-deep: #0e2a21;  /* canopy ink: headings, brand moments */
+  --color-moss: #47765f;         /* young growth */
+  --color-bark: #4a544c;         /* hairlines and muted ink text */
+  --color-charcoal: #16211b;     /* body text — faint green cast, reads near-black */
+  --color-charcoal-soft: #59655d;
+  --color-sage: #d4e2d5;         /* fresh leaf highlight */
+  --color-fig: #b88a33;          /* banyan-fig gold: energetic accents only */
+  --color-fig-deep: #8e691e;
+  --color-clay: #96392b;         /* ember — danger and degradation only */
 
-  --font-sans: "Avenir Next", Avenir, "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
-  --font-serif: Charter, "Iowan Old Style", Georgia, "Times New Roman", serif;
+  --font-sans: var(--font-inter), "Avenir Next", Avenir, "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-serif: Charter, "Iowan Old Style", "Palatino Linotype", Georgia, "Times New Roman", serif;
   --font-mono: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Menlo, Consolas, monospace;
 }
 
@@ -43,13 +43,16 @@ body {
   background: var(--color-ivory);
   color: var(--color-charcoal);
   font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+  letter-spacing: -0.006em;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 :focus-visible {
   outline: 2px solid var(--color-fig);
   outline-offset: 2px;
-  border-radius: 2px;
+  border-radius: 4px;
 }
 
 ::selection {
@@ -97,25 +100,34 @@ body {
   border-radius: 2px 6px 6px 2px;
 }
 
-/* Canopy band (app interior + auth): the ink surface where brand moments live. */
+/* Canopy band (app rail + auth): the ink surface where brand moments live.
+   Light pools from the top right and a warm fig glow rises from the roots. */
 .canopy {
   background:
-    radial-gradient(ellipse 70% 55% at 78% -10%, rgba(205, 219, 208, 0.14), transparent 60%),
-    radial-gradient(ellipse 45% 40% at 8% 110%, rgba(67, 118, 95, 0.28), transparent 65%),
-    var(--color-forest-deep);
+    radial-gradient(ellipse 95% 55% at 82% -8%, rgba(71, 118, 95, 0.38), transparent 64%),
+    radial-gradient(ellipse 70% 46% at 0% 106%, rgba(184, 138, 51, 0.13), transparent 68%),
+    linear-gradient(180deg, #0f2c22 0%, #0a1d16 58%, #081a14 100%);
 }
 
+/* App canvas: warm bone paper with a shallow canopy-light wash at the top.
+   The wash gives the interior depth without introducing a flat tint. */
+.app-canvas {
+  background:
+    radial-gradient(1100px 520px at 78% -16%, rgba(35, 82, 63, 0.08), transparent 62%),
+    radial-gradient(760px 420px at 0% -10%, rgba(184, 138, 51, 0.06), transparent 62%),
+    var(--color-ivory);
+}
 
-/* Soft green-tinted elevation for white cards on white paper. */
+/* Soft green-tinted elevation for white cards on bone paper. */
 .card-shadow {
   box-shadow:
-    0 1px 2px rgba(18, 48, 40, 0.04),
-    0 10px 30px -18px rgba(18, 48, 40, 0.18);
+    0 1px 2px rgba(14, 42, 33, 0.035),
+    0 16px 36px -30px rgba(14, 42, 33, 0.4);
 }
 .card-shadow-lg {
   box-shadow:
-    0 1px 2px rgba(18, 48, 40, 0.05),
-    0 24px 60px -28px rgba(18, 48, 40, 0.28);
+    0 1px 2px rgba(14, 42, 33, 0.04),
+    0 28px 64px -32px rgba(14, 42, 33, 0.42);
 }
 
 .hairline {
@@ -128,14 +140,67 @@ a {
 }
 
 .card-lift {
-  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
 }
 .card-lift:hover {
   transform: translateY(-2px);
-  border-color: color-mix(in oklab, var(--color-forest) 45%, transparent);
+  border-color: color-mix(in oklab, var(--color-forest) 35%, transparent);
   box-shadow:
-    0 1px 2px rgba(18, 48, 40, 0.05),
-    0 16px 36px -18px rgba(18, 48, 40, 0.24);
+    0 1px 2px rgba(14, 42, 33, 0.04),
+    0 20px 40px -26px rgba(14, 42, 33, 0.34);
+}
+
+/* Tabular figures wherever measured numbers are compared. */
+.num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* The retired "left root rule" grammar. The landing page keeps it as an
+   accent; inside the studio, cards are whole rounded sheets instead. */
+.app-canvas .rooted,
+.app-canvas .rooted-fig {
+  border-left-width: 0;
+  border-radius: 1rem;
+}
+
+/* Light-surface scrollbars (chat history, palette results). */
+.app-light-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(14, 42, 33, 0.16) transparent;
+}
+.app-light-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.app-light-scroll::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: rgba(14, 42, 33, 0.16);
+}
+
+/* Thin, quiet scrollbars for the canopy rail and the palette results. */
+.app-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
+.app-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.app-scroll::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.16);
+}
+.app-scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* Command palette — a single considered entrance, never bouncy. */
+@keyframes palette-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes palette-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.palette-in { animation: palette-in 0.18s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.palette-backdrop-in { animation: palette-backdrop-in 0.16s ease both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .palette-in, .palette-backdrop-in { animation: none; }
 }
 
 @keyframes fade-up {

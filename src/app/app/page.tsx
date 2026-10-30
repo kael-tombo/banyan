@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireWorkspaceServer } from "@/lib/workspace";
-import { Badge, Card, EmptyState, PageHeader, StatusBadge, LinkButton } from "@/components/ui";
+import { Badge, Card, LinkButton, SectionHeader, StatusBadge } from "@/components/ui";
 import { Sparkline } from "@/components/Sparkline";
 import CommandChat, { type ChatMessageDTO } from "@/components/CommandChat";
 import {
@@ -9,8 +9,8 @@ import {
   AGENT_META, type AgentRoleStatus,
 } from "@/lib/growth-loop";
 import {
-  ArrowRight, AlertTriangle, CheckCircle2, FlaskConical, Lightbulb, Play,
-  Share2, Sparkles, Target, TrendingUp, TrendingDown, Bot, Activity,
+  Activity, AlertTriangle, ArrowRight, ArrowUpRight, Bot, CheckCircle2, FlaskConical,
+  Lightbulb, Play, Share2, Sparkles, Target, TrendingDown, TrendingUp, UserPlus,
 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +33,62 @@ function fmtDate(d: Date | null | undefined): string {
   const tomorrow = new Date(now.getTime() + DAY);
   if (d.toDateString() === tomorrow.toDateString()) return `Tomorrow, ${time}`;
   return `${d.toLocaleDateString([], { month: "short", day: "numeric" })}, ${time}`;
+}
+
+/** A recorded-window comparison. Never invents a baseline: zero prior data is
+ *  said plainly instead of being rendered as growth. */
+function deltaNote(current: number, previous: number): string {
+  if (current === 0) return previous === 0 ? "no events recorded yet" : "none in this window";
+  if (previous === 0) return "first events in this window";
+  const pct = Math.round(((current - previous) / previous) * 100);
+  if (pct === 0) return "flat vs previous 14 days";
+  return `${pct > 0 ? "+" : ""}${pct}% vs previous 14 days`;
+}
+
+/** A compact live signal — the dashboard's telemetry, always from records. */
+function SignalTile({
+  href,
+  label,
+  value,
+  note,
+  icon,
+  tone = "neutral",
+}: {
+  href: string;
+  label: string;
+  value: string | number;
+  note: string;
+  icon: React.ReactNode;
+  tone?: "neutral" | "forest" | "fig";
+}) {
+  const accent =
+    tone === "fig"
+      ? "border-fig/20 bg-fig/[0.08] text-fig-deep"
+      : tone === "forest"
+        ? "border-forest/15 bg-forest/[0.06] text-forest"
+        : "border-bark/10 bg-ivory text-charcoal-soft";
+  return (
+    <Link
+      href={href}
+      className="group card-shadow flex flex-col justify-between rounded-xl border border-bark/12 bg-white p-4 transition-colors hover:border-forest/25"
+    >
+      <div className="flex items-center justify-between">
+        <span className={`flex h-8 w-8 items-center justify-center rounded-lg border ${accent}`} aria-hidden="true">
+          {icon}
+        </span>
+        <ArrowUpRight
+          size={14}
+          className="text-charcoal-soft/25 transition-colors group-hover:text-forest/70"
+          aria-hidden="true"
+        />
+      </div>
+      <div className="mt-4">
+        <p className="num font-serif text-[30px] leading-none tracking-[-0.02em] text-forest-deep">{value}</p>
+        <p className="mt-1.5 text-[11.5px] font-semibold text-charcoal">{label}</p>
+        <p className="mt-0.5 text-[10.5px] leading-snug text-charcoal-soft">{note}</p>
+      </div>
+    </Link>
+  );
 }
 
 export default async function DashboardPage() {
@@ -60,6 +116,8 @@ export default async function DashboardPage() {
     agentTasks,
     activityEvents,
     attributedSignups,
+    awaitingApprovalCount,
+    awaitingGateCount,
     chatMessagesRaw,
   ] = await Promise.all([
     prisma.productProfile.findUnique({ where: { workspaceId: wid } }),
@@ -79,6 +137,9 @@ export default async function DashboardPage() {
     prisma.agentTask.findMany({ where: { workspaceId: wid }, orderBy: { updatedAt: "desc" }, take: 120, select: { agentRole: true, status: true, title: true, goalId: true, updatedAt: true } }),
     prisma.activityEvent.findMany({ where: { workspaceId: wid }, orderBy: { createdAt: "desc" }, take: 8, select: { id: true, type: true, actorType: true, actorSummary: true, summary: true, meta: true, createdAt: true } }),
     prisma.metricEvent.count({ where: { workspaceId: wid, type: "signup", createdAt: { gte: d14 }, OR: [{ linkId: { not: null } }, { campaignId: { not: null } }] } }),
+    // Exact counts for the human queue and its gates (the focus list is capped).
+    prisma.contentItem.count({ where: { workspaceId: wid, status: "ready_for_review" } }),
+    prisma.agentTask.count({ where: { workspaceId: wid, type: "approval_gate", status: "waiting_approval" } }),
     // Command center chat — last 30 turns of the persisted conversation.
     prisma.chatMessage.findMany({ where: { workspaceId: wid }, orderBy: { createdAt: "desc" }, take: 30 }),
   ]);
@@ -177,70 +238,176 @@ export default async function DashboardPage() {
   const connectionsLive = connections.filter((c) => c.status !== "error");
   const trackedClicks = linksAgg._sum.clicks ?? 0;
 
+  // ————— The command bar's live numbers —————
+  const waitingOnYou = awaitingApprovalCount + awaitingGateCount;
+  const completedTaskCount = goalTasks.filter((t) => t.status === "completed").length;
+  const countableTaskCount = goalTasks.filter((t) => t.status !== "cancelled").length;
+  const today = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+
   return (
     <>
-      <PageHeader
-        title="Growth workspace"
-        description="Turn ideas into traction. The goal in motion, this week's highest-leverage moves, and what the evidence says — zeros are true zeros; anything unmeasured is labeled as such."
-        actions={<LinkButton href="/app/experiments" variant="secondary"><FlaskConical size={15} aria-hidden="true" /> New experiment</LinkButton>}
-      />
-
-      {/* ————— 0. The conversation at the center ————— */}
-      <CommandChat initialMessages={chatMessages} />
-
-      {/* ————— 1. Goal — the trunk everything grows from ————— */}
-      <div className="mt-6">
-      {activeGoal ? (
-        <Card className="rooted">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="min-w-0 flex-1">
-              <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-charcoal-soft">
-                <Target size={14} className="text-forest" aria-hidden="true" /> Goal
-              </p>
-              <Link href={`/app/goals/${activeGoal.id}`} className="mt-1.5 block text-lg font-medium text-charcoal hover:text-forest">
-                {activeGoal.objective}
-              </Link>
-              <p className="mt-1 text-sm text-charcoal-soft">
-                {activeGoal.successMetric}
-                {activeGoal.metricTarget != null ? ` · target ${activeGoal.metricTarget.toLocaleString()}${activeGoal.metricUnit ? ` ${activeGoal.metricUnit}` : ""}` : ""}
-                {activeGoal.deadline ? ` · by ${activeGoal.deadline.toLocaleDateString([], { month: "short", day: "numeric" })}` : ""}
-              </p>
-              <div className="mt-3 flex items-center gap-3">
-                <StatusBadge status={activeGoal.status} />
-                <Link href="/app/strategy" className="text-xs font-medium text-forest hover:underline">View strategy →</Link>
-              </div>
-            </div>
-            <div className="w-full max-w-56 max-lg:max-w-none">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className="font-serif text-3xl text-forest-deep">{Math.round(activeGoal.progress)}%</span>
-                <span className="text-xs text-charcoal-soft">
-                  {goalTasks.filter((t) => t.status === "completed").length}/{goalTasks.filter((t) => t.status !== "cancelled").length} tasks
-                </span>
-              </div>
-              <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-ivory-deep/70" role="progressbar" aria-valuenow={activeGoal.progress} aria-valuemin={0} aria-valuemax={100} aria-label="Goal progress">
-                <div className="h-full rounded-full bg-forest" style={{ width: `${Math.min(100, activeGoal.progress)}%` }} />
-              </div>
-              <p className="mt-1.5 text-[11px] text-charcoal-soft">Progress from task completion, recomputed by the orchestrator.</p>
-            </div>
-          </div>
-        </Card>
-      ) : (
-        <EmptyState
-          title={goals.length === 0 ? "Plant the first goal" : "No goal in motion"}
-          body="State what you want in plain language — the planner drafts a reviewable plan, agents execute it step by step, and nothing publishes without your approval."
-          icon={<Target size={22} className="text-forest" />}
-          action={<LinkButton href="/app/goals">Create your first goal</LinkButton>}
-        />
-      )}
+      {/* ————— 0. The command head — state, then the conversation ————— */}
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
+        <div className="min-w-0">
+          <p className="flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-charcoal-soft/70">
+            <span className="h-1.5 w-1.5 rounded-full bg-forest" aria-hidden="true" />
+            Command center
+            <span className="text-charcoal-soft/30" aria-hidden="true">/</span>
+            <span className="font-medium normal-case tracking-normal text-charcoal-soft/80">{today}</span>
+          </p>
+          <h1 className="mt-2 font-serif text-[34px] leading-[1.05] tracking-[-0.025em] text-forest-deep sm:text-[40px]">
+            Growth workspace
+          </h1>
+          <p className="mt-2 max-w-2xl text-[13.5px] leading-relaxed text-charcoal-soft">
+            The goal in motion, this week&apos;s highest-leverage moves, and what the evidence says. Zeros are true zeros;
+            anything unmeasured is labeled as such.
+          </p>
+        </div>
+        <LinkButton href="/app/experiments" variant="secondary">
+          <FlaskConical size={15} aria-hidden="true" /> New experiment
+        </LinkButton>
       </div>
 
-      {/* ————— 2/3. This week's focus + active experiment ————— */}
+      {/* ————— 1. State at a glance — the trunk, then the signals ————— */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)]">
+        {activeGoal ? (
+          <section
+            className="canopy relative overflow-hidden rounded-2xl p-6 text-ivory shadow-[0_30px_70px_-50px_rgba(8,26,20,0.9)]"
+            aria-label="Goal in motion"
+          >
+            <div className="relative flex flex-wrap items-start justify-between gap-5">
+              <div className="min-w-0 flex-1">
+                <p className="flex items-center gap-2 text-[10.5px] font-semibold uppercase tracking-[0.18em] text-sage/55">
+                  <Target size={13} className="text-[#9FE8BE]" aria-hidden="true" /> The goal in motion
+                </p>
+                <h2 className="mt-3 max-w-xl font-serif text-[23px] leading-[1.25] tracking-[-0.01em] text-ivory">
+                  <Link
+                    href={`/app/goals/${activeGoal.id}`}
+                    className="transition-colors hover:text-white"
+                  >
+                    {activeGoal.objective}
+                  </Link>
+                </h2>
+                <p className="mt-2 text-[12.5px] leading-relaxed text-sage/65">
+                  {activeGoal.successMetric}
+                  {activeGoal.metricTarget != null
+                    ? ` · target ${activeGoal.metricTarget.toLocaleString()}${activeGoal.metricUnit ? ` ${activeGoal.metricUnit}` : ""}`
+                    : ""}
+                  {activeGoal.deadline ? ` · by ${activeGoal.deadline.toLocaleDateString([], { month: "short", day: "numeric" })}` : ""}
+                </p>
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/[0.06] px-2.5 py-1 text-[10.5px] font-medium capitalize text-sage/85">
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        activeGoal.status === "active"
+                          ? "bg-[#7BE7A5]"
+                          : activeGoal.status === "awaiting_approval"
+                            ? "bg-[#E3BE79]"
+                            : "bg-sage/40"
+                      }`}
+                      aria-hidden="true"
+                    />
+                    {activeGoal.status.replace(/_/g, " ")}
+                  </span>
+                  <Link href="/app/strategy" className="text-[11.5px] font-medium text-[#E3BE79] underline-offset-4 hover:underline">
+                    View strategy →
+                  </Link>
+                </div>
+              </div>
+              <div className="w-full shrink-0 lg:w-auto lg:text-right">
+                <p className="num font-serif text-[46px] leading-none tracking-[-0.03em] text-white">
+                  {Math.round(activeGoal.progress)}
+                  <span className="text-2xl text-sage/45">%</span>
+                </p>
+                <p className="mt-1.5 text-[10px] uppercase tracking-[0.14em] text-sage/45">task completion</p>
+              </div>
+            </div>
+            <div className="relative mt-5">
+              <div
+                className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.12]"
+                role="progressbar"
+                aria-valuenow={activeGoal.progress}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label="Goal progress"
+              >
+                <div className="h-full rounded-full bg-[#7BE7A5]" style={{ width: `${Math.min(100, activeGoal.progress)}%` }} />
+              </div>
+              <div className="mt-2 flex flex-wrap justify-between gap-x-3 gap-y-1 text-[10.5px] text-sage/45">
+                <span>
+                  {completedTaskCount}/{countableTaskCount} tasks complete
+                </span>
+                <span>Recomputed by the orchestrator — not an estimate</span>
+              </div>
+            </div>
+          </section>
+        ) : (
+          <div className="flex min-h-[236px] flex-col justify-between rounded-2xl border border-dashed border-bark/20 bg-white/60 p-6">
+            <div>
+              <p className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-charcoal-soft/60">
+                {goals.length === 0 ? "No goal planted yet" : "No goal in motion"}
+              </p>
+              <h2 className="mt-3 font-serif text-[23px] leading-tight tracking-[-0.01em] text-forest-deep">
+                {goals.length === 0 ? "Plant the first goal." : "Everything is resting."}
+              </h2>
+              <p className="mt-2 max-w-md text-[13px] leading-relaxed text-charcoal-soft">
+                State what you want in plain language — the planner drafts a reviewable plan, agents execute it step by
+                step, and nothing publishes without your approval.
+              </p>
+            </div>
+            <LinkButton href="/app/goals" className="mt-5 self-start">
+              Create a goal <ArrowRight size={14} aria-hidden="true" />
+            </LinkButton>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <SignalTile
+            href="/app/approvals"
+            value={waitingOnYou}
+            label="waiting on you"
+            note={
+              waitingOnYou > 0
+                ? `${awaitingApprovalCount} review${awaitingApprovalCount === 1 ? "" : "s"} · ${awaitingGateCount} gate${awaitingGateCount === 1 ? "" : "s"}`
+                : "the queue is clear"
+            }
+            tone={waitingOnYou > 0 ? "fig" : "neutral"}
+            icon={<CheckCircle2 size={15} />}
+          />
+          <SignalTile
+            href="/app/activity"
+            value={runningTasks.length}
+            label="tasks in motion"
+            note={runningTasks.length > 0 ? "ready or running right now" : "no task is running"}
+            tone={runningTasks.length > 0 ? "forest" : "neutral"}
+            icon={<Bot size={15} />}
+          />
+          <SignalTile
+            href="/app/analytics"
+            value={countNow("visit")}
+            label="tracked visits"
+            note={`Last 14 days · ${deltaNote(countNow("visit"), countPrev("visit"))}`}
+            icon={<Activity size={15} />}
+          />
+          <SignalTile
+            href="/app/analytics"
+            value={countNow("signup")}
+            label="signups"
+            note={`Last 14 days · ${deltaNote(countNow("signup"), countPrev("signup"))}`}
+            icon={<UserPlus size={15} />}
+          />
+        </div>
+      </div>
+
+      {/* ————— 2. The conversation at the center ————— */}
+      <div className="mt-5">
+        <CommandChat initialMessages={chatMessages} />
+      </div>
+
+      {/* ————— 3/4. This week's focus + active experiment ————— */}
       <div className="mt-6 grid gap-6 lg:grid-cols-5">
         <Card className="lg:col-span-3">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="font-medium text-charcoal">This week&apos;s growth focus</h2>
-            <p className="text-xs text-charcoal-soft">High-leverage moves toward the goal</p>
-          </div>
+          <SectionHeader title="This week&apos;s growth focus" hint="High-leverage moves toward the goal" />
           {focusItems.length === 0 ? (
             <p className="mt-3 text-sm text-charcoal-soft">
               {activeGoal
@@ -248,18 +415,18 @@ export default async function DashboardPage() {
                 : "Nothing in motion yet. Set a goal and the focus list fills with the agent workflow's next moves."}
             </p>
           ) : (
-            <ol className="mt-3 space-y-3">
+            <ol className="mt-4 divide-y divide-bark/[0.08]">
               {focusItems.map((item, i) => (
-                <li key={item.id} className="flex items-start gap-3">
-                  <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sage/50 text-xs font-semibold text-forest-deep" aria-hidden="true">{i + 1}</span>
+                <li key={item.id} className="flex items-start gap-3 py-3 first:pt-0 last:pb-0">
+                  <span className="num mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-forest/15 bg-forest/[0.06] text-[11px] font-semibold text-forest" aria-hidden="true">{i + 1}</span>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-medium text-charcoal">{item.title}</p>
+                      <p className="text-[13.5px] font-medium text-charcoal">{item.title}</p>
                       {item.badge}
                     </div>
                     <p className="mt-0.5 text-xs leading-relaxed text-charcoal-soft">{item.body}</p>
                     <div className="mt-1.5 flex flex-wrap items-center gap-3">
-                      <Link href={item.cta.href} className="inline-flex items-center gap-1 text-xs font-medium text-forest hover:underline">
+                      <Link href={item.cta.href} className="inline-flex items-center gap-1 text-[11.5px] font-medium text-forest hover:underline">
                         {item.cta.label} <ArrowRight size={11} aria-hidden="true" />
                       </Link>
                       {item.evidence && <span className="text-[11px] text-charcoal-soft/80">Evidence: {item.evidence}</span>}
@@ -273,7 +440,7 @@ export default async function DashboardPage() {
 
         <Card className="lg:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-medium text-charcoal">Active experiment</h2>
+            <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-charcoal">Active experiment</h2>
             {experiment ? (
               <Badge variant="forest"><span className="h-1.5 w-1.5 rounded-full bg-forest" aria-hidden="true" /> Running · day {experimentDay}</Badge>
             ) : latestExperiment ? (
@@ -317,7 +484,7 @@ export default async function DashboardPage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-5">
         <Card className="lg:col-span-3">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="font-medium text-charcoal">Customer journey</h2>
+            <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-charcoal">Customer journey</h2>
             <p className="text-xs text-charcoal-soft">First-party events · last 14 days</p>
           </div>
           <div className="mt-4 grid grid-cols-3 items-start gap-2">
@@ -330,7 +497,7 @@ export default async function DashboardPage() {
                   {i < FUNNEL_STAGES.length - 1 && (
                     <ArrowRight className="absolute -right-2.5 top-4 hidden text-bark/30 sm:block" size={14} aria-hidden="true" />
                   )}
-                  <p className="font-serif text-2xl text-forest-deep">{cur.toLocaleString()}</p>
+                  <p className="num font-serif text-[30px] leading-none tracking-[-0.01em] text-forest-deep">{cur.toLocaleString()}</p>
                   <p className="mt-0.5 text-xs font-medium text-charcoal">{stage.label}</p>
                   <p className="text-[11px] text-charcoal-soft/80">{stage.sub}</p>
                   <p className="mt-1 flex items-center gap-1 text-[11px] text-charcoal-soft">
@@ -359,7 +526,7 @@ export default async function DashboardPage() {
             <p className="text-xs text-charcoal-soft">Attribution coverage — signups traceable to a tracked source</p>
             {coverage != null ? (
               <p className="flex items-center gap-2 text-sm">
-                <span className="font-serif text-lg text-forest-deep">{coverage}%</span>
+                <span className="num font-serif text-xl text-forest-deep">{coverage}%</span>
                 <span className="text-[11px] text-charcoal-soft">of {countNow("signup").toLocaleString()} signup(s)</span>
               </p>
             ) : (
@@ -384,7 +551,7 @@ export default async function DashboardPage() {
 
         <Card className="lg:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="flex items-center gap-2 font-medium text-charcoal"><Share2 size={15} className="text-forest" aria-hidden="true" /> Publishing</h2>
+            <h2 className="flex items-center gap-2 text-[15px] font-semibold tracking-[-0.01em] text-charcoal"><Share2 size={15} className="text-forest" aria-hidden="true" /> Publishing</h2>
             {connectionsLive.length > 0 ? (
               <Badge variant="forest"><span className="h-1.5 w-1.5 rounded-full bg-forest" aria-hidden="true" /> Connected</Badge>
             ) : (
@@ -437,7 +604,7 @@ export default async function DashboardPage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-5">
         <Card className="lg:col-span-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="flex items-center gap-2 font-medium text-charcoal"><Bot size={15} className="text-forest" aria-hidden="true" /> Agent team</h2>
+            <h2 className="flex items-center gap-2 text-[15px] font-semibold tracking-[-0.01em] text-charcoal"><Bot size={15} className="text-forest" aria-hidden="true" /> Agent team</h2>
             <Link href="/app/activity" className="text-xs font-medium text-forest hover:underline">View activity →</Link>
           </div>
           <ul className="mt-3 space-y-3">
@@ -464,7 +631,7 @@ export default async function DashboardPage() {
 
         <Card className="lg:col-span-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="flex items-center gap-2 font-medium text-charcoal"><Activity size={15} className="text-forest" aria-hidden="true" /> Recent activity</h2>
+            <h2 className="flex items-center gap-2 text-[15px] font-semibold tracking-[-0.01em] text-charcoal"><Activity size={15} className="text-forest" aria-hidden="true" /> Recent activity</h2>
             <Link href="/app/activity" className="text-xs font-medium text-forest hover:underline">View all activity →</Link>
           </div>
           {activityEvents.length === 0 ? (
@@ -500,9 +667,9 @@ export default async function DashboardPage() {
 
       {/* ————— 7. Recommended next test — the AI banner ————— */}
       {topRec ? (
-        <div className="rooted-fig mt-6 flex flex-col gap-4 rounded-[3px] border border-fig/25 bg-gradient-to-r from-fig/[0.08] via-white to-forest/[0.06] p-5 lg:flex-row lg:items-center">
+        <div className="mt-6 flex flex-col gap-4 rounded-2xl border border-fig/20 bg-gradient-to-r from-fig/[0.07] via-white to-forest/[0.05] p-5 shadow-[0_24px_60px_-50px_rgba(184,138,51,0.7)] lg:flex-row lg:items-center">
           <div className="flex items-start gap-3 lg:max-w-md">
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-fig/15 text-fig-deep">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-fig/12 text-fig-deep">
               <Sparkles size={16} aria-hidden="true" />
             </span>
             <div className="min-w-0">
@@ -524,7 +691,7 @@ export default async function DashboardPage() {
       ) : setupSuggestions.length > 0 ? (
         <div className="mt-6 grid gap-3 md:grid-cols-2">
           {setupSuggestions.map((s) => (
-            <Link key={s.href} href={s.href} className="card-lift rooted flex items-start gap-3 rounded-[3px] border border-bark/15 bg-white p-4">
+            <Link key={s.href} href={s.href} className="card-lift card-shadow flex items-start gap-3 rounded-xl border border-bark/12 bg-white p-4">
               <ArrowRight className="mt-1 text-forest" size={16} aria-hidden="true" />
               <span>
                 <span className="block text-sm font-medium text-charcoal">{s.label}</span>

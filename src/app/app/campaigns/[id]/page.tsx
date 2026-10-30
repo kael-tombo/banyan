@@ -105,7 +105,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
           {pipeline.stages.map((stage, i) => (
             <li
               key={stage.key}
-              className={`rounded-[3px] border p-3 ${
+              className={`rounded-lg border p-3 ${
                 stage.state === "active"
                   ? "border-forest/40 bg-forest/[0.04]"
                   : "border-bark/15 bg-white"
@@ -166,7 +166,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
           </h2>
           <ul className="mt-3 space-y-2">
             {attention.map((a) => (
-              <li key={a.key} className={`rounded-[3px] border p-3 ${ATTENTION_TONE[a.tone]}`}>
+              <li key={a.key} className={`rounded-lg border p-3 ${ATTENTION_TONE[a.tone]}`}>
                 <p className="text-sm font-medium text-charcoal">{a.label}</p>
                 <p className="mt-0.5 text-xs leading-relaxed text-charcoal-soft">{a.detail}</p>
                 <Link href={a.href} className="mt-1 inline-block text-xs font-medium text-forest hover:underline">Open →</Link>
@@ -221,7 +221,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
             ))}
           </ul>
           {!checklist.ready && contentScheduled > 0 && (
-            <p className="mt-3 rounded-[3px] border border-clay/30 bg-clay/5 px-3 py-2 text-xs text-clay">
+            <p className="mt-3 rounded-lg border border-clay/30 bg-clay/5 px-3 py-2 text-xs text-clay">
               Scheduled assets may go live before this checklist is complete — attribution will be partial.
             </p>
           )}
@@ -235,15 +235,15 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
           {contentPublished > 0 ? (
             <>
               <dl className="mt-3 grid grid-cols-3 gap-3 text-center">
-                <div className="rounded-[3px] border border-bark/15 bg-ivory p-3">
+                <div className="rounded-lg border border-bark/15 bg-ivory p-3">
                   <dt className="text-[11px] uppercase tracking-wide text-charcoal-soft">Published</dt>
                   <dd className="mt-1 font-serif text-xl text-forest-deep">{contentPublished}</dd>
                 </div>
-                <div className="rounded-[3px] border border-bark/15 bg-ivory p-3">
+                <div className="rounded-lg border border-bark/15 bg-ivory p-3">
                   <dt className="text-[11px] uppercase tracking-wide text-charcoal-soft">Tracked clicks</dt>
                   <dd className="mt-1 font-serif text-xl text-forest-deep">{campaign.links.reduce((s, l) => s + l.clicks, 0)}</dd>
                 </div>
-                <div className="rounded-[3px] border border-bark/15 bg-ivory p-3">
+                <div className="rounded-lg border border-bark/15 bg-ivory p-3">
                   <dt className="text-[11px] uppercase tracking-wide text-charcoal-soft">Metrics</dt>
                   <dd className="mt-1 font-serif text-xl text-forest-deep">{campaign.metrics.length}</dd>
                 </div>
@@ -257,7 +257,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
               </p>
               <div className="mt-3 grid grid-cols-3 gap-3">
                 {["Qualified signups", "Conversion rate", "Learnings"].map((label) => (
-                  <div key={label} className="rounded-[3px] border border-dashed border-bark/25 bg-ivory p-3 text-center">
+                  <div key={label} className="rounded-lg border border-dashed border-bark/25 bg-ivory p-3 text-center">
                     <p className="text-[11px] uppercase tracking-wide text-charcoal-soft">{label}</p>
                     <p className="mt-1 font-serif text-xl text-bark/40">—</p>
                   </div>
