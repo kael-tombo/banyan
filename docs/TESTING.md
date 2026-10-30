@@ -13,7 +13,7 @@ npm test          # run once
 npm run test:watch
 ```
 
-Current state: **16 files, 200 tests — all passing** (verified 2026-10-28).
+Current state: **26 files, 331 tests — all passing** (verified 2026-10-30).
 Typecheck (`npm run typecheck`) is clean; the production build (`npm run
 build`) is green.
 
@@ -35,6 +35,8 @@ build`) is green.
 | `formats.test.ts` | Channel/format validation for content generation. |
 | `socialflow-handoff.test.ts` | The SocialFlow.ai manual handoff: package contents (copy, video extras, checklist), defensive videoExtras parsing, the required-capability contract, and registry honesty (`unavailable` + evidence). |
 | `learning.test.ts` | Evidence-based experiment summaries: verdicts from recorded data, "not enough data" when thin, recommendation confidence policy (empty evidence forces `low`). |
+| `learning-memory.test.ts` | The loop's memory: only complete + interpreted experiments qualify; ordering/ties/bounds; word-safe prompt lines; honest absences; the agent-context section present when learning exists and absent when none does. |
+| `command-chat.test.ts` | Grounded command-center brief: true zeros, absent data named, approval/publishing language, concluded learning carried into the brief and the labelled fallback. |
 
 External providers (Postiz, OpenAI-compatible endpoints, Fastlane) are
 **always mocked** in unit tests. There are no live-provider tests in CI —

@@ -1,7 +1,9 @@
+import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireWorkspaceServer } from "@/lib/workspace";
-import { Card, EmptyState, PageHeader } from "@/components/ui";
-import { BookOpen } from "lucide-react";
+import { Badge, Card, EmptyState, PageHeader } from "@/components/ui";
+import { BookOpen, Sparkles } from "lucide-react";
+import { learningMemory } from "@/lib/learning-memory";
 import ProvenanceBadge from "../goals/[id]/provenance-badge";
 import FactsManager from "./facts-manager";
 
@@ -9,10 +11,18 @@ export const dynamic = "force-dynamic";
 
 export default async function ContextPage() {
   const ctx = await requireWorkspaceServer();
-  const facts = await prisma.profileFact.findMany({
-    where: { workspaceId: ctx.workspace.id },
-    orderBy: [{ category: "asc" }, { updatedAt: "desc" }],
-  });
+  const [facts, concluded] = await Promise.all([
+    prisma.profileFact.findMany({
+      where: { workspaceId: ctx.workspace.id },
+      orderBy: [{ category: "asc" }, { updatedAt: "desc" }],
+    }),
+    prisma.experiment.findMany({
+      where: { workspaceId: ctx.workspace.id, status: "complete" },
+      orderBy: [{ decidedAt: "desc" }, { updatedAt: "desc" }],
+      take: 12,
+    }),
+  ]);
+  const memory = learningMemory(concluded, 5);
 
   return (
     <>
@@ -31,6 +41,70 @@ export default async function ContextPage() {
         </ul>
         <p className="mt-3 text-xs text-charcoal-soft">
           Correcting a value marks it as a user correction and resets verification honestly. Marking it verified records who verified it and when.
+        </p>
+      </Card>
+
+      <Card className="rooted mt-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="flex items-center gap-2 font-medium text-charcoal">
+            <Sparkles size={16} className="text-forest" aria-hidden="true" /> Learning memory
+          </h2>
+          <Badge variant={memory.length > 0 ? "forest" : "charcoal"}>
+            {memory.length} reusable conclusion{memory.length === 1 ? "" : "s"}
+          </Badge>
+        </div>
+        <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">
+          Concluded experiments are injected into every new plan, strategy and draft — this is how the loop compounds.
+          A completed experiment with no recorded interpretation is not memory; it is a data point without a conclusion.
+        </p>
+
+        {memory.length === 0 ? (
+          <div className="mt-4 rounded-[3px] border border-dashed border-bark/20 bg-ivory-deep/40 p-4">
+            <p className="text-sm text-charcoal">No concluded experiment with an interpretation yet.</p>
+            <p className="mt-1 text-xs leading-relaxed text-charcoal-soft">
+              Draft conclusions from recorded data in{" "}
+              <Link href="/app/experiments" className="text-forest hover:underline">Experiments</Link>. Once an experiment
+              is complete with an interpretation, the next plan will use it.
+            </p>
+          </div>
+        ) : (
+          <ol className="mt-4 space-y-3">
+            {memory.map((m) => (
+              <li key={m.id} className="rounded-[3px] border border-bark/12 bg-white p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-medium text-charcoal">{m.title}</p>
+                  <Badge variant="warm">{m.successMetric}</Badge>
+                  <span className="text-xs text-charcoal-soft/70">
+                    {m.decidedAt.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" })}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-charcoal-soft">
+                  <span className="font-medium">Variable:</span> {m.variable}
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-charcoal">{m.interpretation}</p>
+                {(m.limitations || m.nextAction) && (
+                  <dl className="mt-2 grid gap-1 text-xs text-charcoal-soft">
+                    {m.limitations && (
+                      <div className="flex gap-1">
+                        <dt className="shrink-0 font-medium">Limits:</dt>
+                        <dd>{m.limitations}</dd>
+                      </div>
+                    )}
+                    {m.nextAction && (
+                      <div className="flex gap-1">
+                        <dt className="shrink-0 font-medium">Next:</dt>
+                        <dd>{m.nextAction}</dd>
+                      </div>
+                    )}
+                  </dl>
+                )}
+              </li>
+            ))}
+          </ol>
+        )}
+        <p className="mt-3 text-xs text-charcoal-soft">
+          Read from the Experiment records at prompt time — correct a conclusion and the next plan sees the correction.
+          This is memory, not a claim of statistical significance.
         </p>
       </Card>
 

@@ -5,6 +5,7 @@ import { generateContent } from "@/lib/ai/generate";
 import { isFormatFor, isChannel, type Channel } from "@/lib/formats";
 import { DEFAULT_CHANNEL_FORMATS, contentSpecsForChannels } from "@/lib/agents/workflow-template";
 import { createTasksFromSpecs, loadBusinessContext, makeLogger, safeJSON } from "@/lib/agents/handlers/common";
+import { priorLearningLines } from "@/lib/learning-memory";
 import type { HandlerContext, HandlerResult } from "@/lib/agents/types";
 import type { StrategyOutput } from "@/lib/agents/handlers/planning";
 
@@ -135,6 +136,9 @@ export async function handleContentDraft(ctx: HandlerContext): Promise<HandlerRe
   const result = await generateContent({
     channel,
     format,
+    // The loop compounds: drafts are written with the workspace's concluded
+    // experiments in view, not as if every campaign were the first.
+    learning: priorLearningLines(biz.experiments, 4),
     campaign: campaign
       ? {
           name: campaign.name,

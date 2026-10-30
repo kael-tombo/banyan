@@ -9,6 +9,18 @@ follow [Keep a Changelog](https://keepachangelog.com); commit hashes refer to
 ## [Unreleased]
 
 ### Added
+- **Learning memory: concluded experiments now feed the next plan**
+  (2026-10-30) — the loop previously recorded experiment conclusions and then
+  forgot them; a new plan read facts and profile only. `src/lib/learning-memory.ts`
+  (pure, unit-tested) qualifies an experiment as memory only when it is
+  complete **and** has a recorded interpretation, orders the newest first and
+  renders bounded, word-safe prompt lines. `loadBusinessContext` reads the
+  Experiment table at call time, so there is no duplicated learning store to
+  drift: plan drafting, research, strategy, agent and manually generated
+  content, and the command-center chat brief all receive a labeled *Prior
+  learning* section. `/app/context` gained a visible Learning memory panel with
+  interpretation, limits, next action and an honest empty state. 18 new unit
+  tests (331 total). No schema change or migration.
 - **Vascular hero: "One intelligence. A thousand paths to action."**
   (2026-10-29) — the hero rebuilt as a dark botanical night stage around the
   Living Vascular Tree: a banyan whose interior transport system is visible,

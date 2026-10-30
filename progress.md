@@ -11,7 +11,7 @@ Living status board. Updated as work lands. Companion to
 | # | Milestone | State | Evidence |
 | --- | --- | --- | --- |
 | 1 | **Capability** — the product can run the whole loop | Met | goal → plan → campaign → content → approval → publish → measure → learn is implemented and reachable; 48 routes build |
-| 2 | **Reliability** — behaves correctly under real conditions | In progress | approvals, idempotency, rate limiting, bounded publication retries, fail-fast env guards, SSRF choke point, uniform body caps enforced server-side; **200 unit tests + 42-check live E2E acceptance (42/42 PASS)**; real publishing still unverified against live Postiz credentials |
+| 2 | **Reliability** — behaves correctly under real conditions | In progress | approvals, idempotency, rate limiting, bounded publication retries, fail-fast env guards, SSRF choke point, uniform body caps enforced server-side; **331 unit tests + 42-check live E2E acceptance (42/42 PASS)**; real publishing still unverified against live Postiz credentials |
 | 3 | **Growth** — real campaigns produce measurable outcomes | Not started | requires real attributed signups; none observed |
 
 Milestone 3 is deliberately not claimed. Capability and reliability do not imply it.
@@ -31,7 +31,7 @@ Milestone 3 is deliberately not claimed. Capability and reliability do not imply
 - **Experiments** — create, run, draft evidence-based conclusions.
 - **Growth** — Banyan's own self-distribution view with honest milestones.
 - **Measurement loop** — `/t/[slug]` records clicks and attributes later signups.
-- **Tooling** — `npm run setup` (migrate + seed), `npm run worker`, 200 unit tests, 42-check E2E acceptance script, Dockerfile + CI workflow.
+- **Tooling** — `npm run setup` (migrate + seed), `npm run worker`, 331 unit tests, 42-check E2E acceptance script, Dockerfile + CI workflow.
 
 ## Partial
 
@@ -112,3 +112,19 @@ npm run dev               # sign in: SEED_USER_EMAIL / SEED_USER_PASSWORD
 - Connections page (growth loop setup N-of-5, data flow pipeline with flowing/stalled health, data quality panel, access & data use trust section) under nav "System"
 - Dashboard Agent team panel (6 roles, live status from the AgentTask audit trail) + Recent activity feed (ActivityEvent rendered with evidence links) + attribution coverage signal
 - `src/lib/growth-loop.ts` pure helpers + 19 tests → 200/200 unit tests, E2E 42/42, build green, browser-checked 1440/390px
+
+## Learning memory (2026-10-30)
+
+**Done**
+- Concluded experiments are now reusable context: `src/lib/learning-memory.ts` (pure) qualifies only complete + interpreted experiments, orders them, and renders bounded word-safe prompt lines.
+- Plan draft, research, strategy and channel content prompts (agent and manual generation) receive a labelled "Prior learning" block, read from the Experiment records at call time — no duplicated learning table to drift.
+- Command-center chat carries the newest conclusions in its brief and the labelled fallback surfaces the latest one.
+- `/app/context` has a visible "Learning memory" section with interpretation, limits, next action and an honest empty state.
+- Tests: 331/331 (16 for learning memory + 2 chat assertions, 18 new), typecheck clean, production build green; live browser verification of the memory card and a chat answer quoted from the concluded experiment; E2E acceptance 42/42.
+
+**Partial**
+- Learning is per workspace and only as good as the recorded interpretation; it is not statistical evidence and the UI says so.
+- An experiment marked complete without an interpretation is excluded (shown as "needs decision" on Experiments) until conclusions are recorded.
+
+**Not started**
+- Cross-workspace or cross-product learning; automatic re-running of a follow-up experiment from a conclusion.

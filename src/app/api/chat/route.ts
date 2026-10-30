@@ -10,6 +10,7 @@ import {
   type ChatBriefInput,
   type ChatHistoryItem,
 } from "@/lib/agents/chat";
+import { priorLearningLines } from "@/lib/learning-memory";
 import { z } from "zod";
 import { NextRequest } from "next/server";
 
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest) {
   const d14 = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
 
   // ————— Ground the reply in records only —————
-  const [profile, goal, pendingApprovals, agentTasks, connections, visitEvents, signupCount, linksAgg, topRec] =
+  const [profile, goal, pendingApprovals, agentTasks, connections, visitEvents, signupCount, linksAgg, topRec, learningExperiments] =
     await Promise.all([
       prisma.productProfile.findUnique({ where: { workspaceId: wid } }),
       prisma.goal.findFirst({
@@ -78,6 +79,13 @@ export async function POST(req: NextRequest) {
       }),
       prisma.trackedLink.aggregate({ where: { workspaceId: wid }, _sum: { clicks: true } }),
       prisma.recommendation.findFirst({ where: { workspaceId: wid, status: "open" }, orderBy: { createdAt: "desc" } }),
+      // Concluded experiments are the loop's memory; the chat must be able to
+      // answer "what did we learn?" from records, not from improvisation.
+      prisma.experiment.findMany({
+        where: { workspaceId: wid, status: "complete" },
+        orderBy: [{ decidedAt: "desc" }, { updatedAt: "desc" }],
+        take: 8,
+      }),
     ]);
 
   const briefInput: ChatBriefInput = {
@@ -102,6 +110,7 @@ export async function POST(req: NextRequest) {
     connections: connections.map((c) => ({ channel: c.channel, status: c.status })),
     last14Days: { trackedClicks: linksAgg._sum.clicks ?? 0, visits: visitEvents, signups: signupCount },
     topOpenRecommendation: topRec?.title ?? null,
+    recentLearnings: priorLearningLines(learningExperiments, 3),
   };
   if (!goal) {
     briefInput.goalsInFlight = await prisma.goal.count({ where: { workspaceId: wid } });

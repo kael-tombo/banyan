@@ -418,3 +418,46 @@ of what generated it.
   (~1.5s), multi-turn context honored (true zeros echoed back), history
   persisted, ledger rows recorded (`promptTokens`/`completionTokens`/
   `latencyMs`), DELETE clears the thread.
+
+## 2026-10-30 — Learning memory: the loop compounds
+
+The loop recorded conclusions and then forgot them: `handleEvaluate` wrote an
+`Experiment`, but the next plan, strategy and content draft read only
+`ProfileFact` rows, so a founder's hard-won experiment result never influenced
+the next campaign. The product claimed continuous improvement; the code did
+one-shot learning. This closes that gap without duplicating the learning into
+a second table.
+
+- **`src/lib/learning-memory.ts` (new, pure)** — the memory rules. An
+  experiment is reusable only when it is `complete` **and** has a recorded
+  interpretation; a completed experiment without one is a data point, not
+  learning. Newest decision first (id tie-break), bounded to six, prompt lines
+  bounded and cut at word boundaries. Missing limits/next actions are named as
+  missing; nothing upgrades an inconclusive result into proof.
+- **Prompts read the Experiment table at call time** (`loadBusinessContext` in
+  `src/lib/agents/handlers/common.ts`). `contextBlock` now renders a
+  "Prior learning from concluded experiments" section labelled as recorded
+  conclusions, not proof. Plan draft, research, strategy and (via the new
+  optional `learning` field in `generateContent`) channel drafts all receive
+  it; the manual `/api/content/[id]/generate` route does too.
+- **Chat grounding** — `ChatBriefInput.recentLearnings` is built from the same
+  helper. The command center can now answer "what did we learn from the last
+  experiment?" from records, and the labelled template fallback surfaces the
+  latest conclusion when no model is available.
+- **Visible memory** — `/app/context` gained a "Learning memory" card: each
+  reusable conclusion with its variable, metric, interpretation, limits and
+  next action, plus an honest empty state and the rule that a conclusionless
+  experiment is not memory. No new table or migration: correcting an
+  experiment changes what the next plan reads.
+- **Tests** — `tests/learning-memory.test.ts` (16): qualification, ordering,
+  ties, bounds, word-safe truncation, honest absences, UI shape, and the
+  agent-context injection/omission. Chat fixtures extended for the new brief
+  field (2 new chat assertions). **331/331 tests**, typecheck clean.
+- **Verified live** — created an experiment, drafted conclusions from recorded
+  data (honest "not enough evidence", 0 clicks), saw it appear in the context
+  memory card, and asked the command chat: the reply quoted the concluded
+  experiment and its limits. Production build green.
+- Known limitation, stated rather than hidden: memory is **per workspace** and
+  reflects the recorded interpretation, not statistical significance. An
+  experiment marked complete without conclusions stays out until someone
+  records what it meant.

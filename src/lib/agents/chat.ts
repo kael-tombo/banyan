@@ -47,6 +47,8 @@ export type ChatBriefInput = {
   connections: ChatConnectionBrief[];
   last14Days: { trackedClicks: number; visits: number; signups: number };
   topOpenRecommendation: string | null;
+  /** Concluded-experiment lines (newest first) — see learning-memory.ts. */
+  recentLearnings: string[];
 };
 
 /** History entry handed to the model — role is "user" | "assistant". */
@@ -86,6 +88,16 @@ export function buildWorkspaceBrief(input: ChatBriefInput): string {
         ? `No goal currently in motion (${input.goalsInFlight} goal(s) exist in other states).`
         : "No goal set yet — the workflow has nothing to execute against."
     );
+  }
+
+  // The loop's memory — what the workspace has actually concluded.
+  if (input.recentLearnings.length > 0) {
+    lines.push(
+      "Prior learning from concluded experiments (recorded conclusions, not proof — an inconclusive result stays inconclusive):"
+    );
+    input.recentLearnings.slice(0, 3).forEach((line, i) => lines.push(`${i + 1}. ${line}`));
+  } else {
+    lines.push("Prior learning: no concluded experiment with a recorded interpretation yet — no measured learning to reuse.");
   }
 
   // Human gates + agent activity
@@ -188,6 +200,9 @@ export function fallbackChatReply(input: ChatBriefInput, userMessage: string): s
   );
   if (input.topOpenRecommendation) {
     lines.push(`Open recommendation to consider: "${input.topOpenRecommendation}" — see Experiments.`);
+  }
+  if (input.recentLearnings.length > 0) {
+    lines.push(`Latest concluded experiment: ${input.recentLearnings[0]}`);
   }
   lines.push(
     "",

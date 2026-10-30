@@ -140,6 +140,18 @@ task id. Prompts render every fact with its provenance label, so generated
 content can never treat a hypothesis as a fact. Users inspect and correct
 everything in **/app/context**; corrections honestly reset verification.
 
+**Learning memory.** Concluded experiments are context too. `loadBusinessContext`
+reads the `Experiment` table at prompt time (`src/lib/learning-memory.ts` decides
+what qualifies) and `contextBlock` renders a *Prior learning from concluded
+experiments* section, labelled as recorded conclusions rather than proof. The
+section reaches plan drafting, research, strategy and channel content (agent
+drafts and manual generation), and the command-center chat brief. Only an
+experiment that is `complete` **and** has a recorded interpretation qualifies —
+a completed experiment without a conclusion is a data point, not learning, and
+is excluded. No learning is copied into a second table, so correcting an
+experiment immediately changes what the next plan reads. Memory is per
+workspace; there is no cross-workspace learning.
+
 ## Permissions and safety
 
 - Every API route resolves the workspace via `requireWorkspace()` and scopes
@@ -170,9 +182,10 @@ thin.
 
 ## Testing
 
-116 unit tests (Vitest) cover: goal/task state machines, dependency
+331 unit tests (Vitest) cover: goal/task state machines, dependency
 resolution, observer bypass, failure propagation, lease expiry, bounded
 retries, verification schemas, NL goal parsing, quota policy, cost
-estimation, fallback labeling, recommendation confidence policy, capability
-honesty, permissions, and the publisher-handoff export guard. The pure
-orchestration logic (`graph.ts`) is tested without a database by design.
+estimation, fallback labeling, recommendation confidence policy, learning
+memory qualification and prompt injection, capability honesty, permissions,
+and the publisher-handoff export guard. The pure orchestration logic
+(`graph.ts`) is tested without a database by design.

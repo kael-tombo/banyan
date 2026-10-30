@@ -142,6 +142,8 @@ export type ContentGenRequest = {
     avoid?: string;
     cta?: string;
   };
+  /** Concluded-experiment lines from priorLearningLines — the loop's memory. */
+  learning?: string[];
   instruction?: string; // for improve-hook / shorten / change-tone / adapt operations
 };
 
@@ -175,6 +177,12 @@ export async function generateContent(req: ContentGenRequest): Promise<{ body: s
     `Brand voice — tone: ${req.brandVoice.tone || "direct, plain-spoken"}, language: ${req.brandVoice.language || "English"}`,
     req.brandVoice.themes ? `Content themes: ${req.brandVoice.themes}` : "",
     req.brandVoice.avoid ? `Topics to avoid: ${req.brandVoice.avoid}` : "",
+    ...(req.learning && req.learning.length > 0
+      ? [
+          "Prior learning from concluded experiments in this workspace (recorded conclusions, not proof — apply the lesson, never restate an inconclusive result as a win):",
+          ...req.learning.map((line) => `- ${line}`),
+        ]
+      : []),
     `Channel: ${meta.label}; format: ${req.format}`,
     req.instruction ? `Special instruction: ${req.instruction}` : "",
   ].filter(Boolean).join("\n");

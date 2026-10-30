@@ -4,6 +4,7 @@ import { extractJSON } from "@/lib/ai/provider";
 import type { ZodSchema } from "zod";
 import type { TaskSpec } from "@/lib/agents/workflow-template";
 import type { HandlerContext } from "@/lib/agents/types";
+import { LEARNING_MEMORY_LIMIT, priorLearningLines } from "@/lib/learning-memory";
 
 /**
  * Shared handler infrastructure: business-context assembly with explicit
@@ -14,11 +15,19 @@ import type { HandlerContext } from "@/lib/agents/types";
 export type BusinessContext = Awaited<ReturnType<typeof loadBusinessContext>>;
 
 export async function loadBusinessContext(workspaceId: string) {
-  const [profile, facts] = await Promise.all([
+  const [profile, facts, experiments] = await Promise.all([
     prisma.productProfile.findUnique({ where: { workspaceId } }),
     prisma.profileFact.findMany({ where: { workspaceId }, orderBy: { updatedAt: "desc" }, take: 60 }),
+    // The loop's memory: concluded, interpreted experiments are read at prompt
+    // time so a user-recorded conclusion and an agent-evaluated one are the
+    // same source of truth. No duplicated "learning facts" to drift.
+    prisma.experiment.findMany({
+      where: { workspaceId, status: "complete" },
+      orderBy: [{ decidedAt: "desc" }, { updatedAt: "desc" }],
+      take: LEARNING_MEMORY_LIMIT * 2,
+    }),
   ]);
-  return { profile, facts };
+  return { profile, facts, experiments };
 }
 
 const PROVENANCE_LABEL: Record<string, string> = {
@@ -54,6 +63,14 @@ export function contextBlock(ctx: BusinessContext, goal?: { objective: string; s
     for (const f of ctx.facts.slice(0, 40)) {
       lines.push(`- [${PROVENANCE_LABEL[f.provenance] ?? f.provenance}] ${f.category}/${f.key}: ${f.value.slice(0, 300)}`);
     }
+  }
+  // Prior learning must reach the next plan, not just the results page.
+  const learning = priorLearningLines(ctx.experiments, LEARNING_MEMORY_LIMIT);
+  if (learning.length > 0) {
+    lines.push(
+      "Prior learning from concluded experiments in this workspace (recorded conclusions, not proof — apply them and respect their limits):"
+    );
+    for (const line of learning) lines.push(`- ${line}`);
   }
   if (goal) {
     lines.push(

@@ -44,7 +44,7 @@ These rules are enforced in the code, not just documented:
 | AI | Model router over OpenAI-compatible endpoints + usage ledger + quotas |
 | Publishing | Postiz adapter (HTTP) behind a provider-neutral interface |
 | Capabilities | Provider-independent registry (publishing, creative, research, analytics) |
-| Tests | Vitest (200 unit tests) + 42-check live E2E acceptance script |
+| Tests | Vitest (331 unit tests) + 42-check live E2E acceptance script |
 
 ## Quick start
 
@@ -213,7 +213,7 @@ API: `auth/{login,logout,signup}`, `profile`, `profile/facts` (+`[id]`),
 5. **Approval** — a human approves a specific revision; publishing is refused without it.
 6. **Publish** — via a connected Postiz integration, or recorded manually with a real URL.
 7. **Measure** — tracked links record first-party visits; signups are attributed only when the visitor cookie is present.
-8. **Learn** — experiments draft conclusions from recorded data (and say "not enough data" otherwise).
+8. **Learn** — experiments draft conclusions from recorded data (and say "not enough data" otherwise). Concluded interpretations become prompt context for the next plan, strategy and draft, so the loop compounds instead of resetting.
 
 ## Publishing integration
 
@@ -251,11 +251,11 @@ template that is always labelled — it is never presented as live model output.
 ## Tests
 
 ```bash
-npm test        # 200 unit tests across 16 files: state machines,
+npm test        # 331 unit tests across 26 files: state machines,
                 # orchestration graph, failure recovery, verification,
                 # NL goal parsing, quotas, SSRF guard, body caps, env
                 # guards, capabilities honesty, recommendation evidence,
-                # permissions
+                # learning memory, permissions
 ```
 
 Beyond unit tests, `scripts/e2e-acceptance.sh` drives the full founder
@@ -277,6 +277,10 @@ journey (42 checks) against a live server. See [`docs/TESTING.md`](docs/TESTING.
   API but is **unverified** until exercised with real credentials
   (`FASTLANE_API_KEY`). Brand analysis is not part of Fastlane's API and is
   not claimed.
+- Learning memory is per workspace and reads the recorded interpretation, not
+  statistical significance. An experiment completed without an interpretation
+  is excluded until someone records what it meant; there is no cross-workspace
+  learning.
 - External research / live market data is not wired in: research briefs are
   labelled hypotheses, not collected facts.
 - Object storage, notifications, usage budgets beyond the model

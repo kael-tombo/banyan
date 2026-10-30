@@ -33,6 +33,9 @@ const fullBrief: ChatBriefInput = {
   connections: [{ channel: "x", status: "connected" }, { channel: "linkedin", status: "error" }],
   last14Days: { trackedClicks: 132, visits: 96, signups: 7 },
   topOpenRecommendation: "Test a behind-the-build thread on X",
+  recentLearnings: [
+    "\"Problem-first thread\" | tested: leading with the problem earns more clicks | variable: Opening angle | metric: tracked clicks | conclusion: more clicks, small sample | limits: no control group | next: repeat with a threshold",
+  ],
 };
 
 describe("buildWorkspaceBrief", () => {
@@ -59,6 +62,7 @@ describe("buildWorkspaceBrief", () => {
       connections: [],
       last14Days: { trackedClicks: 0, visits: 0, signups: 0 },
       topOpenRecommendation: null,
+      recentLearnings: [],
     };
     const brief = buildWorkspaceBrief(empty);
     expect(brief).toContain("not completed yet");
@@ -72,6 +76,17 @@ describe("buildWorkspaceBrief", () => {
   it("mentions goals that exist in other states when none is in motion", () => {
     const brief = buildWorkspaceBrief({ ...fullBrief, activeGoal: null, goalsInFlight: 2 });
     expect(brief).toContain("2 goal(s) exist in other states");
+  });
+
+  it("carries concluded learning into the brief and labels its absence honestly", () => {
+    const withLearning = buildWorkspaceBrief(fullBrief);
+    expect(withLearning).toContain("Prior learning from concluded experiments");
+    expect(withLearning).toContain("Problem-first thread");
+    expect(withLearning).toContain("not proof");
+
+    const without = buildWorkspaceBrief({ ...fullBrief, recentLearnings: [] });
+    expect(without).toContain("no concluded experiment with a recorded interpretation yet");
+    expect(without).toContain("no measured learning to reuse");
   });
 });
 
@@ -137,6 +152,12 @@ describe("fallbackChatReply", () => {
   it("points to goal creation when nothing is in motion", () => {
     const reply = fallbackChatReply({ ...fullBrief, activeGoal: null, goalsInFlight: 0 }, "hello");
     expect(reply).toContain("No goal is in motion yet");
+  });
+
+  it("surfaces the latest concluded learning when the model is unavailable", () => {
+    const reply = fallbackChatReply(fullBrief, "What did we learn from the last experiment?");
+    expect(reply).toContain("Latest concluded experiment:");
+    expect(reply).toContain("Problem-first thread");
   });
 });
 

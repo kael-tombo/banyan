@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, guardRate, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { generateContent } from "@/lib/ai/generate";
+import { priorLearningLines } from "@/lib/learning-memory";
 import { isChannel, isFormatFor } from "@/lib/formats";
 import { canTransitionContent } from "@/lib/state-machines";
 import { recordActivity } from "@/lib/activity";
@@ -49,7 +50,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const format = parsed.data.targetFormat ?? item.format;
   if (!isFormatFor(channel, format)) return apiError(`Format "${format}" is not valid for channel "${channel}".`, 400);
 
-  const profile = await prisma.productProfile.findUnique({ where: { workspaceId: ctx.workspace.id } });
+  const [profile, experiments] = await Promise.all([
+    prisma.productProfile.findUnique({ where: { workspaceId: ctx.workspace.id } }),
+    prisma.experiment.findMany({
+      where: { workspaceId: ctx.workspace.id, status: "complete" },
+      orderBy: [{ decidedAt: "desc" }, { updatedAt: "desc" }],
+      take: 8,
+    }),
+  ]);
   if (!profile) return apiError("Complete the workspace profile first.", 409);
 
   const brandVoice = JSON.parse(profile.brandVoice || "{}");
@@ -68,6 +76,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const result = await generateContent({
       channel,
       format,
+      learning: priorLearningLines(experiments, 4),
       campaign: item.campaign
         ? {
             name: item.campaign.name,
