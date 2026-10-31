@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Badge, Button, Card, Textarea } from "@/components/ui";
+import { Button, Card, Textarea } from "@/components/ui";
 import { BanyanMark } from "@/components/BanyanMark";
 import { SendHorizonal, MessageCircle } from "lucide-react";
 
@@ -95,34 +95,24 @@ export default function CommandChat({ initialMessages }: { initialMessages: Chat
   return (
     <Card id="command-chat">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-[15px] font-semibold tracking-[-0.01em] text-charcoal">
+        <h2 className="flex items-center gap-2 text-base font-medium text-charcoal">
           <BanyanMark size={20} className="rounded-sm" /> Ask Banyan
         </h2>
-        <Badge variant="forest">
-          <span className="h-1.5 w-1.5 rounded-full bg-forest" aria-hidden="true" />
-          Grounded in your records
-        </Badge>
+        <p className="text-[13px] text-muted">Reads your records, proposes, never publishes on its own</p>
       </div>
-      <p className="mt-1 max-w-2xl text-[12px] leading-relaxed text-charcoal-soft">
-        The conversation at the center of the workspace. Banyan reads your records and proposes — it cannot publish
-        without your recorded approval, and it never invents numbers.
-      </p>
 
       <div
         ref={listRef}
         role="log"
         aria-live="polite"
         aria-label="Conversation with Banyan"
-        className="app-light-scroll mt-4 flex h-[320px] flex-col gap-3 overflow-y-auto rounded-xl border border-bark/[0.08] bg-ivory/70 p-3"
+        className="app-light-scroll mt-4 flex h-80 flex-col gap-3 overflow-y-auto rounded-lg border border-bark/[0.08] bg-ivory/70 p-4"
       >
         {empty && !busy ? (
-          <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-forest/[0.07] text-forest/80" aria-hidden="true">
-              <MessageCircle size={19} />
-            </span>
-            <p className="max-w-sm text-[12.5px] leading-relaxed text-charcoal-soft">
-              Ask about your goal, your funnel, or what to do next — answers come from your workspace records, not
-              guesses.
+          <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+            <MessageCircle size={20} className="text-muted" aria-hidden="true" />
+            <p className="max-w-sm text-[13px] leading-5 text-charcoal-soft">
+              Ask about your goal, your funnel or what to do next. Answers come from your workspace records.
             </p>
             <div className="flex flex-wrap justify-center gap-2" aria-label="Suggested first questions">
               {SUGGESTIONS.map((s) => (
@@ -130,7 +120,7 @@ export default function CommandChat({ initialMessages }: { initialMessages: Chat
                   key={s}
                   type="button"
                   onClick={() => send(s)}
-                  className="rounded-full border border-bark/15 bg-white px-3 py-1.5 text-[11.5px] text-charcoal shadow-[0_1px_2px_rgba(14,42,33,0.03)] transition-colors hover:border-forest/35 hover:text-forest"
+                  className="h-8 rounded-lg border border-bark/15 bg-white px-3 text-[13px] text-charcoal transition-colors hover:border-bark/30"
                 >
                   {s}
                 </button>
@@ -142,7 +132,7 @@ export default function CommandChat({ initialMessages }: { initialMessages: Chat
             {messages.map((m) =>
               m.role === "user" ? (
                 <div key={m.id} className="flex justify-end">
-                  <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-forest-deep px-3.5 py-2.5 text-[13px] leading-relaxed text-ivory sm:max-w-[75%]">
+                  <div className="max-w-[85%] whitespace-pre-wrap rounded-xl rounded-br-sm bg-forest-deep px-3 py-2 text-sm leading-relaxed text-ivory sm:max-w-[75%]">
                     {m.content}
                   </div>
                 </div>
@@ -150,12 +140,12 @@ export default function CommandChat({ initialMessages }: { initialMessages: Chat
                 <div key={m.id} className="flex items-start gap-2">
                   <BanyanMark size={22} className="mt-0.5 shrink-0 rounded-sm" />
                   <div className="min-w-0 max-w-[85%] sm:max-w-[75%]">
-                    <div className="whitespace-pre-wrap rounded-2xl rounded-bl-md border border-bark/10 bg-white px-3.5 py-2.5 text-[13px] leading-relaxed text-charcoal shadow-[0_1px_2px_rgba(14,42,33,0.03)]">
+                    <div className="whitespace-pre-wrap rounded-xl rounded-bl-sm border border-bark/10 bg-white px-3 py-2 text-sm leading-relaxed text-charcoal">
                       {m.content}
                     </div>
-                    <p className="mt-1 text-[11px] text-charcoal-soft/80">
+                    <p className="mt-1 font-mono text-xs text-muted">
                       {m.isFallback
-                        ? `${m.modelLabel ?? "Template fallback"} — not generated copy.`
+                        ? `${m.modelLabel ?? "Template fallback"} · not generated copy`
                         : m.modelLabel ?? "Assistant reply"}
                     </p>
                   </div>
@@ -165,8 +155,8 @@ export default function CommandChat({ initialMessages }: { initialMessages: Chat
             {busy && (
               <div className="flex items-start gap-2" aria-hidden="true">
                 <BanyanMark size={22} className="mt-0.5 shrink-0 rounded-sm opacity-60" />
-                <div className="rounded-2xl rounded-bl-md border border-bark/10 bg-white px-3.5 py-2.5 text-[13px] text-charcoal-soft">
-                  <span className="animate-pulse">Reading your records…</span>
+                <div className="rounded-xl rounded-bl-sm border border-bark/10 bg-white px-3 py-2 text-sm text-muted">
+                  <span>Reading your records…</span>
                 </div>
               </div>
             )}
@@ -175,7 +165,7 @@ export default function CommandChat({ initialMessages }: { initialMessages: Chat
       </div>
 
       {error && (
-        <p role="alert" className="mt-2 rounded-lg bg-clay/[0.06] px-3 py-2 text-[12px] text-clay">
+        <p role="alert" className="mt-2 rounded-lg bg-clay/[0.06] px-3 py-2 text-[13px] text-clay">
           {error}
         </p>
       )}
@@ -188,7 +178,7 @@ export default function CommandChat({ initialMessages }: { initialMessages: Chat
           id="chat-input"
           rows={2}
           maxLength={MAX_LEN}
-          placeholder="Ask about your goal, funnel, or next move — e.g. “What should I do after today’s signups?”"
+          placeholder="Ask about your goal, funnel or next move"
           value={input}
           disabled={busy}
           onChange={(e) => setInput(e.target.value)}
@@ -201,11 +191,14 @@ export default function CommandChat({ initialMessages }: { initialMessages: Chat
           className="resize-none"
         />
         <div className="mt-2 flex items-center justify-between gap-3">
-          <p className="text-[11px] text-charcoal-soft">
-            Enter sends · Shift+Enter for a new line · {input.length}/{MAX_LEN}
+          <p className="text-xs text-muted">
+            <kbd className="font-mono">Enter</kbd> sends · <kbd className="font-mono">Shift Enter</kbd> new line ·{" "}
+            <span className="num font-mono">
+              {input.length.toLocaleString()}/{MAX_LEN.toLocaleString()}
+            </span>
           </p>
           <Button onClick={() => void send(input)} disabled={busy || input.trim().length === 0} size="sm">
-            <SendHorizonal size={14} aria-hidden="true" /> {busy ? "Thinking…" : "Send"}
+            <SendHorizonal size={16} aria-hidden="true" /> {busy ? "Thinking…" : "Send"}
           </Button>
         </div>
       </div>
