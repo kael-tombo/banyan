@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SiteNav } from "@/components/SiteNav";
 import { Reveal } from "@/components/Reveal";
-import { WorkspaceMockup } from "@/components/landing/WorkspaceMockup";
+import { CycleWalkthrough } from "@/components/landing/CycleWalkthrough";
+import { CycleRecord } from "@/components/landing/CycleRecord";
 import { BuildPlanForm } from "@/components/landing/BuildPlanForm";
 import { BanyanMark } from "@/components/BanyanMark";
 import { DistributionLandscape } from "@/components/landing/landscape/DistributionLandscape";
@@ -10,23 +11,12 @@ import { FragmentedDistribution } from "@/components/landing/landscape/Fragmente
 import { ArrowDown, ArrowRight, BarChart3, CheckCircle2, PenLine, Plug, ShieldCheck } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: { absolute: "Banyan.ai — Build your product. Banyan orchestrates its distribution." },
+  title: { absolute: "Banyan.ai — The autonomous, agentic distribution operating system" },
   description:
-    "From strategy and content to coordinated distribution, Banyan turns what you build into a system designed to reach the people who need it. You approve everything that goes out, and results are measured in clicks and signups.",
+    "Banyan is an autonomous, agentic distribution operating system. Its agents run a complete distribution cycle for your product end to end: research, strategy, content, publishing and measurement. You approve everything that goes out, and results are measured in clicks and signups.",
 };
 
 const SIGNUP = "/signup?next=%2Fapp%2Fcycles%2Fnew";
-
-/** The cycle, step by step. Every step exists in the product today. */
-const workflow: { title: string; body: string; you?: boolean }[] = [
-  { title: "Product URL or idea", body: "Paste a public page. Banyan reads it and you correct what it got wrong.", you: true },
-  { title: "Product and audience research", body: "The research agent gathers citable evidence about the product, the audience and the alternatives." },
-  { title: "Distribution strategy", body: "One objective, one metric, and the channel, angle and message to test first." },
-  { title: "Your approval", body: "Nothing moves past this point without a recorded human decision. Editing approved copy resets it.", you: true },
-  { title: "Content production and adaptation", body: "An X thread, a LinkedIn post and a short-video script, each written for its format." },
-  { title: "Coordinated publishing", body: "Approved posts publish through your Postiz connection. A missing connection is blocked, never faked." },
-  { title: "Performance feedback", body: "Tracked links record visits and signups, and the next move is proposed from that evidence." },
-];
 
 const problems = [
   {
@@ -46,25 +36,11 @@ const problems = [
   },
 ];
 
+/** What every cycle leaves behind, whatever its verdict. */
 const outcomes = [
-  {
-    icon: PenLine,
-    title: "Three assets, ready to approve",
-    body: "A LinkedIn post, an X thread, and a short-video script, each built for its format rather than one post copied three times.",
-    proof: "3 formats",
-  },
-  {
-    icon: Plug,
-    title: "Two live publications, or an honest block",
-    body: "X and LinkedIn publish through your Postiz connection. The provider's response is recorded; a missing connection is blocked with guidance, never faked.",
-    proof: "X and LinkedIn",
-  },
-  {
-    icon: BarChart3,
-    title: "A measured result and the next move",
-    body: "First-party tracked visits and attributed signups, with the limitation stated. The cycle ends with a recommendation, or an explicit not-enough-data.",
-    proof: "First-party",
-  },
+  { icon: PenLine, title: "Three approved assets", body: "Each written for its format, and kept for the next cycle to build on." },
+  { icon: Plug, title: "Confirmed publications, or an honest block", body: "The provider's response is recorded. A missing connection is blocked, never faked." },
+  { icon: BarChart3, title: "A verdict and the next move", body: "Measured in first-party visits and signups, or reported as not enough data." },
 ];
 
 const boundaries = [
@@ -111,6 +87,7 @@ export default function LandingPage() {
           />
 
           <div className="relative mx-auto w-full max-w-6xl px-4 pb-[6vh] text-center">
+            <p className="mb-5 text-sm font-medium text-forest sm:text-[15px]">The autonomous, agentic distribution operating system</p>
             <h1 className="mx-auto max-w-[15ch] text-[2.5rem] font-medium leading-[1.06] tracking-[-0.03em] text-forest-deep sm:max-w-none sm:text-[3rem] lg:text-[3.5rem]">
               <span className="block">Build your product.</span>
               <span className="block">Banyan orchestrates its distribution.</span>
@@ -183,88 +160,68 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ————— The solution: one coordinated cycle. ————— */}
+        {/* ————— How it works: one cycle, stage by stage. ————— */}
         <section id="how-it-works" className="border-y border-[#EEF0F2] bg-[#F7F8F8] py-20 md:py-28">
           <div className="mx-auto max-w-6xl px-4">
-            <div className="max-w-2xl">
-              <Reveal as="p"><Eyebrow>How it works</Eyebrow></Reveal>
-              <Reveal as="h2" delay={80} className="mt-3 text-3xl font-medium tracking-[-0.025em] text-forest-deep md:text-[2.5rem] md:leading-[1.1]">
-                Two decisions are yours. Banyan coordinates the rest
-              </Reveal>
-              <Reveal as="p" delay={140} className="mt-4 text-base leading-relaxed text-charcoal-soft md:text-lg">
-                The scattered week above becomes one cycle with a shared plan: one product, one objective, assets
-                written for each channel, and a result you can trace back to a link.
+            <div className="grid gap-6 lg:grid-cols-[1fr_0.85fr] lg:items-end lg:gap-12">
+              <div>
+                <Reveal as="p"><Eyebrow>How it works</Eyebrow></Reveal>
+                <Reveal as="h2" delay={80} className="mt-3 max-w-2xl text-3xl font-medium tracking-[-0.025em] text-forest-deep md:text-[2.5rem] md:leading-[1.1]">
+                  Seven stages, two of them yours
+                </Reveal>
+              </div>
+              <Reveal as="p" delay={140} className="text-base leading-relaxed text-charcoal-soft md:text-lg">
+                The scattered week above becomes one cycle with a shared plan. You bring the product and make the
+                call; Banyan's autonomous agents run the research, the strategy, the writing, the publishing
+                and the measurement in between, and stop at the gates that are yours.
               </Reveal>
             </div>
 
-            <div className="mt-12 grid items-start gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-16">
-              <ol className="relative">
-                {/* The trunk: one line through every step. */}
-                <span aria-hidden="true" className="absolute bottom-6 left-[15px] top-6 w-px bg-forest/20" />
-                {workflow.map((step, i) => (
-                  <Reveal as="li" key={step.title} delay={i * 50} className="relative flex gap-5 pb-8 last:pb-0">
-                    <span
-                      className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-[13px] font-medium num ${
-                        step.you
-                          ? "border-fig/40 bg-white text-fig-deep"
-                          : "border-forest/20 bg-white text-forest"
-                      }`}
-                    >
-                      {i + 1}
-                    </span>
-                    <div className="pt-1">
-                      <h3 className="flex flex-wrap items-center gap-2 text-base font-medium text-forest-deep">
-                        {step.title}
-                        {step.you && (
-                          <span className="inline-flex items-center gap-1.5 text-[13px] font-normal text-fig-deep">
-                            <span className="h-1.5 w-1.5 rounded-full bg-fig" aria-hidden="true" /> You decide
-                          </span>
-                        )}
-                      </h3>
-                      <p className="mt-1 text-sm leading-relaxed text-charcoal-soft">{step.body}</p>
-                    </div>
-                  </Reveal>
-                ))}
-              </ol>
-
-              <Reveal delay={120} className="lg:sticky lg:top-24">
-                <WorkspaceMockup />
-              </Reveal>
-            </div>
+            <Reveal delay={120} className="mt-12">
+              <CycleWalkthrough />
+            </Reveal>
           </div>
         </section>
 
-        {/* ————— The result: what is left when the cycle finishes. ————— */}
+        {/* ————— The result: cycles that build on each other. ————— */}
         <section id="result" className="bg-white py-20 md:py-28">
           <div className="mx-auto max-w-6xl px-4">
-            <div className="max-w-2xl">
-              <Reveal as="p"><Eyebrow>The result</Eyebrow></Reveal>
-              <Reveal as="h2" delay={80} className="mt-3 text-3xl font-medium tracking-[-0.025em] text-forest-deep md:text-[2.5rem] md:leading-[1.1]">
-                A repeatable cycle, not a lucky post
-              </Reveal>
-              <Reveal as="p" delay={140} className="mt-4 text-base leading-relaxed text-charcoal-soft md:text-lg">
-                Every cycle leaves the same three things. They are the proof that the work moved, not the volume of
-                content it produced.
-              </Reveal>
-            </div>
-
-            <div className="mt-12 grid gap-4 md:grid-cols-3">
-              {outcomes.map((outcome, i) => (
-                <Reveal key={outcome.title} delay={i * 60}>
-                  <article className="flex h-full flex-col rounded-2xl border border-[#E6E8EA] bg-white p-6 shadow-[0_1px_2px_rgba(17,24,39,0.04)]">
-                    <div className="flex items-center justify-between gap-3">
-                      <outcome.icon size={20} className="text-forest" aria-hidden="true" />
-                      <span className="font-mono text-xs text-muted">{outcome.proof}</span>
-                    </div>
-                    <h3 className="mt-6 text-lg font-medium text-forest-deep">{outcome.title}</h3>
-                    <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">{outcome.body}</p>
-                  </article>
+            <div className="grid gap-6 lg:grid-cols-[1fr_0.85fr] lg:items-end lg:gap-12">
+              <div>
+                <Reveal as="p"><Eyebrow>The result</Eyebrow></Reveal>
+                <Reveal as="h2" delay={80} className="mt-3 max-w-2xl text-3xl font-medium tracking-[-0.025em] text-forest-deep md:text-[2.5rem] md:leading-[1.1]">
+                  A repeatable cycle, not a lucky post
                 </Reveal>
-              ))}
+              </div>
+              <Reveal as="p" delay={140} className="text-base leading-relaxed text-charcoal-soft md:text-lg">
+                One post can get lucky. A cycle ends with a verdict, even when the verdict is &ldquo;not enough
+                data&rdquo;, and whatever it learned becomes the starting point of the next one.
+              </Reveal>
             </div>
 
-            <p className="mt-6 text-[13px] text-muted">
-              The sample cycle above and the posts in the landscape are illustrative. The live app starts from empty
+            <div className="mt-12 grid items-start gap-10 lg:grid-cols-[minmax(0,0.42fr)_minmax(0,1fr)] lg:gap-12">
+              <div className="lg:sticky lg:top-24">
+                <p className="text-[13px] text-muted">Every cycle leaves</p>
+                <ul className="mt-4 divide-y divide-[#EEF0F2] border-y border-[#EEF0F2]">
+                  {outcomes.map((outcome) => (
+                    <li key={outcome.title} className="flex gap-4 py-5">
+                      <outcome.icon size={20} className="mt-0.5 shrink-0 text-forest" aria-hidden="true" />
+                      <div>
+                        <h3 className="text-base font-medium text-forest-deep">{outcome.title}</h3>
+                        <p className="mt-1 text-sm leading-relaxed text-charcoal-soft">{outcome.body}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <Reveal delay={120}>
+                <CycleRecord />
+              </Reveal>
+            </div>
+
+            <p className="mt-8 text-[13px] text-muted">
+              Ledgerline and every post in the landscape are fictional and illustrative. The live app starts from empty
               states and shows only recorded numbers.
             </p>
           </div>
@@ -336,7 +293,7 @@ export default function LandingPage() {
               </span>
             </span>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-charcoal-soft">
-              The product distribution OS for founders. You build it, Banyan gets it out.
+              The autonomous, agentic distribution operating system for founders. You build it, Banyan&apos;s agents get it out.
             </p>
           </div>
 
