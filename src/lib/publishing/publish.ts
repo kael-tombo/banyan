@@ -6,6 +6,8 @@ import { postizAdapter } from "@/lib/publishing/postiz";
 import { shouldRetryPublication, nextRetryDelayMs } from "@/lib/publishing/retry";
 import { recordActivity } from "@/lib/activity";
 import { randomSlug } from "@/lib/crypto";
+import { claimDecision } from "@/lib/publishing/claim";
+import { enqueuePublicationAttempt } from "@/lib/queue/jobs";
 
 export const adapters: Record<string, PublishingAdapter> = {
   postiz: postizAdapter,
@@ -88,6 +90,7 @@ export async function attemptPublication(input: {
       summary: `Content scheduled for ${input.scheduledFor.toISOString()} (pending publishing worker).`,
       meta: { contentItemId: item.id, publicationId: publication.id },
     });
+    await enqueuePublicationAttempt(publication.id, input.scheduledFor);
     return { ok: true, status: "scheduled", message: "Scheduled. The publishing worker will attempt delivery at the scheduled time.", publicationId: publication.id };
   }
 
@@ -102,8 +105,15 @@ export async function executePublication(publicationId: string): Promise<{ ok: b
     where: { id: publicationId },
     include: { contentItem: true, connection: true },
   });
-  if (!publication || publication.status === "published") {
+  if (!publication) {
     return { ok: false, status: "skipped", message: "Publication already finalized or missing." };
+  }
+  // Only a scheduled publication that is due, or one created for an immediate
+  // attempt, may be executed. A queued job for a publication that was since
+  // cancelled, published, or rescheduled later is a no-op.
+  const decision = claimDecision(publication);
+  if (!decision.claimable) {
+    return { ok: false, status: "skipped", message: decision.reason };
   }
 
   const item = publication.contentItem;
@@ -116,7 +126,15 @@ export async function executePublication(publicationId: string): Promise<{ ok: b
     return { ok: false, status: "blocked", message: "Content lost approval before the attempt; publishing refused." };
   }
 
-  await prisma.publication.update({ where: { id: publication.id }, data: { attempts: { increment: 1 }, status: "attempting" } });
+  // Atomic claim: the conditional update succeeds for exactly one caller, so a
+  // queue job and the safety sweep can never both deliver the same post.
+  const claimed = await prisma.publication.updateMany({
+    where: { id: publication.id, status: publication.status, attempts: publication.attempts },
+    data: { attempts: { increment: 1 }, status: "attempting" },
+  });
+  if (claimed.count === 0) {
+    return { ok: false, status: "skipped", message: "Another worker is already attempting this publication." };
+  }
   await recordActivity({ workspaceId: item.workspaceId, type: "publication_attempt", actorType: "system", summary: `Publishing attempt for "${item.title}" via ${publication.provider}.` });
 
   if (!publication.connection) {
@@ -162,6 +180,7 @@ export async function executePublication(publicationId: string): Promise<{ ok: b
         data: { status: "scheduled", scheduledFor: retryAt, lastError: errorMessage },
       });
       await prisma.contentItem.update({ where: { id: item.id }, data: { status: "scheduled", scheduledFor: retryAt } });
+      await enqueuePublicationAttempt(publication.id, retryAt);
       await recordActivity({
         workspaceId: item.workspaceId,
         type: "publication_retry_scheduled",
