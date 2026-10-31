@@ -42,6 +42,21 @@ function isActiveRoute(pathname: string, href: string): boolean {
   return href === "/app" ? pathname === "/app" : pathname === href || pathname.startsWith(`${href}/`);
 }
 
+/** The signature: a fig dot appears only where something waits on a human. */
+function FigDot({ onDark = false }: { onDark?: boolean }) {
+  return (
+    <span
+      className={`h-1.5 w-1.5 shrink-0 rounded-full ${onDark ? "bg-fig-light" : "bg-fig"}`}
+      aria-hidden="true"
+    />
+  );
+}
+
+const RAIL_ROW =
+  "group flex h-8 items-center gap-2.5 rounded-lg px-2 text-sm transition-colors duration-150";
+const RAIL_ROW_ACTIVE = "bg-white/[0.08] text-ivory shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]";
+const RAIL_ROW_IDLE = "text-rail-ink hover:bg-white/[0.05] hover:text-ivory";
+
 function NavRow({
   item,
   pathname,
@@ -54,34 +69,25 @@ function NavRow({
   onNavigate?: () => void;
 }) {
   const active = isActiveRoute(pathname, item.href);
-  const showBadge = item.href === "/app/approvals" && attention > 0;
+  const showCount = item.href === "/app/approvals" && attention > 0;
   const Icon = item.icon;
   return (
     <Link
       href={item.href}
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
-      className={`group flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[13px] transition-colors duration-150 ${
-        active
-          ? "bg-ivory font-medium text-forest-deep shadow-[0_1px_2px_rgba(0,0,0,0.18)]"
-          : "text-sage/75 hover:bg-white/[0.06] hover:text-ivory"
-      }`}
+      className={`${RAIL_ROW} ${active ? RAIL_ROW_ACTIVE : RAIL_ROW_IDLE}`}
     >
       <Icon
-        size={15}
-        strokeWidth={active ? 2.1 : 1.75}
-        className={active ? "shrink-0 text-forest" : "shrink-0 text-sage/55 transition-colors group-hover:text-sage"}
+        size={16}
+        className={`shrink-0 transition-colors ${active ? "text-ivory" : "text-rail-muted group-hover:text-rail-ink"}`}
         aria-hidden="true"
       />
       <span className="truncate">{item.label}</span>
-      {showBadge && (
-        <span
-          className={`ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none ${
-            active ? "bg-fig/20 text-fig-deep" : "bg-fig/25 text-[#EBCB8C]"
-          }`}
-          aria-label={`${attention} waiting`}
-        >
-          {attention}
+      {showCount && (
+        <span className="ml-auto flex items-center gap-1.5" aria-label={`${attention} waiting on you`}>
+          <FigDot onDark />
+          <span className="num font-mono text-xs text-rail-ink">{attention}</span>
         </span>
       )}
     </Link>
@@ -102,6 +108,11 @@ export function AppShell({
   const [menuOpen, setMenuOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [closedGroups, setClosedGroups] = useState<Record<string, boolean>>({});
+  // Show the shortcut the viewer's keyboard actually has.
+  const [shortcut, setShortcut] = useState("Ctrl K");
+  useEffect(() => {
+    if (/Mac|iPhone|iPad/.test(navigator.platform)) setShortcut("⌘K");
+  }, []);
 
   const active = findActiveDestination(pathname);
   const initials = initialsOf(user.name || user.email);
@@ -165,82 +176,51 @@ export function AppShell({
 
       {/* ————— Desktop canopy rail ————— */}
       <aside
-        className="canopy fixed inset-y-0 left-0 z-40 hidden w-[264px] flex-col px-3 pb-3 pt-5 text-ivory md:flex"
+        className="canopy fixed inset-y-0 left-0 z-40 hidden w-[264px] flex-col border-r border-white/[0.06] px-3 pb-3 pt-4 text-ivory md:flex"
         aria-label="Main navigation"
       >
-        <div className="shrink-0 px-1">
-          <Link href="/app" className="flex items-center gap-2.5" aria-label="Banyan.ai command center">
-            <BanyanMark size={26} variant="white" />
-            <span className="font-serif text-[17px] tracking-[-0.01em] text-ivory">
-              Banyan<span className="text-[#D6A854]">.ai</span>
-            </span>
-            <span className="ml-auto rounded-full border border-white/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-[0.12em] text-sage/45">
-              OS
+        <div className="shrink-0">
+          <Link href="/app" className="flex h-8 items-center gap-2.5 px-2" aria-label="Banyan.ai command center">
+            <BanyanMark size={24} variant="white" />
+            <span className="font-serif text-[17px] leading-none text-ivory">
+              Banyan<span className="text-rail-muted">.ai</span>
             </span>
           </Link>
 
-          <Link
+          <WorkspaceCard
+            product={product}
+            workspace={workspace}
+            goal={goal}
+            productInitial={productInitial}
+            className="mt-4"
             href="/app/workspace"
-            className="mt-4 block rounded-xl border border-white/[0.08] bg-white/[0.045] p-3 transition-colors hover:border-white/15 hover:bg-white/[0.06]"
-            aria-label="Open workspace profile"
-          >
-            <div className="flex items-center gap-2.5">
-              <span
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#7BE7A5]/15 text-[11px] font-semibold text-[#9FE8BE]"
-                aria-hidden="true"
-              >
-                {productInitial}
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-[13px] font-medium text-ivory">
-                  {product || "No product yet"}
-                </span>
-                <span className="block truncate text-[10.5px] text-sage/55">
-                  {workspace.name}
-                  {workspace.isSelf ? " · self-distribution" : ""}
-                </span>
-              </span>
-            </div>
-            {goal && (
-              <span className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-[#D6A854]/20 bg-[#D6A854]/10 px-2 py-0.5 text-[10px] font-medium text-[#E3BE79]">
-                <span className="h-1 w-1 rounded-full bg-[#D6A854]" aria-hidden="true" />
-                {goal.replace(/_/g, " ")} goal
-              </span>
-            )}
-          </Link>
+          />
         </div>
 
-        <nav className="app-scroll mt-3 min-h-0 flex-1 overflow-y-auto pr-1" aria-label="Sections">
+        <nav className="app-scroll mt-2 min-h-0 flex-1 overflow-y-auto pr-1" aria-label="Sections">
           {NAV_GROUPS.map((group) => {
             const open = !closedGroups[group.label];
             const groupHasAttention = group.items.some((i) => i.href === "/app/approvals") && attention.approvals > 0;
             return (
-              <div key={group.label} className="mb-1.5">
+              <div key={group.label} className="mt-4">
                 <button
                   type="button"
                   onClick={() => toggleGroup(group.label)}
                   aria-expanded={open}
-                  className="flex w-full items-center gap-1.5 rounded-md px-2 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-sage/40 transition-colors hover:text-sage/70"
+                  className="mb-1 flex h-6 w-full items-center gap-2 rounded-md px-2 text-xs font-medium text-rail-muted transition-colors hover:text-rail-ink"
                 >
                   {group.label}
-                  {groupHasAttention && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#D6A854]" aria-label="Something is waiting on you" />
-                  )}
+                  {groupHasAttention && !open && <FigDot onDark />}
                   <ChevronDown
-                    size={12}
-                    className={`ml-auto transition-transform ${open ? "" : "-rotate-90"}`}
+                    size={14}
+                    className={`ml-auto transition-transform duration-150 ${open ? "" : "-rotate-90"}`}
                     aria-hidden="true"
                   />
                 </button>
                 {open && (
                   <div className="flex flex-col gap-0.5">
                     {group.items.map((item) => (
-                      <NavRow
-                        key={item.href}
-                        item={item}
-                        pathname={pathname}
-                        attention={attention.approvals}
-                      />
+                      <NavRow key={item.href} item={item} pathname={pathname} attention={attention.approvals} />
                     ))}
                   </div>
                 )}
@@ -249,31 +229,19 @@ export function AppShell({
           })}
         </nav>
 
-        <div className="mt-auto shrink-0 border-t border-white/[0.08] pt-2">
-          {workspace.isSelf && (
-            <Link
-              href="/app/growth"
-              aria-current={isActiveRoute(pathname, "/app/growth") ? "page" : undefined}
-              className={`mb-0.5 flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[12.5px] font-medium transition-colors ${
-                isActiveRoute(pathname, "/app/growth")
-                  ? "bg-ivory text-forest-deep"
-                  : "text-[#E3BE79] hover:bg-[#D6A854]/10"
-              }`}
-            >
-              <Sprout size={15} aria-hidden="true" /> Growth: distributing itself
-            </Link>
-          )}
+        <div className="mt-auto flex shrink-0 flex-col gap-0.5 border-t border-white/[0.08] pt-2">
+          {workspace.isSelf && <GrowthRow pathname={pathname} />}
           <NavRow item={SETTINGS_ITEM} pathname={pathname} attention={attention.approvals} />
-          <div className="mt-2 flex items-center gap-2.5 rounded-xl border border-white/[0.07] bg-white/[0.03] px-2 py-2">
+          <div className="mt-1 flex h-12 items-center gap-2.5 px-2">
             <span
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-[10.5px] font-semibold text-ivory"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-medium text-ivory"
               aria-hidden="true"
             >
               {initials}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[12px] font-medium text-ivory">{user.name || "Signed in"}</span>
-              <span className="block truncate text-[10.5px] text-sage/50" title={user.email}>
+              <span className="block truncate text-[13px] font-medium leading-5 text-ivory">{user.name || "Signed in"}</span>
+              <span className="block truncate text-xs leading-4 text-rail-muted" title={user.email}>
                 {user.email}
               </span>
             </span>
@@ -282,9 +250,9 @@ export function AppShell({
               onClick={logout}
               aria-label="Log out"
               title="Log out"
-              className="rounded-md p-1.5 text-sage/55 transition-colors hover:bg-white/10 hover:text-ivory"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-rail-muted transition-colors hover:bg-white/[0.08] hover:text-ivory"
             >
-              <LogOut size={14} aria-hidden="true" />
+              <LogOut size={16} aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -292,26 +260,26 @@ export function AppShell({
 
       {/* ————— Working surface ————— */}
       <div className="md:pl-[264px]">
-        <header className="sticky top-0 z-30 border-b border-bark/10 bg-ivory/80 backdrop-blur-xl">
-          <div className="mx-auto flex h-14 w-full max-w-[1240px] items-center gap-2 px-3 sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-30 border-b border-bark/10 bg-ivory">
+          <div className="mx-auto flex h-14 w-full max-w-[1440px] items-center gap-2 px-4 sm:px-6 lg:px-8">
             <button
               type="button"
               onClick={() => setMenuOpen(true)}
               aria-expanded={menuOpen}
               aria-controls="mobile-nav"
               aria-label="Open navigation"
-              className="flex h-9 w-9 items-center justify-center rounded-lg border border-bark/12 bg-white/60 text-charcoal-soft transition-colors hover:border-forest/30 hover:text-forest md:hidden"
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-bark/15 bg-white text-charcoal-soft transition-colors hover:text-charcoal md:hidden"
             >
-              <Menu size={17} aria-hidden="true" />
+              <Menu size={16} aria-hidden="true" />
             </button>
 
-            <Link href="/app" className="flex items-center gap-1.5 md:hidden" aria-label="Banyan.ai dashboard">
-              <BanyanMark size={20} />
+            <Link href="/app" className="flex items-center md:hidden" aria-label="Banyan.ai dashboard">
+              <BanyanMark size={24} />
             </Link>
 
-            <nav aria-label="Breadcrumb" className="hidden items-center gap-2 text-[12px] md:flex">
-              <span className="text-charcoal-soft/65">{active?.group ?? "Workspace"}</span>
-              <ChevronRight size={11} className="text-charcoal-soft/35" aria-hidden="true" />
+            <nav aria-label="Breadcrumb" className="hidden items-center gap-2 text-[13px] md:flex">
+              <span className="text-muted">{active?.group ?? "Workspace"}</span>
+              <ChevronRight size={14} className="text-muted" aria-hidden="true" />
               <span className="font-medium text-charcoal">{active?.label ?? "Dashboard"}</span>
             </nav>
 
@@ -319,26 +287,24 @@ export function AppShell({
               {attention.approvals > 0 && (
                 <Link
                   href="/app/approvals"
-                  className="hidden h-8 items-center gap-1.5 rounded-full border border-fig/25 bg-fig/[0.08] px-3 text-[11.5px] font-medium text-fig-deep transition-colors hover:bg-fig/[0.14] sm:inline-flex"
+                  className="hidden h-8 items-center gap-2 rounded-lg px-2 text-[13px] text-charcoal transition-colors hover:bg-bark/[0.06] sm:inline-flex"
                 >
-                  <span className="relative flex h-1.5 w-1.5" aria-hidden="true">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-fig opacity-60 motion-reduce:hidden" />
-                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-fig" />
-                  </span>
-                  {attention.approvals} waiting on you
+                  <FigDot />
+                  <span className="num">{attention.approvals}</span>
+                  <span className="text-charcoal-soft">waiting on you</span>
                 </Link>
               )}
 
               <button
                 type="button"
                 onClick={() => setPaletteOpen(true)}
-                className="hidden h-8 w-[210px] items-center gap-2 rounded-lg border border-bark/15 bg-white/75 px-2.5 text-left text-[12px] text-charcoal-soft shadow-[0_1px_2px_rgba(14,42,33,0.03)] transition-colors hover:border-forest/30 hover:bg-white sm:flex"
+                className="hidden h-8 w-56 items-center gap-2 rounded-lg border border-bark/15 bg-white px-2.5 text-left text-[13px] text-muted transition-colors hover:border-bark/25 sm:flex"
                 aria-label="Open command palette"
               >
-                <Search size={13} className="shrink-0 text-charcoal-soft/70" aria-hidden="true" />
-                <span className="flex-1 truncate">Jump to…</span>
-                <kbd className="rounded border border-bark/15 bg-ivory px-1 py-0.5 font-mono text-[9.5px] leading-none text-charcoal-soft/70">
-                  ⌘K
+                <Search size={16} className="shrink-0" aria-hidden="true" />
+                <span className="flex-1 truncate">Search</span>
+                <kbd className="flex h-5 items-center rounded border border-bark/15 bg-ivory px-1.5 font-mono text-[11px] leading-none text-muted">
+                  {shortcut}
                 </kbd>
               </button>
 
@@ -346,7 +312,7 @@ export function AppShell({
                 type="button"
                 onClick={() => setPaletteOpen(true)}
                 aria-label="Search pages and actions"
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-bark/12 bg-white/60 text-charcoal-soft sm:hidden"
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-bark/15 bg-white text-charcoal-soft sm:hidden"
               >
                 <Search size={16} aria-hidden="true" />
               </button>
@@ -355,26 +321,26 @@ export function AppShell({
         </header>
 
         {!onboardingComplete && (
-          <div className="border-b border-fig/15 bg-fig/[0.055]">
-            <div className="mx-auto flex w-full max-w-[1240px] flex-wrap items-center gap-x-2.5 gap-y-1.5 px-4 py-2.5 sm:px-6 lg:px-8">
-              <Sprout size={14} className="shrink-0 text-fig-deep" aria-hidden="true" />
-              <p className="text-[12.5px] leading-relaxed text-charcoal">
-                <span className="font-medium">Finish setup when you&apos;re ready.</span>{" "}
+          <div className="border-b border-bark/10 bg-white">
+            <div className="mx-auto flex w-full max-w-[1440px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
+              <Sprout size={16} className="shrink-0 text-muted" aria-hidden="true" />
+              <p className="text-[13px] leading-5 text-charcoal">
+                <span className="font-medium">Finish setup when you&apos;re ready</span>{" "}
                 <span className="text-charcoal-soft">
-                  Add your product, audience and goal so drafts are grounded in real context — every page works meanwhile.
+                  Add your product, audience and goal so drafts are grounded in real context. Every page works meanwhile.
                 </span>
               </p>
               <Link
                 href="/onboarding"
-                className="ml-auto shrink-0 text-[12px] font-semibold text-fig-deep underline-offset-4 hover:underline"
+                className="ml-auto shrink-0 text-[13px] font-medium text-forest underline-offset-4 hover:underline"
               >
-                Finish setup →
+                Finish setup
               </Link>
             </div>
           </div>
         )}
 
-        <main id="main" className="mx-auto w-full max-w-[1240px] px-4 py-7 sm:px-6 lg:px-8 lg:py-9">
+        <main id="main" className="mx-auto w-full max-w-[1440px] px-4 py-8 sm:px-6 lg:px-8">
           {children}
         </main>
       </div>
@@ -386,20 +352,20 @@ export function AppShell({
             type="button"
             aria-label="Close navigation"
             onClick={() => setMenuOpen(false)}
-            className="absolute inset-0 bg-forest-deep/55 backdrop-blur-[2px]"
+            className="absolute inset-0 bg-charcoal/40"
           />
           <aside
             id="mobile-nav"
             role="dialog"
             aria-modal="true"
             aria-label="Main navigation"
-            className="canopy absolute inset-y-0 left-0 flex w-[88%] max-w-[324px] flex-col overflow-y-auto px-3 pb-4 pt-4 text-ivory shadow-[0_0_80px_rgba(0,0,0,0.45)]"
+            className="canopy absolute inset-y-0 left-0 flex w-[88%] max-w-[320px] flex-col overflow-y-auto px-3 pb-4 pt-4 text-ivory"
           >
-            <div className="flex items-center gap-2.5 px-1">
+            <div className="flex items-center gap-2.5 px-2">
               <Link href="/app" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5">
                 <BanyanMark size={24} variant="white" />
-                <span className="font-serif text-base text-ivory">
-                  Banyan<span className="text-[#D6A854]">.ai</span>
+                <span className="font-serif text-[17px] leading-none text-ivory">
+                  Banyan<span className="text-rail-muted">.ai</span>
                 </span>
               </Link>
               <button
@@ -407,27 +373,24 @@ export function AppShell({
                 onClick={() => setMenuOpen(false)}
                 data-drawer-close
                 aria-label="Close navigation"
-                className="ml-auto rounded-lg p-1.5 text-sage/70 hover:bg-white/10 hover:text-ivory"
+                className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-rail-ink hover:bg-white/[0.08] hover:text-ivory"
               >
-                <X size={17} aria-hidden="true" />
+                <X size={16} aria-hidden="true" />
               </button>
             </div>
 
-            <div className="mt-4 rounded-xl border border-white/[0.08] bg-white/[0.04] p-3">
-              <p className="truncate text-[13px] font-medium text-ivory">{product || "No product yet"}</p>
-              <p className="truncate text-[10.5px] text-sage/55">
-                {workspace.name}
-                {workspace.isSelf ? " · self-distribution" : ""}
-              </p>
-              {goal && <p className="mt-1 text-[10.5px] text-[#E3BE79]">{goal.replace(/_/g, " ")} goal</p>}
-            </div>
+            <WorkspaceCard
+              product={product}
+              workspace={workspace}
+              goal={goal}
+              productInitial={productInitial}
+              className="mt-4"
+            />
 
-            <nav className="mt-3 flex flex-col gap-3" aria-label="Sections">
+            <nav className="mt-2 flex flex-col" aria-label="Sections">
               {NAV_GROUPS.map((group) => (
-                <div key={group.label}>
-                  <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-sage/40">
-                    {group.label}
-                  </p>
+                <div key={group.label} className="mt-4">
+                  <p className="mb-1 flex h-6 items-center px-2 text-xs font-medium text-rail-muted">{group.label}</p>
                   <div className="flex flex-col gap-0.5">
                     {group.items.map((item) => (
                       <NavRow
@@ -443,28 +406,18 @@ export function AppShell({
               ))}
             </nav>
 
-            <div className="mt-auto border-t border-white/[0.08] pt-2">
-              {workspace.isSelf && (
-                <Link
-                  href="/app/growth"
-                  onClick={() => setMenuOpen(false)}
-                  className="mb-0.5 flex items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-[12.5px] font-medium text-[#E3BE79] hover:bg-[#D6A854]/10"
-                >
-                  <Sprout size={15} aria-hidden="true" /> Growth: distributing itself
-                </Link>
-              )}
+            <div className="mt-6 flex flex-col gap-0.5 border-t border-white/[0.08] pt-2">
+              {workspace.isSelf && <GrowthRow pathname={pathname} onNavigate={() => setMenuOpen(false)} />}
               <NavRow
                 item={SETTINGS_ITEM}
                 pathname={pathname}
                 attention={attention.approvals}
                 onNavigate={() => setMenuOpen(false)}
               />
-              <button
-                type="button"
-                onClick={logout}
-                className="mt-1 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-[7px] text-left text-[13px] text-sage/70 hover:bg-white/[0.06] hover:text-ivory"
-              >
-                <LogOut size={15} aria-hidden="true" /> Log out ({user.email})
+              <button type="button" onClick={logout} className={`${RAIL_ROW} ${RAIL_ROW_IDLE} w-full text-left`}>
+                <LogOut size={16} className="shrink-0 text-rail-muted" aria-hidden="true" />
+                <span className="truncate">Log out</span>
+                <span className="ml-auto truncate text-xs text-rail-muted">{user.email}</span>
               </button>
             </div>
           </aside>
@@ -473,5 +426,65 @@ export function AppShell({
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
+  );
+}
+
+/** Product, workspace and goal: who this rail is working for. */
+function WorkspaceCard({
+  product,
+  workspace,
+  goal,
+  productInitial,
+  href,
+  className = "",
+}: {
+  product: string;
+  workspace: { name: string; isSelf: boolean };
+  goal: string;
+  productInitial: string;
+  href?: string;
+  className?: string;
+}) {
+  const body = (
+    <>
+      <span
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.08] text-[13px] font-medium text-ivory"
+        aria-hidden="true"
+      >
+        {productInitial}
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-sm font-medium leading-5 text-ivory">{product || "No product yet"}</span>
+        <span className="block truncate text-xs leading-4 text-rail-muted">
+          {workspace.name}
+          {workspace.isSelf ? " · self-distribution" : ""}
+          {goal ? ` · ${goal.replace(/_/g, " ")} goal` : ""}
+        </span>
+      </span>
+    </>
+  );
+  const cls = `flex items-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.04] p-2 ${className}`;
+  return href ? (
+    <Link href={href} className={`${cls} transition-colors hover:bg-white/[0.07]`} aria-label="Open workspace profile">
+      {body}
+    </Link>
+  ) : (
+    <div className={cls}>{body}</div>
+  );
+}
+
+/** Banyan's own workspace: the product distributing itself. */
+function GrowthRow({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+  const active = isActiveRoute(pathname, "/app/growth");
+  return (
+    <Link
+      href="/app/growth"
+      onClick={onNavigate}
+      aria-current={active ? "page" : undefined}
+      className={`${RAIL_ROW} ${active ? RAIL_ROW_ACTIVE : RAIL_ROW_IDLE}`}
+    >
+      <Sprout size={16} className={`shrink-0 ${active ? "text-ivory" : "text-rail-muted"}`} aria-hidden="true" />
+      <span className="truncate">Self-distribution</span>
+    </Link>
   );
 }

@@ -93,7 +93,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 
   return (
     <div
-      className="palette-backdrop-in fixed inset-0 z-[60] flex items-start justify-center bg-forest-deep/45 px-4 backdrop-blur-[3px]"
+      className="palette-backdrop-in fixed inset-0 z-[60] flex items-start justify-center bg-charcoal/40 px-4"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -102,7 +102,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
         role="dialog"
         aria-modal="true"
         aria-label="Jump to a page or action"
-        className="palette-in mt-[10vh] w-full max-w-xl overflow-hidden rounded-2xl border border-bark/15 bg-paper shadow-[0_40px_110px_-30px_rgba(8,26,20,0.65)]"
+        className="palette-in card-shadow-lg mt-[10vh] w-full max-w-xl overflow-hidden rounded-2xl border border-bark/15 bg-paper"
         onKeyDown={(e) => {
           if (e.key === "Escape") {
             e.preventDefault();
@@ -132,7 +132,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
         }}
       >
         <div className="flex items-center gap-3 border-b border-bark/10 px-4">
-          <Search size={17} className="shrink-0 text-forest" aria-hidden="true" />
+          <Search size={16} className="shrink-0 text-muted" aria-hidden="true" />
           <label htmlFor="palette-search" className="sr-only">
             Search pages and actions
           </label>
@@ -147,12 +147,12 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
             aria-describedby="palette-hint"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search pages and actions…"
+            placeholder="Search pages and actions"
             spellCheck={false}
             autoComplete="off"
-            className="h-14 min-w-0 flex-1 bg-transparent text-[15px] text-charcoal placeholder:text-charcoal-soft/55 focus:outline-none"
+            className="h-14 min-w-0 flex-1 bg-transparent text-[15px] text-charcoal placeholder:text-muted focus:outline-none"
           />
-          <kbd className="hidden rounded-md border border-bark/15 bg-ivory px-1.5 py-1 font-mono text-[10px] text-charcoal-soft sm:block">
+          <kbd className="hidden h-5 items-center rounded border border-bark/15 bg-ivory px-1.5 font-mono text-[11px] leading-none text-muted sm:flex">
             esc
           </kbd>
         </div>
@@ -168,9 +168,9 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
             <div className="px-3 py-10 text-center">
               <p className="text-sm font-medium text-charcoal">No match for “{query.trim()}”</p>
               <p className="mt-1 text-xs text-charcoal-soft">
-                Try a page name, or a verb like <span className="font-medium text-forest">create</span>,{" "}
-                <span className="font-medium text-forest">review</span> or{" "}
-                <span className="font-medium text-forest">connect</span>.
+                Try a page name, or a verb like <span className="font-medium text-charcoal">create</span>,{" "}
+                <span className="font-medium text-charcoal">review</span> or{" "}
+                <span className="font-medium text-charcoal">connect</span>
               </p>
             </div>
           ) : (
@@ -187,36 +187,25 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
                   type="button"
                   onMouseEnter={() => setActive(i)}
                   onClick={() => choose(row)}
-                  className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left transition-colors ${
-                    isActive ? "bg-forest/[0.07]" : "bg-transparent"
+                  className={`flex h-12 w-full items-center gap-3 rounded-lg px-3 text-left transition-colors ${
+                    isActive ? "bg-bark/[0.06]" : "bg-transparent"
                   }`}
                 >
-                  <span
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${
-                      isActive
-                        ? "border-forest/20 bg-white text-forest"
-                        : "border-bark/10 bg-ivory/70 text-charcoal-soft"
-                    }`}
+                  <Icon
+                    size={16}
+                    className={`shrink-0 ${isActive ? "text-charcoal" : "text-muted"}`}
                     aria-hidden="true"
-                  >
-                    <Icon size={15} />
-                  </span>
+                  />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13.5px] font-medium text-charcoal">{row.label}</span>
-                    <span className="block truncate text-[11.5px] text-charcoal-soft">
+                    <span className="block truncate text-sm font-medium leading-5 text-charcoal">{row.label}</span>
+                    <span className="block truncate text-xs leading-4 text-muted">
                       {"hint" in row ? row.hint : row.href}
                     </span>
                   </span>
-                  <span
-                    className={`shrink-0 text-[10px] font-semibold uppercase tracking-[0.12em] ${
-                      row.kind === "action" ? "text-fig-deep" : "text-charcoal-soft/60"
-                    }`}
-                  >
-                    {row.group}
-                  </span>
+                  <span className="shrink-0 text-xs text-muted">{row.group}</span>
                   <ArrowUpRight
-                    size={14}
-                    className={`shrink-0 text-forest transition-opacity ${isActive ? "opacity-100" : "opacity-0"}`}
+                    size={16}
+                    className={`shrink-0 text-charcoal-soft transition-opacity ${isActive ? "opacity-100" : "opacity-0"}`}
                     aria-hidden="true"
                   />
                 </button>
@@ -227,7 +216,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
 
         <div
           id="palette-hint"
-          className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-bark/10 bg-ivory/50 px-4 py-2.5 text-[11px] text-charcoal-soft"
+          className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-bark/10 bg-ivory/50 px-4 py-3 text-xs text-muted"
         >
           <span>
             <kbd className="font-mono">↑</kbd> <kbd className="font-mono">↓</kbd> to move
@@ -235,7 +224,7 @@ export function CommandPalette({ open, onClose }: { open: boolean; onClose: () =
           <span>
             <kbd className="font-mono">↵</kbd> to open
           </span>
-          <span className="ml-auto hidden sm:block">Nothing you type here is stored.</span>
+          <span className="ml-auto hidden sm:block">Nothing you type here is stored</span>
         </div>
       </div>
     </div>
