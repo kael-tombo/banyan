@@ -886,3 +886,102 @@ section[id] {
   }
   .site-nav-night { transition: none; }
 }
+
+/*
+ * ————————————————————————————————————————————————————————————————
+ * The distribution landscape — four streams of content, two flowing up and
+ * two flowing down, each on its own clock (DistributionLandscape.tsx).
+ *
+ * A track holds its sequence twice, and every sequence ends with the gap
+ * that separates its cards, so -50% is exactly one sequence: the loop has no
+ * seam. One transform per column, linear, on the compositor.
+ * ————————————————————————————————————————————————————————————————
+ */
+.dl-columns {
+  position: absolute;
+  inset: 0;
+  margin-inline: auto;
+  max-width: 1560px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding-inline: 16px;
+}
+@media (min-width: 640px) {
+  .dl-columns { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; padding-inline: 24px; }
+}
+@media (min-width: 1024px) {
+  .dl-columns { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; padding-inline: 96px; }
+}
+
+.dl-col { position: relative; min-width: 0; }
+.dl-col[data-index="2"] { display: none; }
+.dl-col[data-index="3"] { display: none; }
+@media (min-width: 640px) { .dl-col[data-index="2"] { display: block; } }
+@media (min-width: 1024px) { .dl-col[data-index="3"] { display: block; } }
+
+/* Depth: the outer streams sit a step back, the centre stays crisp. */
+.dl-col { opacity: 0.4; }
+@media (min-width: 640px) {
+  .dl[data-variant="hero"] .dl-col { opacity: 0.9; }
+  .dl[data-variant="hero"] .dl-col[data-index="0"],
+  .dl[data-variant="hero"] .dl-col[data-index="3"] { opacity: 0.55; transform: scale(0.97); }
+  .dl[data-variant="closing"] .dl-col { opacity: 0.72; }
+}
+
+.dl-track {
+  display: flex;
+  flex-direction: column;
+  animation: dl-up var(--dl-dur, 80s) linear var(--dl-delay, 0s) infinite;
+  will-change: transform;
+}
+.dl-track[data-dir="down"] { animation-name: dl-down; }
+/* Phones: slower, calmer streams under a larger headline. */
+@media (max-width: 639px) {
+  .dl-track { animation-duration: calc(var(--dl-dur, 80s) * 1.5); }
+}
+@keyframes dl-up {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(0, -50%, 0); }
+}
+@keyframes dl-down {
+  from { transform: translate3d(0, -50%, 0); }
+  to { transform: translate3d(0, 0, 0); }
+}
+
+.dl-seq {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 16px;
+}
+
+/* Channel rails: secondary, slow, never bouncing. */
+.dl-rail {
+  position: absolute;
+  top: 50%;
+  display: none;
+  flex-direction: column;
+  gap: 20px;
+  transform: translateY(-50%);
+}
+@media (min-width: 1024px) { .dl-rail { display: flex; } }
+.dl-rail-mark {
+  display: block;
+  opacity: var(--dl-rest, 0.6);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(17, 24, 39, 0.06), 0 6px 16px -8px rgba(17, 24, 39, 0.18);
+  animation: dl-float var(--dl-float-dur, 8s) ease-in-out var(--dl-float-delay, 0s) infinite;
+}
+@keyframes dl-float {
+  0%, 100% { transform: translateY(0); opacity: var(--dl-rest, 0.6); }
+  50% { transform: translateY(-6px); opacity: calc(var(--dl-rest, 0.6) + 0.3); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The landscape stays, composed and still, with its streams staggered. */
+  .dl-track { animation: none; transform: translate3d(0, -12%, 0); will-change: auto; }
+  .dl-track[data-dir="down"] { transform: translate3d(0, -34%, 0); }
+  .dl-rail-mark { animation: none; }
+  .dl-particles { display: none; }
+}

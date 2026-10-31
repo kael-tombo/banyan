@@ -98,7 +98,7 @@ export function SiteNav({
           ? // A scrim that fades downward: readable when content scrolls
             // beneath the transparent nav, invisible over the dark stage.
             { background: "linear-gradient(180deg, rgba(7,17,13,0.72), rgba(7,17,13,0))" }
-          : { background: "rgba(255, 255, 255, 0.72)", backdropFilter: "blur(14px) saturate(1.4)", WebkitBackdropFilter: "blur(14px) saturate(1.4)" }
+          : { background: "rgba(255, 255, 255, 0.92)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" }
       }
     >
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
@@ -139,10 +139,10 @@ export function SiteNav({
           </Link>
           <Link
             href={ctaHref}
-            className={`ml-2 rounded-full px-4.5 py-2 text-sm font-semibold text-white transition-all duration-200 hover:-translate-y-px ${
+            className={`ml-2 inline-flex h-9 items-center rounded-lg px-4 text-sm font-medium text-white transition-colors duration-150 ${
               night
                 ? "bg-[#2FA36B] shadow-[0_8px_24px_-10px_rgba(53,184,117,0.7)] hover:bg-[#37B878]"
-                : "bg-forest-deep shadow-[0_8px_20px_-10px_rgba(18,48,40,0.6)] hover:bg-forest"
+                : "bg-forest-deep hover:bg-forest"
             }`}
           >
             {cta}
