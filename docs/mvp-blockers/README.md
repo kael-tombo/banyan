@@ -28,7 +28,7 @@ Postgres, Redis and a queue worker (US-001–007).
 
 | # | Blocker | Breaks which part of the promise | Kind | Size |
 | --- | --- | --- | --- | --- |
-| [01](01-no-live-publishing-rail.md) | No verified live publishing rail | "real publishing" — ≥2 provider-confirmed posts | External + decision | L |
+| [01](01-no-live-publishing-rail.md) | No verified live publishing rail — **SocialFlow Lite built and proven locally; needs hosting, developer apps, live smoke** | "real publishing" — ≥2 provider-confirmed posts | Ops + vendor apps | M |
 | [02](02-no-production-environment.md) | No production environment | Nothing runs for a real founder; OAuth needs a public HTTPS callback | Ops | M |
 | [03](03-no-live-model-provider.md) | No live model provider configured | "channel-native assets" in the founder's voice | Ops + quality | S |
 | [04](04-onboarding-does-not-reach-first-cycle.md) | Onboarding stops before the first campaign and publication | The cycle a new founder actually walks; <30 min | Build | M |

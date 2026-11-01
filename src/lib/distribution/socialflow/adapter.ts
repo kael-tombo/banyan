@@ -1,4 +1,5 @@
 import { call, type Transport } from "@/lib/distribution/socialflow/client";
+import { operatorFetch } from "@/lib/net/safe-fetch";
 import {
   ROUTES,
   IDEMPOTENCY_HEADER,
@@ -43,6 +44,15 @@ import {
 
 const PROVIDER_ID = "socialflow";
 
+/**
+ * SOCIALFLOW_API_URL is operator configuration, so it may point at a private
+ * address (SocialFlow Lite on the same Docker network) — but only when the
+ * operator says so explicitly. By default every call keeps the SSRF guard.
+ */
+export function defaultTransport(): Transport | undefined {
+  return process.env.SOCIALFLOW_ALLOW_PRIVATE_NETWORK === "true" ? operatorFetch : undefined;
+}
+
 export type SocialFlowOptions = {
   baseUrl?: string;
   transport?: Transport;
@@ -75,7 +85,7 @@ export class SocialFlowProvider implements DistributionProvider {
 
   private cfg(ctx: ProviderContext) {
     const apiKey = typeof ctx.credentials.apiKey === "string" ? ctx.credentials.apiKey : "";
-    return { baseUrl: this.baseUrl(), apiKey, transport: this.opts.transport, timeoutMs: this.opts.timeoutMs };
+    return { baseUrl: this.baseUrl(), apiKey, transport: this.opts.transport ?? defaultTransport(), timeoutMs: this.opts.timeoutMs };
   }
 
   private missingConfig(ctx: ProviderContext): string | null {

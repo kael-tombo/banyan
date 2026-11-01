@@ -218,3 +218,45 @@ async function finish(res: Response, maxBytes: number): Promise<SafeFetchResult>
   }
   return { status: res.status, headers: res.headers, text, truncated };
 }
+
+/**
+ * Fetch an OPERATOR-configured endpoint (an env var, never user input) that
+ * may legitimately live on a private network — e.g. SocialFlow Lite on the
+ * same Docker network. Same timeout and response cap as safeFetch, http(s)
+ * only, but no private-address check and redirects are NOT followed (a 3xx is
+ * returned as-is, which callers treat as an error). Connection failures and
+ * timeouts throw plain Errors so callers classify them as retryable, not as
+ * a refused URL.
+ *
+ * Only reachable behind an explicit opt-in (SOCIALFLOW_ALLOW_PRIVATE_NETWORK).
+ */
+export async function operatorFetch(rawUrl: string | URL, opts: SafeFetchOptions = {}): Promise<SafeFetchResult> {
+  const { timeoutMs = 15_000, maxBytes = DEFAULT_MAX_BYTES } = opts;
+  let url: URL;
+  try {
+    url = new URL(rawUrl.toString());
+  } catch {
+    throw new SafeFetchError("Invalid URL.");
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    throw new SafeFetchError(`Blocked: protocol ${url.protocol} is not allowed.`);
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let res: Response;
+  try {
+    res = await fetch(url.toString(), {
+      method: opts.method ?? "GET",
+      headers: opts.headers,
+      body: opts.body,
+      redirect: "manual",
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") throw new Error("Request timed out.");
+    throw new Error("Request could not be completed.");
+  } finally {
+    clearTimeout(timer);
+  }
+  return finish(res, maxBytes);
+}

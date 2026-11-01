@@ -10,6 +10,13 @@ capabilities can be treated as implemented dependencies"; "Never invent endpoint
 does not call SocialFlow.ai in production. It ships the contract it needs (below), an adapter tested against that
 contract with mocks, and an honest export mode.
 
+> **Addendum, 2026-11-01 (later the same day).** The repository `kael-tombo/socialFlow` (an OpenPost fork,
+> AGPL-3.0, Go server) does contain working LinkedIn and X adapters. A minimal service built from it,
+> **SocialFlow Lite**, now implements the contract below, so the API Banyan needs exists and runs. It has passed
+> `npm run smoke:socialflow -- --publish` against stand-in providers, but **not yet against real accounts**. The
+> verdict above therefore still holds for production: `SOCIALFLOW_VERIFIED` stays `false` until the live smoke
+> passes. Details are in [mvp-blockers/01](mvp-blockers/01-no-live-publishing-rail.md).
+
 ---
 
 ## 1. Sources inspected
