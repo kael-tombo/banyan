@@ -1,15 +1,18 @@
 import { decryptSecret } from "@/lib/crypto";
 import type { Credentials, DistributionProvider } from "@/lib/distribution/types";
+import { socialflowProvider } from "@/lib/distribution/socialflow/adapter";
 
 /**
  * Registered distribution providers.
  *
- * Empty on purpose: SocialFlow.ai is the only intended provider (ADR-003) and
- * it has no verifiable API yet (docs/SOCIALFLOW_INTEGRATION_AUDIT.md). US-031
- * adds the SocialFlow adapter here; it stays disabled until its live smoke
- * test passes. Postiz was removed (US-028) and must not be re-added.
+ * SocialFlow.ai is the only provider (ADR-003). It is registered but disabled
+ * until SOCIALFLOW_API_URL is set AND SOCIALFLOW_VERIFIED=true, which is set
+ * only after the live smoke test passes (US-037). It has no verifiable API
+ * today (docs/SOCIALFLOW_INTEGRATION_AUDIT.md), so on every deployment so far
+ * providerFor() returns null and export mode is the live path.
+ * Postiz was removed (US-028) and must not be re-added.
  */
-const PROVIDERS: DistributionProvider[] = [];
+const PROVIDERS: DistributionProvider[] = [socialflowProvider];
 
 export function registerProvider(provider: DistributionProvider): void {
   if (PROVIDERS.some((p) => p.id === provider.id)) throw new Error(`Provider "${provider.id}" is already registered.`);

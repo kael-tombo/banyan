@@ -379,7 +379,7 @@ export const storiesA = [
     evidence: "2026-11-01: landing strip, walkthrough publishing stage, cycle record, privacy page, onboarding, nav, agent messages, formats, README and docs/API.md describe SocialFlow.ai (not yet available) + export mode; Publishing page rendered signed-in in Docker with 0 Postiz mentions",
   },
   {
-    id: "US-030", epic: "SocialFlow.ai integration", code: "SF", priority: "P0", status: "Ready", sprint: 2,
+    id: "US-030", epic: "SocialFlow.ai integration", code: "SF", priority: "P0", status: "Done", sprint: 2,
     title: "Encode the SocialFlow.ai contract and test against it",
     as: "engineer", want: "the SocialFlow.ai operations Banyan needs written as a typed contract with mocked tests", so: "the adapter is ready the day SocialFlow.ai ships its API",
     context: "SOCIALFLOW_INTEGRATION_AUDIT.md §3 defines operations C1–C10. No endpoint is verified.",
@@ -389,9 +389,10 @@ export const storiesA = [
     deps: { stories: ["US-027"], optional: [], external: [], infra: [], api: [] },
     impl: { frontend: "None", backend: "contract.ts, mock fixtures", database: "None", integration: "Mocked HTTP only", jobs: "None" },
     tests: { happy: "publish, schedule, status against mock", validation: "schema rejects malformed responses", authorization: "auth_failed mapped", external: "provider_unavailable, rate_limited with retry_after", retry: "retryable classes retried, others not" },
+    evidence: "2026-11-01: src/lib/distribution/socialflow/contract.ts (C1–C10, labelled UNVERIFIED_PROPOSAL, proposed routes, Idempotency-Key, typed error body); tests/socialflow-contract.test.ts runs the adapter against an in-memory mock built from the schemas — success, duplicate submission, queued→confirmed, 429 + Retry-After, 401, 503, timeout, SSRF refusal, malformed response, provider-reported failure, schedule, status, analytics unsupported (28 tests)",
   },
   {
-    id: "US-031", epic: "SocialFlow.ai integration", code: "SF", priority: "P0", status: "Ready", sprint: 2,
+    id: "US-031", epic: "SocialFlow.ai integration", code: "SF", priority: "P0", status: "Review", sprint: 2,
     title: "SocialFlow.ai adapter, disabled until verified",
     as: "the platform", want: "a SocialFlowAdapter implementing DistributionProvider against the contract", so: "enabling SocialFlow.ai is configuration, not development",
     context: "Depends on the contract. Must never be enabled without a passing live smoke test (US-037).",
@@ -401,6 +402,7 @@ export const storiesA = [
     deps: { stories: ["US-030", "US-006"], optional: [], external: ["SocialFlow.ai API (for live use only)"], infra: [], api: ["SocialFlow.ai C1, C3, C5, C7"] },
     impl: { frontend: "Provider status on Publishing", backend: "src/lib/distribution/socialflow/*", database: "ChannelConnection provider=socialflow", integration: "SocialFlow.ai (mocked)", jobs: "publication.attempt uses the adapter" },
     tests: { happy: "mock publish → published", validation: "unsupported format → unsupported_format surfaced", authorization: "cross-workspace connection refused", external: "timeout, 5xx, 429 with retry_after", retry: "duplicate submission returns existing publication" },
+    evidence: "2026-11-01: adapter.ts implements DistributionProvider through safeFetch; registered but disabled unless SOCIALFLOW_API_URL and SOCIALFLOW_VERIFIED=true (3 tests); queued posts never counted as published; Publishing shows SocialFlow.ai 'not available yet' with export mode. Remaining for Done: publish through the worker and database path against the mock, covered by US-074",
   },
   {
     id: "US-032", epic: "SocialFlow.ai integration", code: "SF", priority: "P1", status: "Blocked", sprint: 4,

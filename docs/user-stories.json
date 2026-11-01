@@ -3,8 +3,8 @@
   "source": "scripts/backlog/stories-*.mjs",
   "totals": {
     "stories": 77,
-    "done": 18,
-    "ready": 9,
+    "done": 19,
+    "ready": 7,
     "backlog": 45,
     "blocked": 5
   },
@@ -1613,9 +1613,9 @@
       "epic": "SocialFlow.ai integration",
       "code": "SF",
       "priority": "P0",
-      "status": "Ready",
+      "status": "Done",
       "sprint": 2,
-      "wave": 1,
+      "wave": 0,
       "story": {
         "as": "engineer",
         "want": "the SocialFlow.ai operations Banyan needs written as a typed contract with mocked tests",
@@ -1656,7 +1656,7 @@
         "external": "provider_unavailable, rate_limited with retry_after",
         "retry": "retryable classes retried, others not"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: src/lib/distribution/socialflow/contract.ts (C1–C10, labelled UNVERIFIED_PROPOSAL, proposed routes, Idempotency-Key, typed error body); tests/socialflow-contract.test.ts runs the adapter against an in-memory mock built from the schemas — success, duplicate submission, queued→confirmed, 429 + Retry-After, 401, 503, timeout, SSRF refusal, malformed response, provider-reported failure, schedule, status, analytics unsupported (28 tests)",
       "blocker": null
     },
     {
@@ -1665,9 +1665,9 @@
       "epic": "SocialFlow.ai integration",
       "code": "SF",
       "priority": "P0",
-      "status": "Ready",
+      "status": "Review",
       "sprint": 2,
-      "wave": 2,
+      "wave": 1,
       "story": {
         "as": "the platform",
         "want": "a SocialFlowAdapter implementing DistributionProvider against the contract",
@@ -1717,7 +1717,7 @@
         "external": "timeout, 5xx, 429 with retry_after",
         "retry": "duplicate submission returns existing publication"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: adapter.ts implements DistributionProvider through safeFetch; registered but disabled unless SOCIALFLOW_API_URL and SOCIALFLOW_VERIFIED=true (3 tests); queued posts never counted as published; Publishing shows SocialFlow.ai 'not available yet' with export mode. Remaining for Done: publish through the worker and database path against the mock, covered by US-074",
       "blocker": null
     },
     {
@@ -1728,7 +1728,7 @@
       "priority": "P1",
       "status": "Blocked",
       "sprint": 4,
-      "wave": 3,
+      "wave": 2,
       "story": {
         "as": "founder",
         "want": "to connect my X and LinkedIn accounts through SocialFlow.ai",
@@ -1892,7 +1892,7 @@
       "priority": "P1",
       "status": "Blocked",
       "sprint": 4,
-      "wave": 3,
+      "wave": 2,
       "story": {
         "as": "founder",
         "want": "Banyan to show the real status of posts SocialFlow.ai published",
@@ -1949,7 +1949,7 @@
       "priority": "P2",
       "status": "Blocked",
       "sprint": 5,
-      "wave": 4,
+      "wave": 3,
       "story": {
         "as": "the platform",
         "want": "to accept status pushes from SocialFlow.ai",
@@ -2004,7 +2004,7 @@
       "priority": "P0",
       "status": "Blocked",
       "sprint": 4,
-      "wave": 3,
+      "wave": 2,
       "story": {
         "as": "operator",
         "want": "`npm run smoke:socialflow` to prove the real integration end to end",
@@ -3240,7 +3240,7 @@
       "priority": "P2",
       "status": "Blocked",
       "sprint": 5,
-      "wave": 3,
+      "wave": 2,
       "story": {
         "as": "founder",
         "want": "impressions and engagement from SocialFlow.ai next to my first-party clicks",

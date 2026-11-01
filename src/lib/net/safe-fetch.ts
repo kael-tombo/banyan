@@ -123,7 +123,7 @@ async function assertResolvablePublicHost(hostname: string): Promise<void> {
 }
 
 export type SafeFetchOptions = {
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "DELETE";
   headers?: Record<string, string>;
   body?: string;
   timeoutMs?: number;
