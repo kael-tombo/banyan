@@ -47,7 +47,10 @@ export default async function ContentEditorPage({ params }: { params: Promise<{ 
   // ————— Studio computations (pure, from recorded data) —————
   const videoExtras = JSON.parse(item.videoExtras || "{}");
   const timeline = buildVideoTimeline(videoExtras);
-  const claims = claimLint(item.body);
+  // One claim list for the checklist and the editor: the phrase lint plus every claim the evidence does not back (US-054),
+  // so the checklist can never say "nothing detected" while approval is held over a claim.
+  const unsupported = flags.flatMap((f) => (f.code === "unsupported_claim" ? [{ phrase: f.phrase, why: "unsupported " + f.kind.replace(/_/g, " ") }] : []));
+  const claims = [...claimLint(item.body), ...unsupported].filter((c, i, all) => all.findIndex((o) => o.phrase.toLowerCase() === c.phrase.toLowerCase()) === i);
   const review = reviewChecklist({
     status: item.status,
     genMeta: gen.provider ? gen : null,

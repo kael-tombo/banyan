@@ -483,9 +483,9 @@ export function ContentEditor({
                 )}
                 {item.status === "ready_for_review" && (
                   <>
-                    <Button size="sm" variant="primary" onClick={() => review("approve")} disabled={!!busy}>
+                    {!claimGate?.length && <Button size="sm" variant="primary" onClick={() => review("approve")} disabled={!!busy}>
                       <CheckCircle2 size={13} aria-hidden="true" /> Approve
-                    </Button>
+                    </Button>}
                     <Button size="sm" variant="danger" onClick={() => {
                       const reason = prompt("Rejection reason (required):");
                       if (reason && reason.trim().length >= 3) review("reject", reason);

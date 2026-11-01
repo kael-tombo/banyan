@@ -92,7 +92,7 @@ export function checkDraft(input: { channel: Channel; format: string; body: stri
   }
   if (input.evidence) {
     for (const c of unsupportedClaims(input.body, input.evidence)) {
-      flags.push({ code: "unsupported_claim", kind: c.kind, phrase: c.phrase, key: c.key, message: `"${c.phrase}" is ${c.why} nothing in your profile, facts or campaign evidence backs. Remove it, add the source, or vouch for it when approving.` });
+      flags.push({ code: "unsupported_claim", kind: c.kind, phrase: c.phrase, key: c.key, message: `"${c.phrase}" (${c.why}): nothing in your profile, facts or campaign evidence backs it. Remove it, add the source, or vouch for it when approving.` });
     }
   }
   return flags;
