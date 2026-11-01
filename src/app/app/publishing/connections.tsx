@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge, Button, Card, ErrorNote, Field, Input, Loading, Select, StatusBadge } from "@/components/ui";
+import { expiryNote } from "@/lib/distribution/token-expiry";
 
 type Connection = {
   id: string;
@@ -22,6 +23,7 @@ type Account = {
   handle: string;
   status: "active" | "revoked" | "error";
   capabilities: { publish: boolean; schedule: boolean; analytics: boolean };
+  tokenExpiresAt?: string | null;
 };
 
 const CHANNEL_NAME: Record<string, string> = { linkedin: "LinkedIn", x: "X" };
@@ -311,6 +313,12 @@ function AccountsPanel({ connection }: { connection: Connection }) {
               <Button variant="danger" size="sm" onClick={() => revoke(a)} disabled={busy === a.id}>
                 {busy === a.id ? <Loading label="" /> : "Disconnect"}
               </Button>
+              {(() => {
+                const note = a.status === "revoked" ? null : expiryNote(a.tokenExpiresAt);
+                return note ? (
+                  <span className={`basis-full text-xs ${note.tone === "ok" ? "text-charcoal-soft" : "text-clay"}`}>{note.text}</span>
+                ) : null;
+              })()}
             </li>
           ))}
         </ul>

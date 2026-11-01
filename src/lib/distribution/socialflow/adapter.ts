@@ -120,6 +120,7 @@ export class SocialFlowProvider implements DistributionProvider {
         platform: a.platform,
         handle: a.handle,
         status: a.status,
+        tokenExpiresAt: a.token_expires_at ? new Date(a.token_expires_at) : null,
         capabilities: { publish: a.capabilities.publish, schedule: a.capabilities.schedule, analytics: a.capabilities.analytics, formats: a.capabilities.formats, maxLength: a.capabilities.max_length },
       })),
     };

@@ -67,3 +67,20 @@ describe("connection account helpers", () => {
     expect(safeConnectUrl("not a url")).toBeNull();
   });
 });
+
+describe("token expiry note", async () => {
+  const { expiryNote } = await import("@/lib/distribution/token-expiry");
+  const now = new Date("2026-11-01T12:00:00Z");
+  it("says nothing for tokens that do not expire", () => {
+    expect(expiryNote(null, now)).toBeNull();
+    expect(expiryNote("garbage", now)).toBeNull();
+  });
+  it("warns within 14 days, and says plainly when access has ended", () => {
+    expect(expiryNote("2026-11-06T12:00:00Z", now)).toMatchObject({ tone: "soon", text: expect.stringContaining("in 5 days") });
+    expect(expiryNote("2026-11-02T00:00:00Z", now)?.text).toContain("in 1 day.");
+    expect(expiryNote("2026-10-31T12:00:00Z", now)).toMatchObject({ tone: "expired" });
+  });
+  it("is calm when access lasts", () => {
+    expect(expiryNote("2026-12-31T12:00:00Z", now)).toMatchObject({ tone: "ok", text: "Access until Dec 31, 2026." });
+  });
+});

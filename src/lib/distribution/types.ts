@@ -52,6 +52,8 @@ export type DistributionAccount = {
   platform: string;
   handle: string;
   status: "active" | "revoked" | "error";
+  /** When the platform token stops working; null when it does not expire or the provider does not say. */
+  tokenExpiresAt?: Date | null;
   capabilities: AccountCapabilities;
 };
 

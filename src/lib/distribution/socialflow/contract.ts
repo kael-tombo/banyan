@@ -53,6 +53,8 @@ export const accountSchema = z.object({
   handle: z.string(),
   status: z.enum(["active", "revoked", "error"]),
   capabilities: capabilitiesSchema,
+  /** When the platform token stops working (LinkedIn ~60 days); null or absent when it does not expire. */
+  token_expires_at: z.string().datetime({ offset: true }).nullable().optional(),
 });
 
 export const verifyResponse = z.object({ organization_id: z.string().min(1), name: z.string().optional() });
