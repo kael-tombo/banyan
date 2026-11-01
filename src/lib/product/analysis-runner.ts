@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { safeFetch } from "@/lib/net/safe-fetch";
-import { routeComplete } from "@/lib/model/router";
+import { recordSchemaResult, routeComplete } from "@/lib/model/router";
 import { analyzeProduct, validateProductUrl, AnalysisError, type AnalysisErrorCode } from "@/lib/product/analyze";
 import { JOB, enqueue, queueConfigured } from "@/lib/queue/jobs";
 import { markStage } from "@/lib/onboarding/progress";
@@ -49,9 +49,13 @@ export async function runAnalysis(analysisId: string): Promise<void> {
   const attempt = () =>
     analyzeProduct(analysis.url, {
       fetch: (url) => safeFetch(url, FETCH_OPTS),
-      complete: async ({ system, user }) => {
-        const res = await routeComplete({ workspaceId: analysis.workspaceId, purpose: "product_analysis", system, user, maxTokens: 1_200, temperature: 0.2 });
-        return { text: res.text, live: res.usage.provider !== "template-fallback" && !res.quotaDeferred };
+      complete: async ({ system, user, maxTokens, temperature, prompt, attempt }) => {
+        const res = await routeComplete({ workspaceId: analysis.workspaceId, purpose: "product_analysis", system, user, maxTokens, temperature, prompt, attempt });
+        return {
+          text: res.text,
+          live: res.usage.provider !== "template-fallback" && !res.quotaDeferred,
+          report: (valid) => recordSchemaResult(res.modelCallId, valid),
+        };
       },
       onPhase: async () => {
         await prisma.productAnalysis.update({ where: { id: analysisId }, data: { status: "analysing" } });

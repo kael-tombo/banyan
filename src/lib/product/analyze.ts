@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { extractProductSnapshot, normalizeProductUrl } from "@/lib/product/intake";
 import { parseFetchableUrl, SafeFetchError, type SafeFetchResult } from "@/lib/net/safe-fetch";
-import { sanitizePageHtml, detectInstructionLikeText, wrapUntrusted, UNTRUSTED_CONTENT_RULES, type InjectionFlag } from "@/lib/ai/untrusted";
+import { sanitizePageHtml, detectInstructionLikeText, type InjectionFlag } from "@/lib/ai/untrusted";
+import { promptKey, renderPrompt, type PromptRef } from "@/lib/ai/prompts/registry";
+import { productAnalysisV1 } from "@/lib/ai/prompts/product-analysis.v1";
 import { extractJSON } from "@/lib/ai/provider";
 
 /**
@@ -18,7 +20,9 @@ import { extractJSON } from "@/lib/ai/provider";
  * so every path is unit-tested without network or database.
  */
 
-export const PROMPT_VERSION = "product-analysis.v1";
+/** The prompt this workflow uses (see src/lib/ai/prompts). */
+export const ANALYSIS_PROMPT = productAnalysisV1;
+export const PROMPT_VERSION = promptKey(ANALYSIS_PROMPT);
 const MAX_EXTRA_PAGES = 2;
 
 export const analysisSchema = z.object({
@@ -156,7 +160,18 @@ export function basicAnalysis(pages: { url: string; html: string }[]): ProductAn
 }
 
 export type Fetcher = (url: string) => Promise<SafeFetchResult>;
-export type Completer = (args: { system: string; user: string }) => Promise<{ text: string; live: boolean }>;
+/**
+ * Calls the model. `report`, when returned, records whether the output
+ * passed schema validation against the call that produced it (US-045).
+ */
+export type Completer = (args: {
+  system: string;
+  user: string;
+  maxTokens: number;
+  temperature: number;
+  prompt: PromptRef;
+  attempt: number;
+}) => Promise<{ text: string; live: boolean; report?: (schemaValid: boolean) => Promise<void> | void }>;
 
 export type AnalysisOutcome = {
   pages: string[];
@@ -165,17 +180,6 @@ export type AnalysisOutcome = {
   flags: (InjectionFlag & { page: string })[];
   promptVersion: string | null;
 };
-
-function buildPrompt(pages: { url: string; text: string }[]): { system: string; user: string } {
-  const system = [
-    "You analyse a product's public website for a founder and return one JSON object.",
-    UNTRUSTED_CONTENT_RULES,
-    'JSON keys: product_name (string), description (string), value_proposition (string), features (string[]), target_audience (string[]), problems_solved (string[]), differentiators (string[]), missing_information (string[]), provenance (object mapping each field name to the page URL it came from, or "inferred").',
-    "Use the founder's own words where possible. Leave a field empty and list it in missing_information when the pages do not support it.",
-  ].join("\n");
-  const user = pages.map((p) => wrapUntrusted(p.text, p.url).block).join("\n\n");
-  return { system, user };
-}
 
 /** Fetch, isolate, analyse. Throws AnalysisError when the home page cannot be read. */
 export async function analyzeProduct(
@@ -212,12 +216,17 @@ export async function analyzeProduct(
   await deps.onPhase?.("analysing");
 
   if (deps.complete) {
-    const prompt = buildPrompt(texts);
-    for (let attempt = 0; attempt < 2; attempt++) {
+    const prompt = renderPrompt(ANALYSIS_PROMPT, { pages: texts });
+    for (let attempt = 1; attempt <= 2; attempt++) {
       try {
-        const res = await deps.complete(prompt);
+        const res = await deps.complete({ system: prompt.system, user: prompt.user, maxTokens: prompt.maxTokens, temperature: prompt.temperature, prompt: prompt.ref, attempt });
         if (!res.live) break; // template fallback: the rule-based result is more honest
-        const parsed = analysisSchema.safeParse(extractJSON(res.text));
+        let parsed: ReturnType<typeof analysisSchema.safeParse> | null = null;
+        try {
+          parsed = analysisSchema.safeParse(extractJSON(res.text));
+        } finally {
+          await res.report?.(Boolean(parsed?.success));
+        }
         if (parsed.success) {
           return { pages: pages.map((p) => p.url), result: parsed.data, method: "model", flags, promptVersion: PROMPT_VERSION };
         }

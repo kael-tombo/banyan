@@ -607,10 +607,18 @@ model ModelCall {
   latencyMs        Int       @default(0)
   ok               Boolean   @default(true)
   error            String?
+  // US-045: the registered prompt (src/lib/ai/prompts) behind this call, which
+  // try it was, and whether its output passed the workflow schema (null when
+  // nothing validates it, e.g. chat).
+  promptName       String?
+  promptVersion    Int?
+  attempt          Int       @default(1)
+  schemaValid      Boolean?
   createdAt        DateTime  @default(now())
   workspace        Workspace @relation(fields: [workspaceId], references: [id])
 
   @@index([workspaceId, createdAt])
+  @@index([workspaceId, promptName, promptVersion])
 }
 
 // Command center chat. One persisted conversation per workspace between the

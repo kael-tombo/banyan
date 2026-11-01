@@ -2,6 +2,7 @@ import { AIError, TemplateFallbackProvider, type AIProvider, type GenResult, typ
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
 import { estimateCostMicros, evaluateQuota, startOfUtcDay } from "@/lib/model/quota";
+import { hasPrompt, promptKey, type PromptRef } from "@/lib/ai/prompts/registry";
 
 /**
  * Model router — the single boundary between the agent runtime / business
@@ -38,9 +39,15 @@ export type ModelRouteRequest = {
   user: string;
   maxTokens: number;
   temperature?: number;
+  /** The registered prompt that produced system/user (US-045). */
+  prompt?: PromptRef;
+  /** 1 for the first try; the workflow passes 2+ on its retries. */
+  attempt?: number;
 };
 
 export type ModelRouteResult = {
+  /** The ledger row for the call that served this result, when it was recorded. */
+  modelCallId: string | null;
   text: string;
   usage: UsageMeta;
   latencyMs: number;
@@ -99,6 +106,9 @@ async function countLiveCallsToday(workspaceId: string): Promise<number> {
 
 export async function routeComplete(req: ModelRouteRequest): Promise<ModelRouteResult> {
   const started = Date.now();
+  // A versioned prompt must exist: an unregistered version would make the
+  // ledger point at instructions nobody can find.
+  if (req.prompt && !hasPrompt(req.prompt)) throw new Error(`Unknown prompt ${promptKey(req.prompt)}`);
 
   // 1. Quota gate on live usage for this workspace.
   const liveToday = await countLiveCallsToday(req.workspaceId);
@@ -120,8 +130,9 @@ export async function routeComplete(req: ModelRouteRequest): Promise<ModelRouteR
         temperature: req.temperature,
       });
       const latencyMs = Date.now() - started;
-      await recordCall(req, result.usage, latencyMs, true);
+      const modelCallId = await recordCall(req, result.usage, latencyMs, true);
       return {
+        modelCallId,
         text: result.text,
         usage: result.usage,
         latencyMs,
@@ -147,8 +158,8 @@ async function serveFallback(req: ModelRouteRequest, started: number, note?: str
     ? { ...result.usage, label: `${result.usage.label}${note ? ` — ${note}` : ""}` }
     : result.usage;
   const latencyMs = Date.now() - started;
-  await recordCall(req, usage, latencyMs, true);
-  return { text: result.text, usage, latencyMs, quotaDeferred: false };
+  const modelCallId = await recordCall(req, usage, latencyMs, true);
+  return { modelCallId, text: result.text, usage, latencyMs, quotaDeferred: false };
 }
 
 async function recordCall(
@@ -157,9 +168,9 @@ async function recordCall(
   latencyMs: number,
   ok: boolean,
   error?: string
-): Promise<void> {
+): Promise<string | null> {
   try {
-    await prisma.modelCall.create({
+    const row = await prisma.modelCall.create({
       data: {
         workspaceId: req.workspaceId,
         purpose: req.purpose,
@@ -174,10 +185,29 @@ async function recordCall(
         latencyMs,
         ok,
         error: error ?? null,
+        promptName: req.prompt?.name ?? null,
+        promptVersion: req.prompt?.version ?? null,
+        attempt: req.attempt ?? 1,
       },
+      select: { id: true },
     });
+    return row.id;
   } catch {
     // The ledger must never break the workflow it observes.
+    return null;
+  }
+}
+
+/**
+ * Record whether the output of a call passed the workflow schema (US-045).
+ * Calls nobody validates (chat) keep schemaValid null.
+ */
+export async function recordSchemaResult(modelCallId: string | null, schemaValid: boolean): Promise<void> {
+  if (!modelCallId) return;
+  try {
+    await prisma.modelCall.update({ where: { id: modelCallId }, data: { schemaValid } });
+  } catch {
+    /* never break the workflow */
   }
 }
 

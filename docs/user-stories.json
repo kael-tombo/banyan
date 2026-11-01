@@ -5,7 +5,7 @@
     "stories": 77,
     "done": 26,
     "ready": 2,
-    "backlog": 41,
+    "backlog": 40,
     "blocked": 5
   },
   "criticalPath": [
@@ -2457,7 +2457,7 @@
       "epic": "AI distribution strategy",
       "code": "AI",
       "priority": "P1",
-      "status": "Backlog",
+      "status": "Review",
       "sprint": 3,
       "wave": 1,
       "story": {
@@ -2498,7 +2498,7 @@
         "external": "timeout recorded",
         "retry": "retry count recorded"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: prompt registry (src/lib/ai/prompts, one file per name.vN; changing a shipped version throws); ModelCall gains promptName, promptVersion, attempt, schemaValid (migration prompt_versions); router rejects unregistered prompts and returns modelCallId; product analysis records attempt and schema result per call (tests/prompts.test.ts, 7 cases); usage page shows outcomes by prompt version. Remaining: the strategy detail view that shows the version (US-042/043)",
       "blocker": null
     },
     {

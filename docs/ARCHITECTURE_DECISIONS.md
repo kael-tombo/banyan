@@ -59,3 +59,23 @@ currently Banyan's only automated publishing path.
 - The brief's primary activation metric (first publication **through SocialFlow.ai**) is measurable but will read
   zero until then. Banyan reports it honestly, alongside "first publication (any path)".
 - No code outside the distribution module changes when SocialFlow.ai becomes available.
+
+## ADR-004 — The "Ultimate autonomous engineering" brief maps onto this codebase
+
+**Date:** 2026-11-01 · **Status:** Accepted (confirmed by the founder when the brief arrived)
+
+**Context.** A second brief restates the MVP journey and again names FastAPI, Celery, Alembic and a `docs/audit/…` / `docs/backlog/…` layout as mandatory. It also says "do not build a new system when an existing working implementation can be reused". The founder was asked and chose to keep the TypeScript backend.
+
+**Decision.** ADR-001 and ADR-002 stand. Each mandated tool maps to its existing equivalent:
+
+| Brief says | This codebase | Why it satisfies the requirement |
+|---|---|---|
+| FastAPI | Next.js route handlers (`src/app/api/**/route.ts`) + services in `src/lib` | Same modular-monolith API, zod-validated inputs, one deployable |
+| SQLAlchemy + Alembic | Prisma + Prisma Migrate (`prisma/migrations`) | Versioned, forward-only migrations applied by the `migrate` service |
+| Celery | BullMQ on Redis (`src/lib/queue`, `worker/index.ts`) | Retries with backoff, job ids, scheduler, failed-job inspection |
+| pytest | Vitest unit/contract tests + `scripts/e2e-acceptance.sh` against Docker | Same acceptance-driven gate |
+| `docs/audit`, `docs/backlog`, … | Existing equivalents in `docs/` (PROJECT_AUDIT, MVP_GAP_ANALYSIS, USER_STORIES, user-stories.json, USER_STORY_DEPENDENCIES, SPRINT_PLAN, IMPLEMENTATION_ROADMAP, DOCKER_DEPLOYMENT, DEVELOPMENT_PROGRESS) | The brief allows adapting filenames when equivalents exist |
+
+The brief's TASK-000…088 are covered by the 77-story backlog (`docs/USER_STORIES.md`). New items it adds (for example credit expiry notifications) become stories there, not a parallel backlog.
+
+**Consequences.** No rewrite. Work continues down the existing critical path. A Python service is reconsidered only if a dependency forces it, which none does today.

@@ -66,7 +66,8 @@ export const storiesB = [
     tests: { happy: "drafts per channel", validation: "over-limit draft split or flagged", authorization: "scoped", external: "model down → labelled template", retry: "regenerate single item" },
   },
   {
-    id: "US-045", epic: "AI distribution strategy", code: "AI", priority: "P1", status: "Backlog", sprint: 3,
+    id: "US-045", epic: "AI distribution strategy", code: "AI", priority: "P1", status: "Review", sprint: 3,
+    evidence: "2026-11-01: prompt registry (src/lib/ai/prompts, one file per name.vN; changing a shipped version throws); ModelCall gains promptName, promptVersion, attempt, schemaValid (migration prompt_versions); router rejects unregistered prompts and returns modelCallId; product analysis records attempt and schema result per call (tests/prompts.test.ts, 7 cases); usage page shows outcomes by prompt version. Remaining: the strategy detail view that shows the version (US-042/043)",
     title: "Version prompts and account for every model call",
     as: "operator", want: "every model call logged with prompt version, tokens, cost, latency and outcome", so: "quality and spend are traceable",
     context: "ModelCall and daily quota exist; prompt versions do not.",
