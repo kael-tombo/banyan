@@ -255,6 +255,49 @@ req POST /api/product/intake "$JAR1" '{"url":"http://169.254.169.254/latest/meta
 contains "$BODY" "Blocked" "SSRF attempt against cloud metadata blocked"
 check "$STATUS" 400 "SSRF attempt rejected with 400"
 
+# --- SSO / sign-in providers ----------------------------------------------------
+# hdr PATH JAR — sets STATUS, LOC (Location header) and SETC (state cookie) without following.
+hdr() {
+  local out
+  out=$(curl -s -o /dev/null -D - -w $'\n%{http_code}' "$BASE$1" -b "$2" -c "$2")
+  STATUS=${out##*$'\n'}
+  LOC=$(printf '%s' "$out" | tr -d '\r' | awk 'tolower($1)=="location:"{print $2}' | tail -1)
+  SETC=$(printf '%s' "$out" | tr -d '\r' | grep -i '^set-cookie: banyan_oauth=' | head -1)
+}
+req GET /app/settings "$JAR1";         check "$STATUS" 200 "settings page loads"
+contains "$BODY" "Sign-in methods" "settings lists sign-in methods"
+JARO=/tmp/e2e-jar-oauth.txt; rm -f "$JARO" /tmp/e2e-empty-jar.txt
+req GET /login "$JARO"
+case "$BODY" in
+  *"/api/auth/oauth/github/start"*)
+    ok "configured provider (GitHub) offered on the sign-in page"
+    hdr "/api/auth/oauth/github/start?next=%2Fapp%2Fgoals" "$JARO"
+    check "$STATUS" 302 "provider start redirects to the provider"
+    contains "$LOC" "https://github.com/login/oauth/authorize?" "start goes to GitHub's authorize endpoint"
+    contains "$LOC" "code_challenge_method=S256" "start sends a PKCE challenge"
+    contains "$SETC" "HttpOnly" "state cookie is HttpOnly"
+    hdr "/api/auth/oauth/github/callback?code=fake&state=forged" "$JARO"
+    contains "$LOC" "error=expired" "callback with a forged state is refused"
+    hdr "/api/auth/oauth/github/callback?code=fake&state=x" /tmp/e2e-empty-jar.txt
+    contains "$LOC" "error=expired" "callback without the state cookie is refused"
+    hdr "/api/auth/oauth/github/start" "$JARO"
+    ST=$(printf '%s' "$LOC" | sed -n 's/.*[?&]state=\([^&]*\).*/\1/p')
+    hdr "/api/auth/oauth/github/callback?code=fake&state=$ST" "$JARO"
+    contains "$LOC" "error=token_exchange_failed" "matching state with a fake code fails at the token exchange"
+    hdr "/api/auth/oauth/github/callback?error=access_denied" "$JARO"
+    contains "$LOC" "error=cancelled" "declining at the provider shows a cancelled message"
+    hdr "/api/auth/oauth/github/start?next=https%3A%2F%2Fevil.example" "$JARO"
+    case "$LOC" in *evil.example*) bad "off-site next is never carried" "$LOC";; *) ok "off-site next is never carried";; esac;;
+  *) say "SKIP: no OAuth provider configured (set OAUTH_GITHUB_CLIENT_ID/SECRET to run the provider checks)";;
+esac
+hdr "/api/auth/oauth/myspace/start" "$JARO"
+contains "$LOC" "error=not_configured" "unknown provider refused"
+req POST /api/auth/oauth/complete "$JARO" '{"name":"X user","email":"x@test.invalid"}'
+check "$STATUS" 410 "finishing a provider sign-up needs the sealed pending cookie"
+req DELETE /api/auth/oauth/accounts/anything "$JARO"
+check "$STATUS" 401 "disconnecting a provider requires a session"
+rm -f "$JARO" /tmp/e2e-empty-jar.txt
+
 req POST /api/auth/logout "$JAR1";     check "$STATUS" 200 "logout works"
 req GET /api/goals "$JAR1";            check "$STATUS" 401 "session invalidated after logout"
 

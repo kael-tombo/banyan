@@ -8,6 +8,9 @@ import { Input, ErrorNote } from "@/components/ui";
 import { BanyanMark } from "@/components/BanyanMark";
 import { DistributionLandscape } from "@/components/landing/landscape/DistributionLandscape";
 import { PlatformMark } from "@/components/landing/landscape/platforms";
+import { ProviderLogo } from "@/components/ProviderLogo";
+import type { ProviderId, ProviderOption } from "@/lib/auth/oauth/providers";
+import { OAUTH_ERRORS } from "@/lib/auth/oauth/messages";
 
 type Mode = "login" | "signup";
 
@@ -208,13 +211,68 @@ function ApprovalMoment() {
   );
 }
 
+/**
+ * Sign-in providers. Each is a plain link to the server, which starts the
+ * provider flow; a provider is listed only when the server offers it.
+ */
+function ProviderButtons({ providers, next }: { providers: ProviderOption[]; next: string | null }) {
+  if (!providers.length) return null;
+  const href = (id: ProviderId) => `/api/auth/oauth/${id}/start${next ? `?next=${encodeURIComponent(next)}` : ""}`;
+  const [first, ...rest] = providers;
+  return (
+    <div className="flex flex-col gap-2.5">
+      <a
+        href={href(first.id)}
+        className="inline-flex h-11 items-center justify-center gap-2.5 rounded-xl border border-bark/15 bg-white px-4 text-[14px] font-medium text-charcoal transition-colors hover:border-bark/30 hover:bg-ivory/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest"
+      >
+        <ProviderLogo provider={first.id} />
+        Continue with {first.label}
+      </a>
+      {rest.length > 0 && (
+        <div className="grid grid-cols-2 gap-2.5">
+          {rest.map((p) => (
+            <a
+              key={p.id}
+              href={href(p.id)}
+              aria-label={`Continue with ${p.label}`}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-bark/15 bg-white px-3 text-[14px] text-charcoal transition-colors hover:border-bark/30 hover:bg-ivory/60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-forest"
+            >
+              <ProviderLogo provider={p.id} />
+              {p.label}
+            </a>
+          ))}
+        </div>
+      )}
+      <div className="my-3 flex items-center gap-3 text-xs text-muted" role="separator">
+        <span className="h-px flex-1 bg-bark/12" />
+        or with email
+        <span className="h-px flex-1 bg-bark/12" />
+      </div>
+    </div>
+  );
+}
+
+/** The message for an ?error= code the OAuth routes sent back. */
+function oauthMessage(code: string | null, provider: string | null, providers: ProviderOption[]): string | null {
+  if (!code) return null;
+  const p = providers.find((x) => x.id === provider);
+  if (code === "not_configured" && p && !p.configured) {
+    const key = p.id.toUpperCase();
+    return `${p.label} sign-in isn’t set up on this server yet. Set OAUTH_${key}_CLIENT_ID and OAUTH_${key}_CLIENT_SECRET (see docs/SSO.md).`;
+  }
+  const label = p?.label ?? (provider ? provider.charAt(0).toUpperCase() + provider.slice(1) : null);
+  const message = OAUTH_ERRORS[code] ?? OAUTH_ERRORS.unavailable;
+  return label ? message.replace("this provider", label).replace("the provider", label) : message;
+}
+
 /** Page wrapper shared by the login and signup pages. */
-export function AuthShell({ mode }: { mode: Mode }) {
+export function AuthShell({ mode, providers = [] }: { mode: Mode; providers?: ProviderOption[] }) {
   const params = useSearchParams();
   const copy = COPY[mode];
   const next = safeNext(params.get("next"));
   const other = mode === "signup" ? "/login" : "/signup";
   const otherHref = next ? `${other}?next=${encodeURIComponent(next)}` : other;
+  const oauthError = oauthMessage(params.get("error"), params.get("provider"), providers);
 
   return (
     <div className="grid min-h-svh bg-white lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
@@ -236,6 +294,12 @@ export function AuthShell({ mode }: { mode: Mode }) {
           <div className="fade-up w-full max-w-[380px]">
             <h1 className="tight text-[28px] font-medium leading-tight text-forest-deep">{copy.title}</h1>
             <p className="mb-8 mt-2 text-[15px] leading-relaxed text-charcoal-soft">{copy.lede}</p>
+            {oauthError && (
+              <div className="mb-5">
+                <ErrorNote>{oauthError}</ErrorNote>
+              </div>
+            )}
+            <ProviderButtons providers={providers} next={next} />
             <AuthForm mode={mode} />
             <p className="mt-8 border-t border-bark/10 pt-6 text-[14px] text-charcoal-soft">
               {mode === "signup" ? "Already have an account? " : "New to Banyan? "}

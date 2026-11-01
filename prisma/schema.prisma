@@ -15,7 +15,8 @@ model User {
   id                    String        @id @default(cuid())
   email                 String        @unique
   name                  String
-  passwordHash          String
+  // Null for accounts created through a sign-in provider and never given a password.
+  passwordHash          String?
   createdAt             DateTime      @default(now())
   onboardingCompletedAt DateTime?
   // Attribution recorded at signup when a tracked visitor cookie exists (observed, not inferred).
@@ -23,9 +24,28 @@ model User {
   attributedCampaignId  String?
   attributedSource      String?
   sessions              Session[]
+  oauthAccounts         OAuthAccount[]
   memberships           Membership[]
   approvals             ContentItem[] @relation("approvals")
   planApprovals         GoalPlan[]    @relation("planApprovals")
+}
+
+/// A sign-in provider identity linked to a user (Google, GitHub, ...). Only
+/// the identity is kept: provider access tokens are used once and discarded.
+model OAuthAccount {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider          String
+  providerAccountId String
+  email             String?
+  emailVerified     Boolean   @default(false)
+  displayName       String?
+  createdAt         DateTime  @default(now())
+  lastUsedAt        DateTime?
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
 }
 
 model Session {

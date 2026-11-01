@@ -33,6 +33,20 @@ const envSchema = z.object({
   MODEL_MAX_CALLS_PER_DAY: z.coerce.number().int().min(1).max(1_000_000).default(500),
   SEED_USER_EMAIL: z.string().default("founder@banyan.ai"),
   SEED_USER_PASSWORD: z.string().default("banyan-demopass"),
+  // Sign-in providers (SSO). A provider is offered only when both its client
+  // id and secret are set. See docs/SSO.md for redirect URIs and scopes.
+  OAUTH_GOOGLE_CLIENT_ID: z.string().default(""),
+  OAUTH_GOOGLE_CLIENT_SECRET: z.string().default(""),
+  OAUTH_MICROSOFT_CLIENT_ID: z.string().default(""),
+  OAUTH_MICROSOFT_CLIENT_SECRET: z.string().default(""),
+  OAUTH_GITHUB_CLIENT_ID: z.string().default(""),
+  OAUTH_GITHUB_CLIENT_SECRET: z.string().default(""),
+  OAUTH_LINKEDIN_CLIENT_ID: z.string().default(""),
+  OAUTH_LINKEDIN_CLIENT_SECRET: z.string().default(""),
+  OAUTH_FACEBOOK_CLIENT_ID: z.string().default(""),
+  OAUTH_FACEBOOK_CLIENT_SECRET: z.string().default(""),
+  OAUTH_X_CLIENT_ID: z.string().default(""),
+  OAUTH_X_CLIENT_SECRET: z.string().default(""),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 });
 

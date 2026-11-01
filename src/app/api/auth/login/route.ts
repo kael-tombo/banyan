@@ -21,7 +21,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const user = await prisma.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });
-    const valid = user ? await verifyPassword(parsed.data.password, user.passwordHash) : false;
+    // Accounts created through a sign-in provider may have no password.
+    const valid = user?.passwordHash ? await verifyPassword(parsed.data.password, user.passwordHash) : false;
     if (!user || !valid) {
       return apiError("Invalid email or password.", 401);
     }

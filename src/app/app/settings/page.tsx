@@ -3,12 +3,21 @@ import Link from "next/link";
 import { requireWorkspaceServer } from "@/lib/workspace";
 import { PageHeader, Card, Badge } from "@/components/ui";
 import { CHANNEL_META, isChannel } from "@/lib/formats";
+import { Suspense } from "react";
+import { prisma } from "@/lib/db";
+import { settingsProviders } from "@/lib/auth/oauth/server";
+import { isProviderId } from "@/lib/auth/oauth/providers";
+import { SignInMethods, type LinkedAccount } from "./sign-in-methods";
 
 export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   const ctx = await requireWorkspaceServer();
   const channels = JSON.parse(ctx.profile?.channels || "[]") as string[];
+  const linked = await prisma.oAuthAccount.findMany({ where: { userId: ctx.user.id }, orderBy: { createdAt: "asc" } });
+  const accounts: LinkedAccount[] = linked.flatMap((a) =>
+    isProviderId(a.provider) ? [{ id: a.id, provider: a.provider, email: a.email, displayName: a.displayName, lastUsedAt: a.lastUsedAt?.toISOString() ?? null }] : [],
+  );
 
   return (
     <>
@@ -69,6 +78,10 @@ export default async function SettingsPage() {
           </p>
         </Card>
       </div>
+
+      <Suspense>
+        <SignInMethods hasPassword={Boolean(ctx.user.passwordHash)} accounts={accounts} providers={settingsProviders(accounts.map((a) => a.provider))} />
+      </Suspense>
 
       <Card className="mt-6">
         <h2 className="mb-2 font-medium text-charcoal">Selected channels</h2>
