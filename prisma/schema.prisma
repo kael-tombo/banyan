@@ -74,6 +74,7 @@ model Workspace {
   modelCalls      ModelCall[]
   chatMessages    ChatMessage[]
   onboardingStages OnboardingStage[]
+  productAnalyses  ProductAnalysis[]
 }
 
 /// Onboarding progress, one row per stage the workspace has finished or
@@ -595,6 +596,34 @@ model ChatMessage {
   latencyMs   Int?
   createdAt   DateTime  @default(now())
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+}
+
+/// One analysis of a product's public website (US-021, US-022). The result is
+/// a draft the founder reviews and approves (US-023); it never becomes
+/// business context on its own.
+model ProductAnalysis {
+  id            String    @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  url           String
+  // queued | reading | analysing | ready | failed
+  status        String    @default("queued")
+  // Set when status = failed: invalid_url | blocked_address | unreachable | timeout | http_error | not_html | empty_page
+  errorCode     String?
+  errorMessage  String?
+  // JSON array of the page URLs that were read
+  pages         String    @default("[]")
+  // JSON of the validated analysis (see src/lib/product/analyze.ts)
+  result        String?
+  // model | basic (rule-based extraction, labelled as such)
+  method        String?
+  // JSON array of instruction-like passages found on the pages (US-024)
+  flags         String    @default("[]")
+  promptVersion String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@index([workspaceId, createdAt])
 }

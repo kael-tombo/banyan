@@ -28,7 +28,8 @@ export type ModelPurpose =
   | "content_draft"
   | "evaluation"
   | "recommendation"
-  | "chat";
+  | "chat"
+  | "product_analysis";
 
 export type ModelRouteRequest = {
   workspaceId: string;

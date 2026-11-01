@@ -269,7 +269,7 @@ export const storiesA = [
     tests: { happy: "answers saved", validation: "empty required answer rejected", authorization: "scoped", external: "n/a", retry: "n/a" },
   },
   {
-    id: "US-021", epic: "Website analysis and product intelligence", code: "PROFILE", priority: "P0", status: "Ready", sprint: 3,
+    id: "US-021", epic: "Website analysis and product intelligence", code: "PROFILE", priority: "P0", status: "In Progress", sprint: 3,
     title: "Submit my product URL for analysis",
     as: "founder", want: "to paste my product URL and have Banyan read it", so: "I do not have to describe my product from scratch",
     context: "URL normalisation and SSRF-safe fetch exist (cycle intake). The brief needs it as an onboarding stage that starts an analysis job.",
@@ -279,9 +279,10 @@ export const storiesA = [
     deps: { stories: ["US-018", "US-005"], optional: [], external: ["The product's public website"], infra: ["Redis"], api: [] },
     impl: { frontend: "Product URL stage with live status", backend: "POST /api/product/analyze, GET /api/product/analyze/:id", database: "ProductAnalysis(id, workspaceId, url, status, pages, result, error)", integration: "safeFetch", jobs: "product.analyze" },
     tests: { happy: "fixture site → draft profile", validation: "malformed URL 400", authorization: "analysis id from another workspace 404", external: "site 500 / timeout → failed state with reason", retry: "transient fetch error retried once" },
+    evidence: "2026-11-01: POST /api/product/analyze + GET /api/product/analyze/[id]; private, internal and non-web URLs refused before any request; runs as product.analyze on the queue (inline without Redis); queued → reading → analysing → ready|failed persisted; one retry for transient failures; marks the product_url onboarding stage. E2E 61/61. Remaining: the URL stage UI showing live progress",
   },
   {
-    id: "US-022", epic: "Website analysis and product intelligence", code: "PROFILE", priority: "P0", status: "Ready", sprint: 3,
+    id: "US-022", epic: "Website analysis and product intelligence", code: "PROFILE", priority: "P0", status: "Done", sprint: 3,
     title: "Turn the website into a structured product profile",
     as: "founder", want: "Banyan to extract my value proposition, features, audience and differentiators", so: "the strategy is grounded in what my site actually says",
     context: "Today's snapshot is rule-based (TD-06). The brief defines Workflow A's output schema.",
@@ -291,6 +292,7 @@ export const storiesA = [
     deps: { stories: ["US-021", "US-024"], optional: ["US-045"], external: ["AI provider (optional)"], infra: [], api: [] },
     impl: { frontend: "None (consumed by US-023)", backend: "src/lib/product/analyze.ts with zod schema", database: "ProductAnalysis.result JSON", integration: "AIProvider", jobs: "product.analyze" },
     tests: { happy: "mocked model → valid profile", validation: "schema violation → retry → fallback", authorization: "n/a", external: "model timeout → fallback labelled", retry: "one retry on invalid output" },
+    evidence: "2026-11-01: src/lib/product/analyze.ts — Workflow A schema (incl. missing_information and provenance), prompt version product-analysis.v1, one retry on invalid output then the labelled basic extraction, template fallback never used as analysis. 22 unit tests with a mocked provider (no live model key in this environment). Live in Docker: example.com → ready, method basic, unknown fields listed as missing. Found and fixed: the word \"pricing\" in a nav link counted as a stated price",
   },
   {
     id: "US-023", epic: "Website analysis and product intelligence", code: "PROFILE", priority: "P0", status: "Backlog", sprint: 3,
@@ -305,7 +307,7 @@ export const storiesA = [
     tests: { happy: "edit and approve", validation: "empty product name rejected", authorization: "viewer cannot approve", external: "n/a", retry: "n/a" },
   },
   {
-    id: "US-024", epic: "Security, reliability and operations", code: "PROFILE", priority: "P0", status: "Ready", sprint: 3,
+    id: "US-024", epic: "Security, reliability and operations", code: "PROFILE", priority: "P0", status: "Done", sprint: 3,
     title: "Isolate untrusted website content from model instructions",
     as: "the platform", want: "crawled page text treated as data, never as instructions", so: "a malicious website cannot steer Banyan's agents",
     context: "TD-07: page text enters prompts without explicit isolation.",
@@ -315,9 +317,10 @@ export const storiesA = [
     deps: { stories: [], optional: [], external: [], infra: [], api: [] },
     impl: { frontend: "Flag shown on the profile review", backend: "src/lib/ai/untrusted.ts", database: "None", integration: "AIProvider prompts", jobs: "None" },
     tests: { happy: "clean page unchanged", validation: "injection fixture flagged", authorization: "n/a", external: "n/a", retry: "n/a" },
+    evidence: "2026-11-01: src/lib/ai/untrusted.ts — sanitises (scripts, comments, hidden and aria-hidden text removed), flags instruction-like passages, fences page text with a per-call nonce, and UNTRUSTED_CONTENT_RULES go in the system prompt; analysis output schema has no action fields. tests/untrusted-content.test.ts (9); product-analysis tests assert the fence and rules reach the model. Found and fixed: the hidden-attribute pattern deleted the next visible paragraph",
   },
   {
-    id: "US-025", epic: "Website analysis and product intelligence", code: "PROFILE", priority: "P0", status: "Backlog", sprint: 3,
+    id: "US-025", epic: "Website analysis and product intelligence", code: "PROFILE", priority: "P0", status: "In Progress", sprint: 3,
     title: "Recover gracefully when analysis cannot run",
     as: "founder", want: "a clear next step when my site cannot be read", so: "I am never stuck in onboarding",
     context: "Brief failure scenarios: invalid URL, site unavailable, AI provider unavailable.",

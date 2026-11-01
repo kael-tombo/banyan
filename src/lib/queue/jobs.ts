@@ -19,12 +19,14 @@ export const QUEUE_NAME = "banyan";
 export const JOB = {
   publicationAttempt: "publication.attempt",
   maintenanceSweep: "maintenance.sweep",
+  productAnalyze: "product.analyze",
 } as const;
 export type JobName = (typeof JOB)[keyof typeof JOB];
 
 export const jobPayload = {
   [JOB.publicationAttempt]: z.object({ publicationId: z.string().min(1) }),
   [JOB.maintenanceSweep]: z.object({}).strict(),
+  [JOB.productAnalyze]: z.object({ analysisId: z.string().min(1) }),
 } satisfies Record<JobName, z.ZodTypeAny>;
 
 export type JobPayload<N extends JobName> = z.infer<(typeof jobPayload)[N]>;

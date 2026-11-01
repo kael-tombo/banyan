@@ -88,6 +88,21 @@ req POST /api/onboarding "$JAR1" '{"step":"voice","data":{"tone":"plain, founder
 req GET /api/onboarding/progress "$JAR1"
 contains "$BODY" '"requiredComplete":true' "all required onboarding stages done after the steps"
 
+# US-021 / US-025: product website analysis through the worker queue.
+req POST /api/product/analyze "$JAR1" '{"url":"http://169.254.169.254/latest/meta-data"}'
+                                       check "$STATUS" 400 "private address refused before any request"
+req POST /api/product/analyze "$JAR1" '{"url":"example.com"}'
+                                       check "$STATUS" 202 "analysis accepted"
+ANALYSIS_ID=$(printf '%s' "$BODY" | jget '.analysis.id')
+A_STATUS=""; for i in $(seq 1 30); do req GET "/api/product/analyze/$ANALYSIS_ID" "$JAR1"; A_STATUS=$(printf '%s' "$BODY" | jget '.analysis.status'); case "$A_STATUS" in ready|failed) break;; esac; sleep 1; done
+check "$A_STATUS" "ready" "public website analysed by the worker"
+contains "$BODY" '"product_name"' "analysis returns a structured profile"
+req POST /api/product/analyze "$JAR1" '{"url":"https://no-such-site.invalid"}'
+UNREACH_ID=$(printf '%s' "$BODY" | jget '.analysis.id')
+U_STATUS=""; for i in $(seq 1 30); do req GET "/api/product/analyze/$UNREACH_ID" "$JAR1"; U_STATUS=$(printf '%s' "$BODY" | jget '.analysis.status'); case "$U_STATUS" in ready|failed) break;; esac; sleep 1; done
+check "$U_STATUS" "failed" "unreachable website ends in a failed state"
+contains "$BODY" '"code":"unreachable"' "failure carries a reason and a next step"
+
 req GET /api/profile "$JAR1"
 NAME=$(printf '%s' "$BODY" | jget '.profile.name'); SITE=$(printf '%s' "$BODY" | jget '.profile.website')
 [ "$NAME" = "Acme Launch Tracker" ] && ok "profile persisted (name)" || bad "profile persisted (name)" "got name=[$NAME]"
@@ -198,6 +213,8 @@ check "$PERSIST" "$GOAL_ID" "goal and its data persist across sessions"
 # --- 8. Tenant isolation -------------------------------------------------------
 req POST /api/auth/signup "$JAR3" "{\"name\":\"E2E Other\",\"email\":\"$U2\",\"password\":\"e2e-password-2\"}"
                                        check "$STATUS" 201 "second user signs up"
+req GET "/api/product/analyze/$ANALYSIS_ID" "$JAR3"
+                                       check "$STATUS" 404 "cross-workspace analysis access denied (404)"
 req GET "/api/goals/$GOAL_ID" "$JAR3"
 check "$STATUS" 404 "cross-workspace goal access denied (404)"
 req GET "/api/content/$CONTENT_ID" "$JAR3"

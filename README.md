@@ -50,7 +50,7 @@ These rules are enforced in the code, not just documented:
 | Infrastructure | Docker Compose: web, worker, migrate, postgres, redis |
 | Distribution | Provider-neutral `DistributionProvider`; SocialFlow.ai (not yet verifiable) + export mode |
 | Capabilities | Provider-independent registry (publishing, creative, research, analytics) |
-| Tests | Vitest (419 unit tests) + 54-check live E2E acceptance script |
+| Tests | Vitest (450 unit tests) + 61-check live E2E acceptance script |
 
 ## Quick start (Docker — recommended)
 

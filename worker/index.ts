@@ -6,6 +6,7 @@ import "dotenv/config";
  * With REDIS_URL (Docker Compose): consumes the BullMQ queue.
  *   - publication.attempt  → executePublication (atomic claim, approval re-check, bounded retry)
  *   - maintenance.sweep    → due publications + agent workflow advancement, every WORKER_INTERVAL_MS
+ *   - product.analyze      → read and analyse a product website (US-021)
  *
  * Without REDIS_URL (plain local dev): falls back to POSTing the protected
  * /api/worker/tick endpoint on an interval, exactly as before Redis existed.
@@ -33,6 +34,11 @@ async function runQueueWorker(): Promise<void> {
         }
         case JOB.maintenanceSweep:
           return runMaintenanceSweep();
+        case JOB.productAnalyze: {
+          const { analysisId } = jobPayload[JOB.productAnalyze].parse(job.data);
+          const { runAnalysis } = await import("@/lib/product/analysis-runner");
+          return runAnalysis(analysisId);
+        }
         default:
           throw new Error(`Unknown job "${job.name}"`);
       }

@@ -3,14 +3,12 @@
   "source": "scripts/backlog/stories-*.mjs",
   "totals": {
     "stories": 77,
-    "done": 22,
-    "ready": 5,
-    "backlog": 43,
+    "done": 24,
+    "ready": 2,
+    "backlog": 42,
     "blocked": 5
   },
   "criticalPath": [
-    "US-021",
-    "US-022",
     "US-023",
     "US-042",
     "US-043",
@@ -1126,7 +1124,7 @@
       "epic": "Website analysis and product intelligence",
       "code": "PROFILE",
       "priority": "P0",
-      "status": "Ready",
+      "status": "In Progress",
       "sprint": 3,
       "wave": 1,
       "story": {
@@ -1177,7 +1175,7 @@
         "external": "site 500 / timeout → failed state with reason",
         "retry": "transient fetch error retried once"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: POST /api/product/analyze + GET /api/product/analyze/[id]; private, internal and non-web URLs refused before any request; runs as product.analyze on the queue (inline without Redis); queued → reading → analysing → ready|failed persisted; one retry for transient failures; marks the product_url onboarding stage. E2E 61/61. Remaining: the URL stage UI showing live progress",
       "blocker": null
     },
     {
@@ -1186,9 +1184,9 @@
       "epic": "Website analysis and product intelligence",
       "code": "PROFILE",
       "priority": "P0",
-      "status": "Ready",
+      "status": "Done",
       "sprint": 3,
-      "wave": 2,
+      "wave": 0,
       "story": {
         "as": "founder",
         "want": "Banyan to extract my value proposition, features, audience and differentiators",
@@ -1237,7 +1235,7 @@
         "external": "model timeout → fallback labelled",
         "retry": "one retry on invalid output"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: src/lib/product/analyze.ts — Workflow A schema (incl. missing_information and provenance), prompt version product-analysis.v1, one retry on invalid output then the labelled basic extraction, template fallback never used as analysis. 22 unit tests with a mocked provider (no live model key in this environment). Live in Docker: example.com → ready, method basic, unknown fields listed as missing. Found and fixed: the word \"pricing\" in a nav link counted as a stated price",
       "blocker": null
     },
     {
@@ -1248,7 +1246,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 3,
-      "wave": 3,
+      "wave": 1,
       "story": {
         "as": "founder",
         "want": "to correct anything Banyan got wrong before it is used",
@@ -1300,9 +1298,9 @@
       "epic": "Security, reliability and operations",
       "code": "PROFILE",
       "priority": "P0",
-      "status": "Ready",
+      "status": "Done",
       "sprint": 3,
-      "wave": 1,
+      "wave": 0,
       "story": {
         "as": "the platform",
         "want": "crawled page text treated as data, never as instructions",
@@ -1343,7 +1341,7 @@
         "external": "n/a",
         "retry": "n/a"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: src/lib/ai/untrusted.ts — sanitises (scripts, comments, hidden and aria-hidden text removed), flags instruction-like passages, fences page text with a per-call nonce, and UNTRUSTED_CONTENT_RULES go in the system prompt; analysis output schema has no action fields. tests/untrusted-content.test.ts (9); product-analysis tests assert the fence and rules reach the model. Found and fixed: the hidden-attribute pattern deleted the next visible paragraph",
       "blocker": null
     },
     {
@@ -1352,7 +1350,7 @@
       "epic": "Website analysis and product intelligence",
       "code": "PROFILE",
       "priority": "P0",
-      "status": "Backlog",
+      "status": "In Progress",
       "sprint": 3,
       "wave": 2,
       "story": {
@@ -2116,7 +2114,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 3,
-      "wave": 4,
+      "wave": 2,
       "story": {
         "as": "founder",
         "want": "to choose objectives, platforms, frequency, formats and audience focus",
@@ -2171,7 +2169,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 6,
+      "wave": 4,
       "story": {
         "as": "new user",
         "want": "to see my first distribution strategy before onboarding ends",
@@ -2229,7 +2227,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 7,
+      "wave": 5,
       "story": {
         "as": "new user",
         "want": "onboarding to end with my first approved post published",
@@ -2286,7 +2284,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 3,
-      "wave": 4,
+      "wave": 2,
       "story": {
         "as": "founder",
         "want": "a strategy with channels, rationale, formats, angles, objectives, cadence and KPIs",
@@ -2347,7 +2345,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 3,
-      "wave": 5,
+      "wave": 3,
       "story": {
         "as": "founder",
         "want": "full control over the strategy before any content is written",
@@ -2401,7 +2399,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 6,
+      "wave": 4,
       "story": {
         "as": "founder",
         "want": "drafts written for each channel in my brand voice",
@@ -2510,7 +2508,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 6,
+      "wave": 4,
       "story": {
         "as": "founder",
         "want": "every campaign to have one clear status from draft to completed",
@@ -2564,7 +2562,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 7,
+      "wave": 5,
       "story": {
         "as": "founder",
         "want": "a campaign page showing its stage, what waits on me and what was published",
@@ -2616,7 +2614,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 5,
-      "wave": 7,
+      "wave": 5,
       "story": {
         "as": "founder",
         "want": "to stop a campaign safely",
@@ -2671,7 +2669,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 7,
+      "wave": 5,
       "story": {
         "as": "founder",
         "want": "to distribute all approved items of a campaign in one action",
@@ -2926,7 +2924,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 4,
+      "wave": 2,
       "story": {
         "as": "founder",
         "want": "drafts checked against my approved profile and brand rules",
@@ -3857,7 +3855,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 5,
-      "wave": 7,
+      "wave": 5,
       "story": {
         "as": "founder",
         "want": "a notification when something waits on me or fails",
@@ -3908,7 +3906,7 @@
       "priority": "P2",
       "status": "Backlog",
       "sprint": 6,
-      "wave": 8,
+      "wave": 6,
       "story": {
         "as": "founder",
         "want": "an email when content waits for my approval",
@@ -3962,7 +3960,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 6,
-      "wave": 8,
+      "wave": 6,
       "story": {
         "as": "product owner",
         "want": "the full journey tested automatically against the Compose stack",
@@ -4019,7 +4017,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 6,
-      "wave": 9,
+      "wave": 7,
       "story": {
         "as": "product owner",
         "want": "automated tests for every mandatory failure scenario",
