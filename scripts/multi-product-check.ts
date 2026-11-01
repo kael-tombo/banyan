@@ -11,6 +11,7 @@ import { accessibleProducts, resolveActiveProduct } from "@/lib/products";
 import { createOrganizationWithProduct, orgCan } from "@/lib/organizations";
 import { getBalance } from "@/lib/credits/service";
 import { STARTER_GRANT } from "@/lib/credits/ledger";
+import { loadOverview } from "@/lib/org-overview";
 
 async function main() {
   let failures = 0;
@@ -62,6 +63,16 @@ async function main() {
     check(balX.available === STARTER_GRANT, "another organization still gets its own starter credits", String(balX.available));
     const [againA, againB] = await Promise.all([getBalance(A.id), getBalance(B.id)]);
     check(againA.available === STARTER_GRANT && againB.available === 0, "reading balances again grants nothing more");
+
+    // Founder command center (BOS-014): per-product rows from real rows, filtered by reach.
+    await prisma.contentItem.create({ data: { workspaceId: B.id, channel: "x", format: "single", title: "B draft", body: "b", status: "ready_for_review" } });
+    const ov = await loadOverview(await accessibleProducts(owner.id), 14);
+    const rowA = ov.products.find((p) => p.id === A.id)!;
+    const rowB = ov.products.find((p) => p.id === B.id)!;
+    check(ov.products.length === 2 && rowA.waiting === 0 && rowB.waiting === 1, "the command center shows each product's own waiting items", `A=${rowA.waiting} B=${rowB.waiting}`);
+    check(rowA.visits === null && ov.totals.visits === null, "a product without tracked links shows not measured, not zero");
+    const memberView = await loadOverview(await accessibleProducts(member.id), 14);
+    check(memberView.products.length === 1 && memberView.products[0].id === A.id, "a member's command center lists only their product");
 
     // Removing someone's product membership ends their access at once.
     await prisma.membership.deleteMany({ where: { userId: member.id, workspaceId: A.id } });

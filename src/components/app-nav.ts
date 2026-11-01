@@ -1,7 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   BarChart3, BookOpen, Coins, Bot, CalendarDays, CheckCircle2, ClipboardList, Compass, FlaskConical,
-  LayoutDashboard, Lightbulb, LineChart, Link2, Megaphone, Package, PenLine, Receipt, RefreshCw,
+  LayoutDashboard, LayoutGrid, Lightbulb, LineChart, Link2, Megaphone, Package, PenLine, Receipt, RefreshCw,
   ScanSearch, Settings, Share2, ShieldCheck, Target, Users2,
 } from "lucide-react";
 
@@ -24,6 +24,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/app", label: "Dashboard", icon: LayoutDashboard, keywords: "home command center overview" },
       { href: "/app/approvals", label: "Approvals", icon: CheckCircle2, keywords: "review queue gate waiting" },
+      { href: "/app/organization", label: "All products", icon: LayoutGrid, keywords: "organization products portfolio compare founder overview" },
     ],
   },
   {

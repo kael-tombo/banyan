@@ -135,7 +135,7 @@ same-origin (CSRF), validates with zod and is rate-limited where public.
 - **Security** Archive is logged.
 
 ### BOS-014 — Founder command center
-- **Role** Founder · **Status** IN_PROGRESS · **Depends on** BOS-009, BOS-011 · **Maps to** extends dashboard
+- **Role** Founder · **Status** REVIEW · **Depends on** BOS-009, BOS-011 · **Maps to** extends dashboard
 - **Story** As a founder, I want one dashboard across all products (pending approvals, active cycles, scheduled and published posts, failures, credits, outcomes per product), so that I know where to look first.
 - **Value** The organization-level view the brief centres on.
 - **Functional** per-product rows: waiting-on-you count, active cycle and progress, published (14 days), failures, tracked visits/signups (14 days); org totals; links that switch product and open the screen.

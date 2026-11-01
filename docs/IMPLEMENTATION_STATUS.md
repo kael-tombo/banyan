@@ -17,7 +17,8 @@ payments, SocialFlow media and analytics, research provider, real social account
 | BOS-009 Switch product | REVIEW | `src/lib/products.ts`, `src/lib/api-utils.ts`, `src/lib/workspace.ts`, `src/app/app/layout.tsx`, `src/app/onboarding/page.tsx`, `src/app/api/session/product/route.ts`, `src/lib/product-cookie.ts` | — | `POST /api/session/product` (404 for both missing and forbidden) | `tests/products.test.ts` (4); isolation script (forged preferences fall back) | browser check |
 | BOS-010 Product authorization | IN_PROGRESS | `src/lib/products.ts`, `src/lib/api-tokens.ts` | — | every existing route through `requireWorkspace()`; MCP tokens re-check reach | isolation script | named product roles (PRODUCT_ADMIN … VIEWER) still map to today's owner/member/viewer |
 | BOS-011 List and search products | REVIEW | `src/app/api/products/route.ts` (GET), `ProductSwitcher` search | — | `GET /api/products` | — | browser check |
-| BOS-066 Cross-tenant security suite | IN_PROGRESS | `scripts/multi-product-check.ts` | — | — | 13/13 against Postgres | run in CI; HTTP-level IDOR cases per endpoint |
+| BOS-014 Founder command center | REVIEW | `src/lib/org-overview.ts`, `src/app/app/organization/page.tsx`, `open-product.tsx`, nav "All products" | — | server page (period 7/14/30 days) | `tests/org-overview.test.ts` (4); isolation script: per-product rows, not-measured kept, member sees only their product | browser check (dev server restart) |
+| BOS-066 Cross-tenant security suite | IN_PROGRESS | `scripts/multi-product-check.ts` | — | — | 19/19 against Postgres (adds starter-credit and command-center checks) | run in CI; HTTP-level IDOR cases per endpoint |
 
 Full unit suite: 56 files, 646 tests passing; typecheck clean. Existing DB checks (`scripts/autonomy-check.ts`,
 `scripts/credits-concurrency.ts`) still pass after the change, and leave no rows behind.
