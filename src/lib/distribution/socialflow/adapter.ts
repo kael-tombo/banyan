@@ -1,5 +1,6 @@
 import { call, type Transport } from "@/lib/distribution/socialflow/client";
-import { operatorFetch } from "@/lib/net/safe-fetch";
+import { operatorFetch, safeFetch } from "@/lib/net/safe-fetch";
+import { mcpTransport } from "@/lib/distribution/socialflow/mcp-transport";
 import {
   ROUTES,
   IDEMPOTENCY_HEADER,
@@ -51,7 +52,10 @@ const PROVIDER_ID = "socialflow";
  * operator says so explicitly. By default every call keeps the SSRF guard.
  */
 export function defaultTransport(): Transport | undefined {
-  return process.env.SOCIALFLOW_ALLOW_PRIVATE_NETWORK === "true" ? operatorFetch : undefined;
+  const bytes = process.env.SOCIALFLOW_ALLOW_PRIVATE_NETWORK === "true" ? operatorFetch : undefined;
+  // SOCIALFLOW_TRANSPORT=mcp: the same contract carried as MCP tool calls to <SOCIALFLOW_API_URL>/mcp.
+  if (process.env.SOCIALFLOW_TRANSPORT === "mcp") return mcpTransport(bytes ?? safeFetch);
+  return bytes;
 }
 
 export type SocialFlowOptions = {

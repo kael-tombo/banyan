@@ -19,6 +19,11 @@ through the browser flow, capabilities, publishing, no duplicate on replay, and 
 one correctly escaped post; X received a correctly chained 2-post thread. Banyan can reach a private SocialFlow URL
 only with `SOCIALFLOW_ALLOW_PRIVATE_NETWORK=true`; by default the SSRF guard still refuses it.
 
+**MCP (2026-11-01).** SocialFlow Lite also serves the contract as MCP tools at `/mcp`. With `SOCIALFLOW_TRANSPORT=mcp`, Banyan
+calls them through `src/lib/distribution/socialflow/mcp-transport.ts` and keeps its retry, error and idempotency rules
+unchanged. The full smoke test passes over MCP against the real binary, and a logging proxy confirmed every request
+went to `/mcp`, with one handshake.
+
 **What is left to close this blocker:**
 
 1. ~~Choose where SocialFlow Lite lives~~ (done: branch `socialflow-lite`). Deploy it on a
