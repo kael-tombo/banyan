@@ -165,6 +165,9 @@ export class SocialFlowProvider implements DistributionProvider {
         res.raw,
       );
     }
+    if (post.status === "cancelled") {
+      return failureOutcome({ code: "unknown", message: "SocialFlow.ai answered with a cancelled post; nothing was published.", retryable: false }, res.raw);
+    }
     if (scheduledAt ? post.status === "scheduled" || post.status === "published" : post.status === "published") {
       return { ok: true, externalId: post.id, externalUrl: post.url ?? undefined, raw: res.raw };
     }

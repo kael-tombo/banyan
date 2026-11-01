@@ -5,6 +5,7 @@ import { apiError, assertSameOrigin, json, requireWorkspace, readJson } from "@/
 import { canTransitionContent } from "@/lib/state-machines";
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { cancelPendingPublication } from "@/lib/publishing/status-sync";
 
 const schema = z.object({
   scheduledFor: z.string().datetime({ offset: true }).optional().nullable(), // UTC ISO
@@ -29,17 +30,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!["scheduled", "approved", "failed"].includes(item.status)) {
       return apiError(`Nothing to cancel in status "${item.status}".`, 400);
     }
-    // Pending scheduled publication is cancelled.
-    await prisma.publication.updateMany({
-      where: { contentItemId: item.id, status: "scheduled" },
-      data: { status: "blocked", lastError: "Schedule cancelled by user." },
-    });
+    // Pending scheduled publication is cancelled, in SocialFlow first if it already holds the post (BOS-029).
+    const cancelled = await cancelPendingPublication(item.id, ctx.workspace.id, ctx.user.id);
+    if (!cancelled.ok) return apiError(cancelled.message, cancelled.status);
     const updated = await prisma.contentItem.update({
       where: { id: item.id },
       data: { status: "approved", scheduledFor: null },
     });
     await syncCampaignLifecycle(updated.campaignId);
-    return json({ item: updated, cancelled: true });
+    return json({ item: updated, cancelled: true, atProvider: cancelled.atProvider });
   }
 
   if (!parsed.data.scheduledFor) return apiError("scheduledFor is required.", 400);

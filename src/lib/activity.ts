@@ -11,6 +11,7 @@ export type ActivityType =
   | "publication_success"
   | "publication_failed"
   | "publication_blocked"
+  | "publication_cancelled"
   | "signup"
   | "visit"
   | "onboarding_complete"

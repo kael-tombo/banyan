@@ -4,8 +4,20 @@ Master progress file required by the brief (§20). Backlog: [user-stories/MULTI_
 · Phase 0: [architecture/MULTI_PRODUCT_PHASE0.md](architecture/MULTI_PRODUCT_PHASE0.md) · Decision: ADR-005 in
 [ARCHITECTURE_DECISIONS.md](ARCHITECTURE_DECISIONS.md).
 
-**Backlog totals:** 72 stories — 24 DONE · 10 REVIEW · 6 IN_PROGRESS · 22 READY · 10 BLOCKED (external: email,
+**Backlog totals:** 72 stories — 24 DONE · 12 REVIEW · 6 IN_PROGRESS · 20 READY · 10 BLOCKED (external: email,
 payments, SocialFlow media and analytics, research provider, real social accounts).
+
+## 2026-11-02 — Integration validation, status sync and cancel
+
+| Story | Status | Files | Database | API | Tests and results | Remaining |
+| --- | --- | --- | --- | --- | --- | --- |
+| BOS-027 Publication status sync | REVIEW | `src/lib/publishing/status-sync.ts`, `src/lib/publishing/publish.ts`, `src/lib/maintenance.ts` | uses existing `Publication.externalId/externalUrl` | worker: an accepted-but-unconfirmed post keeps its SocialFlow id and is reconciled by status (C7) instead of resent; the sweep fills missing live URLs | `tests/publication-status-sync.test.ts` (4); `scripts/publication-sync-check.ts` 12/12 against Postgres (in CI) | live run on real accounts |
+| BOS-029 Cancel a scheduled post | REVIEW | Lite: `DELETE /v1/posts/{id}` + MCP `cancel_post` (commit eeac896 on socialflow-lite); Banyan: contract C8, adapter `cancelScheduled`, MCP mapping, `src/app/api/content/[id]/schedule/route.ts` | — | cancel cancels in SocialFlow first when it already holds the post; a refusal (already published) leaves Banyan unchanged with 409 | Lite tests; Banyan unit tests; DB check; cross-repo check | UI copy for the 409 case |
+| Banyan ↔ SocialFlow Lite integration | DONE (stand-in platforms) | `scripts/socialflow-integration-check.ts`, `scripts/fixtures/fake-social-providers.mjs`, CI job `socialflow` | — | Lite built from source; real adapter over REST and MCP | 27/27 locally and in CI: connect via redirects, publish, replay without duplicates, X thread, status, schedule→cancel, no analytics, platform-side post counts | real LinkedIn/X developer apps |
+
+Fixed on the way: automated publications never saved the live URL SocialFlow returned (pages showed no link); a second
+publish after a failed or cancelled attempt reused the unique idempotency key and crashed; a replay answering
+"cancelled" was retried forever. Full suite 61 files, 736 tests; CI green on checks, database and socialflow jobs.
 
 ## 2026-11-01 — Phase 1/2 foundation (commit ef3a257)
 

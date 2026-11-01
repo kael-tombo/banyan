@@ -8,6 +8,7 @@ import { recordActivity } from "@/lib/activity";
 import { randomSlug } from "@/lib/crypto";
 import { claimDecision } from "@/lib/publishing/claim";
 import { enqueuePublicationAttempt } from "@/lib/queue/jobs";
+import { syncAcceptedPost } from "@/lib/publishing/status-sync";
 
 /** Connection statuses that can never be used to publish. */
 export const UNUSABLE_CONNECTION_STATUSES = ["error", "removed"];
@@ -55,7 +56,10 @@ async function attemptPublicationInner(input: {
     ? await prisma.channelConnection.findFirst({ where: { id: input.connectionId, workspaceId: input.workspaceId } })
     : await prisma.channelConnection.findFirst({ where: { workspaceId: input.workspaceId, channel: item.channel, status: { notIn: UNUSABLE_CONNECTION_STATUSES } } });
 
-  const idempotencyKey = `${item.id}:${input.mode}:${input.scheduledFor ? Math.floor(input.scheduledFor.getTime() / 60_000) * 60_000 : "now"}`;
+  // A new attempt after a failed or cancelled one is a new delivery intent, so it gets a new key
+  // (the column is unique, and the provider would otherwise replay the failed or cancelled post).
+  const baseKey = `${item.id}:${input.mode}:${input.scheduledFor ? Math.floor(input.scheduledFor.getTime() / 60_000) * 60_000 : "now"}`;
+  const idempotencyKey = item.publications.length ? `${baseKey}:${item.publications.length}` : baseKey;
   const publication = await prisma.publication.create({
     data: {
       contentItemId: item.id,
@@ -144,14 +148,19 @@ async function executePublicationInner(publicationId: string): Promise<{ ok: boo
     return { ok: false, status: "blocked", message };
   }
 
-  const result = await provider.publish({
-    ctx: { workspaceId: item.workspaceId, credentials: credentialsFromConnection(publication.connection) },
+  // BOS-027: a post SocialFlow already accepted is not sent again; its status
+  // (C7) decides. Only an inconclusive status read falls back to an idempotent replay.
+  const providerCtx = { workspaceId: item.workspaceId, credentials: credentialsFromConnection(publication.connection) };
+  const synced = publication.externalId ? await syncAcceptedPost(provider, providerCtx, publication.externalId) : null;
+  const result = synced ?? (await provider.publish({
+    ctx: providerCtx,
     channel: item.channel,
     text: item.body,
     title: item.title,
     idempotencyKey: publication.idempotencyKey,
     scheduledFor: publication.scheduledFor,
-  });
+  }));
+  const externalId = result.externalId ?? publication.externalId ?? null;
 
   if (!result.ok) {
     const attemptNumber = publication.attempts; // incremented before the adapter call
@@ -165,7 +174,7 @@ async function executePublicationInner(publicationId: string): Promise<{ ok: boo
       const retryAt = new Date(Date.now() + nextRetryDelayMs(attemptNumber, { retryAfterMs: result.retryAfterMs }));
       await prisma.publication.update({
         where: { id: publication.id },
-        data: { status: "scheduled", scheduledFor: retryAt, lastError: errorMessage },
+        data: { status: "scheduled", scheduledFor: retryAt, lastError: errorMessage, externalId },
       });
       await prisma.contentItem.update({ where: { id: item.id }, data: { status: "scheduled", scheduledFor: retryAt } });
       await enqueuePublicationAttempt(publication.id, retryAt);
@@ -181,7 +190,7 @@ async function executePublicationInner(publicationId: string): Promise<{ ok: boo
 
     await prisma.publication.update({
       where: { id: publication.id },
-      data: { status: "failed", lastError: errorMessage, providerResponse: JSON.stringify(result.raw).slice(0, 4000) },
+      data: { status: "failed", lastError: errorMessage, externalId, providerResponse: JSON.stringify(result.raw).slice(0, 4000) },
     });
     await prisma.contentItem.update({ where: { id: item.id }, data: { status: "failed" } });
     await recordActivity({ workspaceId: item.workspaceId, type: "publication_failed", actorType: "system", summary: `Publishing failed for "${item.title}" after ${attemptNumber} attempt(s): ${errorMessage}`, meta: { contentItemId: item.id } });
@@ -193,7 +202,8 @@ async function executePublicationInner(publicationId: string): Promise<{ ok: boo
     where: { id: publication.id },
     data: {
       status: "published",
-      externalId: result.externalId ?? null,
+      externalId,
+      externalUrl: result.externalUrl && /^https?:\/\//i.test(result.externalUrl) ? result.externalUrl : null,
       providerResponse: JSON.stringify(result.raw).slice(0, 8000),
       publishedAt: new Date(),
     },

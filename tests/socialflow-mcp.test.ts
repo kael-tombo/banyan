@@ -111,6 +111,13 @@ describe("SocialFlowProvider over MCP", () => {
     if (!out.ok) expect(out.error.message).toContain("instead of cancelled");
   });
 
+  it("does not keep retrying a replay that comes back cancelled", async () => {
+    const mcp = fakeMcp({ toolStatus: (n) => (n === "publish_post" ? { status: 200, body: { id: "p1", status: "cancelled" } } : undefined) });
+    const sf = new SocialFlowProvider({ baseUrl: "https://sf.test", transport: mcpTransport(mcp.transport), enabledOverride: true });
+    const out = await sf.publish({ ctx, channel: "linkedin", text: "hello", idempotencyKey: "k" });
+    expect(out).toMatchObject({ ok: false, retryable: false });
+  });
+
   it("answers analytics honestly as unsupported, without a network call", async () => {
     const mcp = fakeMcp();
     const sf = new SocialFlowProvider({ baseUrl: "https://sf.test", transport: mcpTransport(mcp.transport), enabledOverride: true });

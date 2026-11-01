@@ -78,6 +78,8 @@ jobs:
         run: npx tsx scripts/autonomy-check.ts
       - name: Credit concurrency
         run: npx tsx scripts/credits-concurrency.ts
+      - name: Publication status sync and cancel (BOS-027/029)
+        run: npx tsx scripts/publication-sync-check.ts
 
   socialflow:
     # Banyan's real SocialFlow adapter against SocialFlow Lite built from source,

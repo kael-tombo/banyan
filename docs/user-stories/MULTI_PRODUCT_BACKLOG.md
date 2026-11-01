@@ -214,7 +214,7 @@ same-origin (CSRF), validates with zod and is rate-limited where public.
 - **Story** As an editor, I want approved posts published or scheduled through the product's accounts. · **Acceptance** idempotent, approval re-checked on every attempt, thread resume (tests passing); live run pending.
 
 ### BOS-027 — Publication status sync
-- **Role** Content editor · **Status** READY · **Depends on** BOS-026 · **Maps to** US-035
+- **Role** Content editor · **Status** REVIEW · **Depends on** BOS-026 · **Maps to** US-035
 - **Story** As an editor, I want queued or scheduled publications reconciled with SocialFlow's status, so that "published" is always confirmed.
 - **Functional** the worker polls getStatus (C7) for publications in attempting or queued with backoff; it updates the URL and status.
 - **Data** publications · **API** worker job · **UI** status badges
@@ -225,7 +225,7 @@ same-origin (CSRF), validates with zod and is rate-limited where public.
 - **Story** As an editor, I want to attach an image to a post. · **Technical** MinIO in Compose; SocialFlow Lite media endpoints (LinkedIn images API, X media upload, already proven in OpenPost upstream). **Acceptance** an image post publishes with a confirmed URL. **Security** content-type and size limits, safe image types only.
 
 ### BOS-029 — Cancel a scheduled post
-- **Role** Content editor · **Status** READY · **Depends on** BOS-026 · **Maps to** new (needs a Lite DELETE /v1/posts/{id} while scheduled)
+- **Role** Content editor · **Status** REVIEW · **Depends on** BOS-026 · **Maps to** new (needs a Lite DELETE /v1/posts/{id} while scheduled)
 - **Story** As an editor, I want to cancel a scheduled post before it goes out. · **Acceptance** cancelled posts never publish (scheduler test). **Tests −** cancelling a published post returns 409.
 
 ### BOS-030 — Signed status webhooks
