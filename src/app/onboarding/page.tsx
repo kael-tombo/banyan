@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSessionUser, readSessionToken } from "@/lib/auth/session";
 import { OnboardingWizard } from "./wizard";
+import { getProgress } from "@/lib/onboarding/progress";
 
 export const metadata: Metadata = { title: "Set up your workspace" };
 
@@ -25,10 +26,20 @@ export default async function OnboardingPage({
     include: { workspace: { include: { profile: true } } },
   });
   const profile = membership?.workspace.profile ?? null;
+  const workspace = membership?.workspace;
+  const progress = workspace ? await getProgress(workspace.id) : null;
 
   return (
     <OnboardingWizard
+      initialStages={progress?.stages ?? []}
       initialSteps={{
+        workspace: {
+          workspaceName: workspace?.name ?? "",
+          businessName: workspace?.businessName || profile?.name || "",
+          industry: workspace?.industry ?? "",
+          businessModel: workspace?.businessModel || "saas",
+          timeZone: workspace?.timeZone || "UTC",
+        },
         product: {
           name: profile?.name ?? "",
           description: profile?.description ?? "",

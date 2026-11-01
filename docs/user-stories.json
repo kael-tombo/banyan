@@ -3,13 +3,12 @@
   "source": "scripts/backlog/stories-*.mjs",
   "totals": {
     "stories": 77,
-    "done": 21,
-    "ready": 6,
-    "backlog": 44,
+    "done": 22,
+    "ready": 5,
+    "backlog": 43,
     "blocked": 5
   },
   "criticalPath": [
-    "US-018",
     "US-021",
     "US-022",
     "US-023",
@@ -967,9 +966,9 @@
       "epic": "User onboarding",
       "code": "ONB",
       "priority": "P0",
-      "status": "Ready",
+      "status": "Done",
       "sprint": 2,
-      "wave": 1,
+      "wave": 0,
       "story": {
         "as": "new user",
         "want": "my onboarding progress saved stage by stage",
@@ -1013,7 +1012,7 @@
         "external": "n/a",
         "retry": "save retried on network error"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: OnboardingStage model + migration (existing onboarded workspaces backfilled); src/lib/onboarding/{stages,progress}.ts; GET/POST /api/onboarding/progress; each wizard save marks its stage; wizard resumes at the first unfinished stage and shows all nine. E2E (Docker): new workspace resumes at workspace, required stage skip → 409, optional skip → 200, all required stages done after the steps. tests/onboarding-stages.test.ts (11). Wizard rendered for a fresh account",
       "blocker": null
     },
     {
@@ -1022,9 +1021,9 @@
       "epic": "User onboarding",
       "code": "ONB",
       "priority": "P0",
-      "status": "Backlog",
+      "status": "In Progress",
       "sprint": 2,
-      "wave": 2,
+      "wave": 1,
       "story": {
         "as": "new user",
         "want": "to give my business name, industry, business model and time zone",
@@ -1064,7 +1063,7 @@
         "external": "n/a",
         "retry": "n/a"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: workspace step captures workspace name, business name, industry, business model and an IANA time zone (validated; unknown zone → 400 in E2E), defaulting to the browser zone. Remaining for Done: show and enter schedule times in the workspace time zone (acceptance criterion)",
       "blocker": null
     },
     {
@@ -1075,7 +1074,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 2,
-      "wave": 2,
+      "wave": 1,
       "story": {
         "as": "founder",
         "want": "to answer five short questions about my product",
@@ -1129,7 +1128,7 @@
       "priority": "P0",
       "status": "Ready",
       "sprint": 3,
-      "wave": 2,
+      "wave": 1,
       "story": {
         "as": "founder",
         "want": "to paste my product URL and have Banyan read it",
@@ -1189,7 +1188,7 @@
       "priority": "P0",
       "status": "Ready",
       "sprint": 3,
-      "wave": 3,
+      "wave": 2,
       "story": {
         "as": "founder",
         "want": "Banyan to extract my value proposition, features, audience and differentiators",
@@ -1249,7 +1248,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 3,
-      "wave": 4,
+      "wave": 3,
       "story": {
         "as": "founder",
         "want": "to correct anything Banyan got wrong before it is used",
@@ -1355,7 +1354,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 3,
-      "wave": 3,
+      "wave": 2,
       "story": {
         "as": "founder",
         "want": "a clear next step when my site cannot be read",
@@ -1407,7 +1406,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 3,
-      "wave": 2,
+      "wave": 1,
       "story": {
         "as": "founder",
         "want": "to set tone, language, messaging preferences and things never to say",
@@ -2062,7 +2061,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 3,
-      "wave": 2,
+      "wave": 1,
       "story": {
         "as": "new user",
         "want": "an onboarding stage that shows SocialFlow.ai's status and lets me continue in export mode",
@@ -2117,7 +2116,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 3,
-      "wave": 5,
+      "wave": 4,
       "story": {
         "as": "founder",
         "want": "to choose objectives, platforms, frequency, formats and audience focus",
@@ -2172,7 +2171,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 7,
+      "wave": 6,
       "story": {
         "as": "new user",
         "want": "to see my first distribution strategy before onboarding ends",
@@ -2230,7 +2229,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 8,
+      "wave": 7,
       "story": {
         "as": "new user",
         "want": "onboarding to end with my first approved post published",
@@ -2287,7 +2286,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 3,
-      "wave": 5,
+      "wave": 4,
       "story": {
         "as": "founder",
         "want": "a strategy with channels, rationale, formats, angles, objectives, cadence and KPIs",
@@ -2348,7 +2347,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 3,
-      "wave": 6,
+      "wave": 5,
       "story": {
         "as": "founder",
         "want": "full control over the strategy before any content is written",
@@ -2402,7 +2401,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 7,
+      "wave": 6,
       "story": {
         "as": "founder",
         "want": "drafts written for each channel in my brand voice",
@@ -2511,7 +2510,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 7,
+      "wave": 6,
       "story": {
         "as": "founder",
         "want": "every campaign to have one clear status from draft to completed",
@@ -2565,7 +2564,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 8,
+      "wave": 7,
       "story": {
         "as": "founder",
         "want": "a campaign page showing its stage, what waits on me and what was published",
@@ -2617,7 +2616,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 5,
-      "wave": 8,
+      "wave": 7,
       "story": {
         "as": "founder",
         "want": "to stop a campaign safely",
@@ -2672,7 +2671,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 8,
+      "wave": 7,
       "story": {
         "as": "founder",
         "want": "to distribute all approved items of a campaign in one action",
@@ -2927,7 +2926,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 5,
+      "wave": 4,
       "story": {
         "as": "founder",
         "want": "drafts checked against my approved profile and brand rules",
@@ -3088,7 +3087,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 2,
+      "wave": 1,
       "story": {
         "as": "product owner",
         "want": "funnel events for each MVP milestone",
@@ -3139,7 +3138,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 5,
-      "wave": 3,
+      "wave": 2,
       "story": {
         "as": "product owner",
         "want": "activation rate and time from URL to first publication, split by path",
@@ -3858,7 +3857,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 5,
-      "wave": 8,
+      "wave": 7,
       "story": {
         "as": "founder",
         "want": "a notification when something waits on me or fails",
@@ -3909,7 +3908,7 @@
       "priority": "P2",
       "status": "Backlog",
       "sprint": 6,
-      "wave": 9,
+      "wave": 8,
       "story": {
         "as": "founder",
         "want": "an email when content waits for my approval",
@@ -3963,7 +3962,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 6,
-      "wave": 9,
+      "wave": 8,
       "story": {
         "as": "product owner",
         "want": "the full journey tested automatically against the Compose stack",
@@ -4020,7 +4019,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 6,
-      "wave": 10,
+      "wave": 9,
       "story": {
         "as": "product owner",
         "want": "automated tests for every mandatory failure scenario",

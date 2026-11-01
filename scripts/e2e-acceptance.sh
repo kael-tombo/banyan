@@ -62,6 +62,19 @@ req POST /api/auth/signup "$JAR1" "{\"name\":\"E2E Founder\",\"email\":\"$U1\",\
                                        check "$STATUS" 201 "signup works"
 req GET /api/goals "$JAR1";            check "$STATUS" 200 "session cookie grants API access"
 
+# US-018 / US-019: onboarding progress across the nine stages.
+req GET /api/onboarding/progress "$JAR1"
+                                       check "$STATUS" 200 "onboarding progress readable"
+contains "$BODY" '"current":"workspace"' "new workspace resumes at the workspace stage"
+req POST /api/onboarding "$JAR1" '{"step":"workspace","data":{"workspaceName":"Acme","businessName":"Acme Labs","industry":"developer tools","businessModel":"saas","timeZone":"Mars/Olympus"}}'
+                                       check "$STATUS" 400 "unknown time zone rejected"
+req POST /api/onboarding "$JAR1" '{"step":"workspace","data":{"workspaceName":"Acme","businessName":"Acme Labs","industry":"developer tools","businessModel":"saas","timeZone":"Africa/Nairobi"}}'
+                                       check "$STATUS" 200 "onboarding: workspace step"
+req POST /api/onboarding/progress "$JAR1" '{"stage":"business","action":"skip"}'
+                                       check "$STATUS" 409 "required stage cannot be skipped"
+req POST /api/onboarding/progress "$JAR1" '{"stage":"connection","action":"skip"}'
+                                       check "$STATUS" 200 "optional stage can be skipped"
+
 req POST /api/onboarding "$JAR1" '{"step":"product","data":{"name":"Acme Launch Tracker","description":"Acme helps indie founders track product launches across communities, newsletters and social channels in one place.","website":"https://example.com/acme","stage":"public_beta","problem":"Founders scatter launch updates across five tools and never learn which channel actually brought users.","valueProp":"One tracker shows every launch, its channel and its conversions in real time."}}'
                                        check "$STATUS" 200 "onboarding: product step"
 req POST /api/onboarding "$JAR1" '{"step":"audience","data":{"audience":"Indie founders shipping their first product","pain":"No idea which distribution channel converts","outcome":"Confident channel decisions with tracked evidence","geography":"Global English-speaking"}}'
@@ -72,6 +85,8 @@ req POST /api/onboarding "$JAR1" '{"step":"channels","data":{"channels":["x","li
                                        check "$STATUS" 200 "onboarding: channels step"
 req POST /api/onboarding "$JAR1" '{"step":"voice","data":{"tone":"plain, founder-to-founder","language":"en"}}'
                                        check "$STATUS" 200 "onboarding: voice step"
+req GET /api/onboarding/progress "$JAR1"
+contains "$BODY" '"requiredComplete":true' "all required onboarding stages done after the steps"
 
 req GET /api/profile "$JAR1"
 NAME=$(printf '%s' "$BODY" | jget '.profile.name'); SITE=$(printf '%s' "$BODY" | jget '.profile.website')

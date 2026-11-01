@@ -231,7 +231,7 @@ export const storiesA = [
 
   // ───────────────────────── ONB — Onboarding ─────────────────────────
   {
-    id: "US-018", epic: "User onboarding", code: "ONB", priority: "P0", status: "Ready", sprint: 2,
+    id: "US-018", epic: "User onboarding", code: "ONB", priority: "P0", status: "Done", sprint: 2,
     title: "Track onboarding progress across the nine stages",
     as: "new user", want: "my onboarding progress saved stage by stage", so: "I can stop and resume without losing work",
     context: "The wizard has five steps; the brief defines nine stages with optional ones skippable.",
@@ -241,9 +241,10 @@ export const storiesA = [
     deps: { stories: ["US-014"], optional: [], external: [], infra: [], api: [] },
     impl: { frontend: "Wizard shell with progress", backend: "/api/onboarding (GET progress, PUT stage)", database: "OnboardingProgress(workspaceId, stage, status, data, updatedAt)", integration: "None", jobs: "None" },
     tests: { happy: "complete all stages", validation: "required stage cannot be skipped", authorization: "progress scoped to workspace", external: "n/a", retry: "save retried on network error" },
+    evidence: "2026-11-01: OnboardingStage model + migration (existing onboarded workspaces backfilled); src/lib/onboarding/{stages,progress}.ts; GET/POST /api/onboarding/progress; each wizard save marks its stage; wizard resumes at the first unfinished stage and shows all nine. E2E (Docker): new workspace resumes at workspace, required stage skip → 409, optional skip → 200, all required stages done after the steps. tests/onboarding-stages.test.ts (11). Wizard rendered for a fresh account",
   },
   {
-    id: "US-019", epic: "User onboarding", code: "ONB", priority: "P0", status: "Backlog", sprint: 2,
+    id: "US-019", epic: "User onboarding", code: "ONB", priority: "P0", status: "In Progress", sprint: 2,
     title: "Describe my workspace and business basics",
     as: "new user", want: "to give my business name, industry, business model and time zone", so: "plans and schedules fit my business and my day",
     context: "Workspace has a name only.",
@@ -253,6 +254,7 @@ export const storiesA = [
     deps: { stories: ["US-018"], optional: [], external: [], infra: [], api: [] },
     impl: { frontend: "Workspace stage", backend: "PUT /api/onboarding stage=workspace", database: "Workspace.businessName, industry, businessModel, timeZone", integration: "None", jobs: "None" },
     tests: { happy: "save and reload", validation: "invalid time zone rejected", authorization: "viewer cannot edit", external: "n/a", retry: "n/a" },
+    evidence: "2026-11-01: workspace step captures workspace name, business name, industry, business model and an IANA time zone (validated; unknown zone → 400 in E2E), defaulting to the browser zone. Remaining for Done: show and enter schedule times in the workspace time zone (acceptance criterion)",
   },
   {
     id: "US-020", epic: "User onboarding", code: "ONB", priority: "P0", status: "Backlog", sprint: 2,

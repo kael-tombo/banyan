@@ -48,6 +48,12 @@ model Workspace {
   // Agent activity control: when set, the orchestrator reconciles but never
   // executes new task work for this workspace (pause is human-controlled).
   agentsPausedAt DateTime?
+  // Business basics captured in onboarding (US-019). timeZone is an IANA name
+  // used to display and enter schedule times; storage stays UTC.
+  businessName  String  @default("")
+  industry      String  @default("")
+  businessModel String  @default("")
+  timeZone      String  @default("UTC")
   createdAt DateTime @default(now())
 
   memberships     Membership[]
@@ -67,6 +73,22 @@ model Workspace {
   recommendations Recommendation[]
   modelCalls      ModelCall[]
   chatMessages    ChatMessage[]
+  onboardingStages OnboardingStage[]
+}
+
+/// Onboarding progress, one row per stage the workspace has finished or
+/// skipped (US-018). Stages with no row are not started. The stage list and
+/// which stages are required live in src/lib/onboarding/stages.ts.
+model OnboardingStage {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  stage       String
+  // done | skipped
+  status      String
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([workspaceId, stage])
 }
 
 model Membership {

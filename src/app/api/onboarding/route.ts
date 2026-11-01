@@ -5,8 +5,23 @@ import { generateDraftPlan } from "@/lib/ai/generate";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
+import { requireRole } from "@/lib/permissions";
+import { markStage } from "@/lib/onboarding/progress";
+import { isValidTimeZone } from "@/lib/onboarding/stages";
+
+const BUSINESS_MODELS = ["saas", "marketplace", "ecommerce", "services", "app", "other"] as const;
 
 const stepSchema = z.discriminatedUnion("step", [
+  z.object({
+    step: z.literal("workspace"),
+    data: z.object({
+      workspaceName: z.string().trim().min(1).max(80),
+      businessName: z.string().trim().min(1).max(120),
+      industry: z.string().trim().min(2).max(80),
+      businessModel: z.enum(BUSINESS_MODELS),
+      timeZone: z.string().trim().min(1).max(60).refine(isValidTimeZone, "Unknown time zone."),
+    }),
+  }),
   z.object({
     step: z.literal("product"),
     data: z.object({
@@ -61,7 +76,27 @@ export async function POST(req: NextRequest) {
   const parsed = await readJson(req, stepSchema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
 
+  const forbidden = requireRole(ctx.membership.role, "write");
+  if (forbidden) return apiError(forbidden, 403);
+
   const { step, data } = parsed.data;
+
+  // US-019: workspace basics live on the workspace, not the product profile.
+  if (step === "workspace") {
+    await prisma.workspace.update({
+      where: { id: ctx.workspace.id },
+      data: {
+        name: data.workspaceName,
+        businessName: data.businessName,
+        industry: data.industry,
+        businessModel: data.businessModel,
+        timeZone: data.timeZone,
+      },
+    });
+    await markStage(ctx.workspace.id, "workspace", "done");
+    return json({ ok: true, step });
+  }
+
   const existing = await prisma.productProfile.findUnique({ where: { workspaceId: ctx.workspace.id } });
 
   const update: Prisma.ProductProfileUpdateInput = { workspace: { connect: { id: ctx.workspace.id } } };
@@ -100,7 +135,7 @@ Geography/market: ${data.geography || "not specified"}`,
     update.brandVoice = JSON.stringify(data);
   }
 
-  await prisma.productProfile.upsert({
+  const saved = await prisma.productProfile.upsert({
     where: { workspaceId: ctx.workspace.id },
     create: {
       workspaceId: ctx.workspace.id,
@@ -117,6 +152,12 @@ Geography/market: ${data.geography || "not specified"}`,
     },
     update,
   });
+
+  // US-018: record which stages this save completes.
+  if (step === "product" && saved.website) await markStage(ctx.workspace.id, "product_url", "done");
+  if (saved.name && saved.description && saved.audience && saved.goal) await markStage(ctx.workspace.id, "business", "done");
+  if (step === "channels") await markStage(ctx.workspace.id, "preferences", "done");
+  if (step === "voice") await markStage(ctx.workspace.id, "brand", "done");
 
   return json({ ok: true, step });
 }
