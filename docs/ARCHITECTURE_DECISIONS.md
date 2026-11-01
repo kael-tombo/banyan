@@ -79,3 +79,27 @@ currently Banyan's only automated publishing path.
 The brief's TASK-000…088 are covered by the 77-story backlog (`docs/USER_STORIES.md`). New items it adds (for example credit expiry notifications) become stories there, not a parallel backlog.
 
 **Consequences.** No rewrite. Work continues down the existing critical path. A Python service is reconsidered only if a dependency forces it, which none does today.
+
+## ADR-005 — Multi-product: an Organization layer above Workspace, where a workspace is a product
+
+**Date:** 2026-11-01 · **Status:** Accepted (founder's "God mode" multi-product brief)
+
+**Context.** The brief makes Banyan a multi-product OS: one founder, one organization, many independently marketed
+products. STRATEGY.md had listed multi-product as out of the MVP; the founder's brief supersedes that. Every
+product-scoped table already carries `workspaceId` and every route filters by it, but a request always resolves to the
+user's *first* membership.
+
+**Decision.**
+1. Add `Organization` and `OrganizationMember` (OWNER, ADMIN, MEMBER, BILLING_MANAGER) above `Workspace`.
+2. **A product is a `Workspace` row.** Keep the table name, add `organizationId`, `productType` and `status`; call it
+   "product" in UI and API. No rename of 31 models.
+3. **Active product** = a cookie preference, re-validated on every request (product membership, or org
+   OWNER/ADMIN). `requireWorkspace()` keeps its signature, so existing routes become product-aware unchanged.
+4. Credits move up to the organization later (BOS-061), with `workspaceId` kept on every entry for attribution.
+5. Keep cuid primary keys instead of the brief's UUIDs: both are random, non-guessable IDs, and converting is a
+   rewrite with no security gain.
+6. New infrastructure only when its epic starts (MinIO for media, pgvector for knowledge).
+
+**Consequences.** All existing isolation guarantees carry over, and multi-product ships as a thin, testable layer.
+The single-product MVP promise is unchanged: it is one product's cycle. Phase 0 details:
+[docs/architecture/MULTI_PRODUCT_PHASE0.md](architecture/MULTI_PRODUCT_PHASE0.md).
