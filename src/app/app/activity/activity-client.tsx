@@ -37,8 +37,8 @@ export function ActivityControls({ paused, pausedLabel }: { paused: boolean; pau
   }
 
   return (
-    <div className="flex flex-col items-end gap-1">
-      <div className="flex items-center gap-2">
+    <div className="flex flex-col items-start gap-1 sm:items-end">
+      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
         {!paused && <span className="text-xs text-charcoal-soft">{pausedLabel}</span>}
         <Button variant={paused ? "primary" : "secondary"} size="sm" onClick={toggle} disabled={busy}>
           {paused ? <Play size={13} aria-hidden="true" /> : <Pause size={13} aria-hidden="true" />}

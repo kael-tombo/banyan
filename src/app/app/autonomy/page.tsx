@@ -65,12 +65,22 @@ export default async function AutonomyPage() {
           </div>
           <Badge variant={paused ? "clay" : supervised ? "forest" : "charcoal"}>{paused ? "Paused" : supervised ? "Supervised" : "Approve each"}</Badge>
         </div>
-        <ul className="mt-4 grid gap-1.5 text-xs text-charcoal-soft sm:grid-cols-2">
-          <li>Always comes back to you: a claim nothing backs, a banned term, an over-long post.</li>
-          <li>Always comes back to you: a template-written draft, and your first post on a channel.</li>
-          <li>Never: publishing unapproved copy, spending money, messaging people, changing accounts.</li>
-          <li>Only you: connecting a channel or changing this mandate.</li>
-        </ul>
+        <div className="mt-4 grid gap-4 border-t border-bark/10 pt-4 sm:grid-cols-3">
+          {[
+            { title: "Always comes back to you", items: ["A claim nothing backs", "A banned term or an over-long post", "A draft the template wrote", "Your first post on a channel", "Any short-form video"] },
+            { title: "Banyan never", items: ["Publishes copy nobody approved", "Spends money or boosts posts", "Messages people", "Changes your accounts"] },
+            { title: "Only you", items: ["Connect a channel", "Change this mandate", "Resume paused agents"] },
+          ].map((g) => (
+            <div key={g.title}>
+              <p className="text-[12px] font-semibold text-charcoal">{g.title}</p>
+              <ul className="mt-1 space-y-0.5 text-xs text-charcoal-soft">
+                {g.items.map((i) => (
+                  <li key={i}>{i}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
       </Card>
 
       <Card className="mt-4">
@@ -83,12 +93,19 @@ export default async function AutonomyPage() {
           <h2 className="font-serif text-xl tracking-[-0.01em] text-forest-deep">This week</h2>
           <span className="text-xs text-charcoal-soft">Since {weekAgo.toLocaleDateString()}</span>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Tile value={digest.autoApproved} label="Approved by policy" />
-          <Tile value={digest.scheduled} label="Scheduled" />
-          <Tile value={digest.escalated} label="Left for you" />
-          <Tile value={digest.notScheduled} label="Approved, not scheduled" />
-        </div>
+        {!supervised && digest.autoApproved + digest.escalated + digest.scheduled + digest.notScheduled === 0 ? (
+          <p className="mt-2 text-sm text-charcoal-soft">
+            No supervised decisions: with “Approve each” on, nothing is decided for you. Switch to Supervised above to see
+            what Banyan approves, schedules and leaves for you each week.
+          </p>
+        ) : (
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Tile value={digest.autoApproved} label="Approved by policy" />
+            <Tile value={digest.scheduled} label="Scheduled" />
+            <Tile value={digest.escalated} label="Left for you" />
+            <Tile value={digest.notScheduled} label="Approved, not scheduled" />
+          </div>
+        )}
         {digest.topEscalations.length > 0 && (
           <div className="mt-4">
             <p className="text-[13px] font-medium text-charcoal">Why drafts came back to you</p>

@@ -27,6 +27,12 @@ export default async function PublishingPage() {
   ]);
 
   const selected = (JSON.parse(profile?.channels || "[]") as string[]).filter(isChannel);
+  // Three honest states: verified and enabled, configured but not yet live-tested, or not set up.
+  const socialflow: { state: "available" | "verifying" | "off"; label: string } = enabledProviderIds().includes("socialflow")
+    ? { state: "available", label: "available" }
+    : process.env.SOCIALFLOW_API_URL
+      ? { state: "verifying", label: "awaiting live test" }
+      : { state: "off", label: "not set up" };
 
   return (
     <>
@@ -76,13 +82,14 @@ export default async function PublishingPage() {
             <span>
               <span className="block font-medium text-charcoal">SocialFlow.ai</span>
               <span className="block text-charcoal-soft">
-                Banyan&apos;s distribution provider. It has no API Banyan can verify yet: its repository is a browser-only
-                planning release and socialflow.ai is a parked domain (audited November 2026). Banyan does not fake an
-                integration, so automated publishing is off until SocialFlow.ai ships the operations listed in{" "}
-                <code>docs/SOCIALFLOW_INTEGRATION_AUDIT.md</code>.
+                {socialflow.state === "available"
+                  ? "Banyan's distribution provider, verified on this deployment. Approved posts publish to your connected LinkedIn and X accounts."
+                  : socialflow.state === "verifying"
+                    ? "Banyan's distribution provider is set up here and waiting on its live test with real accounts. Automated publishing turns on once a real post goes out and reads back as published."
+                    : "Banyan's distribution provider is not set up on this deployment, so automated publishing is off."}
               </span>
             </span>
-            <Badge variant="warm">not available yet</Badge>
+            <Badge variant={socialflow.state === "available" ? "forest" : "warm"}>{socialflow.label}</Badge>
           </li>
           <li className="flex flex-wrap items-center justify-between gap-2">
             <span>

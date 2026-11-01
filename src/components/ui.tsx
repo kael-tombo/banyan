@@ -214,7 +214,7 @@ export function PageHeader({
         <h1 className="font-serif text-[28px] leading-[1.15] text-forest-deep sm:text-[32px]">{title}</h1>
         {description && <p className="mt-2 max-w-2xl text-sm leading-relaxed text-charcoal-soft">{description}</p>}
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {actions && <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
 }

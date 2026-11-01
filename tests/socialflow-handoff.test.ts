@@ -88,13 +88,27 @@ describe("SocialFlow.ai handoff (manual execution boundary)", () => {
 });
 
 describe("SocialFlow.ai capability registry honesty", () => {
+  it("says a configured but not yet live-tested provider is still off", () => {
+    const prev = process.env.SOCIALFLOW_API_URL;
+    process.env.SOCIALFLOW_API_URL = "https://social.example.com";
+    try {
+      const d = capabilityById("socialflow")!.describe();
+      expect(d.status).toBe("unavailable");
+      expect(d.detail).toContain("has not yet passed the live test");
+    } finally {
+      if (prev === undefined) delete process.env.SOCIALFLOW_API_URL;
+      else process.env.SOCIALFLOW_API_URL = prev;
+    }
+  });
+
   it("reports unavailable with the verification evidence, never 'available'", () => {
     const cap = capabilityById("socialflow");
     expect(cap).not.toBeNull();
     const d = cap!.describe();
     expect(d.status).toBe("unavailable");
-    expect(d.detail).toContain("parked domain");
-    expect(d.detail).toContain("manual handoff");
+    expect(d.detail).toContain("automated publishing is off");
+    expect(d.detail).toContain("export mode");
+    expect(d.detail).toContain("manual publication");
     // Since ADR-003 SocialFlow.ai owns the publishing capabilities; they stay
     // unavailable (asserted above) until the adapter is verified.
     expect(d.capabilities).toEqual(expect.arrayContaining(["publish.socialflow.handoff", "publish.x", "publish.linkedin"]));

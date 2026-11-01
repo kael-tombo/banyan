@@ -113,7 +113,7 @@ describe("capability registry honesty", () => {
     expect(publishing?.id).toBe("socialflow");
     const d = publishing!.describe();
     expect(d.status).toBe("unavailable");
-    expect(d.detail).toMatch(/no API Banyan can verify/i);
+    expect(d.detail).toMatch(/automated publishing (is|stays) off/i);
   });
 
   it("health() without credentials honestly reports the blocker", async () => {

@@ -91,7 +91,9 @@ class SocialFlowCapability implements CapabilityAdapter {
       status: live ? "available" : "unavailable",
       detail: live
         ? "SocialFlow.ai publishing is enabled and verified on this deployment."
-        : "SocialFlow.ai has no API Banyan can verify: its own repository is a browser-only planning release whose backend cannot be built, and socialflow.ai is a parked domain (audited 2026-11-01). Automated publishing is therefore unavailable. The live path is export mode (the manual handoff): Banyan prepares the approved post, you publish it, and the live URL is recorded as a manual publication. See docs/SOCIALFLOW_INTEGRATION_AUDIT.md.",
+        : process.env.SOCIALFLOW_API_URL
+          ? "A SocialFlow API is configured on this deployment but has not yet passed the live test with real LinkedIn and X accounts, so automated publishing stays off. Until it does, use export mode: Banyan prepares the approved post, you publish it, and the live URL is recorded as a manual publication."
+          : "No SocialFlow API is set up on this deployment, so automated publishing is off. Use export mode: Banyan prepares the approved post, you publish it, and the live URL is recorded as a manual publication. See docs/SOCIALFLOW_INTEGRATION_AUDIT.md.",
       untested: !live,
     };
   }
