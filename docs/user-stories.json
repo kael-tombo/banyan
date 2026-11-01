@@ -3,9 +3,9 @@
   "source": "scripts/backlog/stories-*.mjs",
   "totals": {
     "stories": 77,
-    "done": 30,
+    "done": 31,
     "ready": 2,
-    "backlog": 35,
+    "backlog": 33,
     "blocked": 5
   },
   "criticalPath": [
@@ -2559,9 +2559,9 @@
       "epic": "Campaign management",
       "code": "CAMP",
       "priority": "P1",
-      "status": "Backlog",
+      "status": "Done",
       "sprint": 4,
-      "wave": 1,
+      "wave": 0,
       "story": {
         "as": "founder",
         "want": "a campaign page showing its stage, what waits on me and what was published",
@@ -2602,7 +2602,7 @@
         "external": "n/a",
         "retry": "n/a"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: Distribute panel on the campaign page: posts counted by state from content statuses (campaignCounts), one next step worded as what Banyan did and what it needs (nextCampaignStep), live posts linked to their URLs; the old pipeline card that contradicted it was removed. Dashboard launch path (computeJourney) shows the five steps of the promise. tests/journey.test.ts 8 cases; E2E: panel and live link on the campaign page, launch path on the dashboard",
       "blocker": null
     },
     {
@@ -2666,7 +2666,7 @@
       "epic": "Campaign management",
       "code": "CAMP",
       "priority": "P0",
-      "status": "Backlog",
+      "status": "Review",
       "sprint": 4,
       "wave": 1,
       "story": {
@@ -2713,7 +2713,7 @@
         "external": "one item fails → PARTIALLY_FAILED",
         "retry": "retry failed only"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: POST /api/campaigns/[id]/distribute attempts every approved post independently, reports each outcome, re-derives the lifecycle (partially failed when some fail) and records an activity event; refuses with export_mode while SocialFlow.ai is unverified, and when the campaign is paused or cancelled. Export mode is the working path: posting kit with tracked links, copy, download, record live URL (E2E: kit holds only approved posts with /t/ links, live link recorded and shown). Remaining: one-click publishing verified against a live provider (blocked on SocialFlow.ai, US-034)",
       "blocker": null
     },
     {

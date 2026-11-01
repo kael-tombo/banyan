@@ -333,6 +333,28 @@ req POST /api/content/from-strategy "$JAR3" "{\"strategyId\":\"$S2\"}"
 req POST "/api/campaigns/$SCAMP/lifecycle" "$JAR3" '{"action":"resume"}'
                                        check "$STATUS" 200 "campaign resumed"
 contains "$BODY" '"lifecycle":"content_review"' "resumed where it was paused"
+
+# US-049/047 + launch path: distribute a strategy campaign in export mode.
+req POST "/api/campaigns/$SCAMP/distribute" "$JAR3" '{}'
+                                       check "$STATUS" 409 "one-click publishing refuses without a verified provider"
+contains "$BODY" '"code":"export_mode"' "the refusal points to export mode"
+req GET "/api/content?campaignId=$SCAMP" "$JAR3"
+DRAFT1=$(printf '%s' "$BODY" | jget '.items[0].id')
+req POST "/api/content/$DRAFT1/review" "$JAR3" '{"action":"approve"}'
+                                       check "$STATUS" 200 "a strategy draft is approved"
+req POST "/api/campaigns/$SCAMP/export" "$JAR3" '{}'
+                                       check "$STATUS" 200 "the posting kit is prepared"
+contains "$BODY" '"count":1' "the kit holds only approved posts"
+contains "$BODY" '/t/' "each kit post carries its tracked link"
+req POST "/api/content/$DRAFT1/publish" "$JAR3" '{"mode":"manual","liveUrl":"https://example.com/live-post-from-kit"}'
+                                       check "$STATUS" 200 "the live link is recorded from the kit"
+req GET "/api/campaigns/$SCAMP" "$JAR3"
+contains "$BODY" '"lifecycle":"content_review"' "campaign stays in review while other drafts wait"
+req GET "/app/campaigns/$SCAMP" "$JAR3"
+contains "$BODY" 'Distribute' "the campaign page shows the distribute panel"
+contains "$BODY" 'example.com/live-post-from-kit' "the live post is linked from the campaign"
+req GET /app "$JAR3"
+contains "$BODY" 'Launch path' "the dashboard shows the launch path"
 req POST "/api/campaigns/$SCAMP/lifecycle" "$JAR1" '{"action":"cancel"}'
                                        check "$STATUS" 404 "another workspace cannot move the campaign"
 req POST /api/campaigns "$JAR3" '{"name":"Manual launch","objective":"Launch week","targetAudience":"Freelancers","keyMessage":"Get paid without Wi-Fi","cta":"Try it","channels":["x"],"formats":["single"],"successMetric":"signups"}'

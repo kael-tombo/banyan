@@ -1,3 +1,8 @@
+import { LaunchPath } from "@/components/LaunchPath";
+import { computeJourney } from "@/lib/journey";
+import { campaignCounts } from "@/lib/campaign/progress";
+import { approvalState, parseSources } from "@/lib/product/profile-review";
+import { enabledProviderIds } from "@/lib/distribution/providers";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireWorkspaceServer } from "@/lib/workspace";
@@ -261,6 +266,25 @@ export default async function DashboardPage() {
   const connectionsLive = connections.filter((c) => c.status !== "error");
   const trackedClicks = linksAgg._sum.clicks ?? 0;
 
+  // ————— Launch path: the promise as five steps, from records —————
+  const approvedStrat = await prisma.strategy.findFirst({ where: { workspaceId: wid, status: "approved" }, orderBy: { version: "desc" }, select: { id: true, version: true } });
+  const stratCampaign = approvedStrat
+    ? await prisma.campaign.findUnique({ where: { strategyId: approvedStrat.id }, select: { id: true, items: { select: { status: true } } } })
+    : null;
+  const profileApproval = approvalState(profile);
+  const journey = computeJourney({
+    profile: {
+      exists: Boolean(profile),
+      approvedVersion: profile?.approvedAt ? profile.version : null,
+      needsApproval: profileApproval.needsApproval,
+      fromWebsite: Object.values(parseSources(profile?.fieldSources)).includes("analysis"),
+    },
+    strategy: { proposedVersion: proposedStrategy?.version ?? null, approvedVersion: approvedStrat?.version ?? null },
+    campaign: stratCampaign ? { id: stratCampaign.id, counts: campaignCounts(stratCampaign.items.map((x) => x.status)) } : null,
+    results: { visits: countNow("visit"), signups: countNow("signup") },
+    mode: enabledProviderIds().includes("socialflow") ? "socialflow" : "export",
+  });
+
   // ————— The command bar's live numbers —————
   const waitingOnYou = awaitingApprovalCount + awaitingGateCount + (proposedStrategy ? 1 : 0);
   const completedTaskCount = goalTasks.filter((t) => t.status === "completed").length;
@@ -287,6 +311,8 @@ export default async function DashboardPage() {
           </LinkButton>
         </div>
       </div>
+
+      <LaunchPath steps={journey} />
 
       {/* ————— 1. Next moves + the goal ————— */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">

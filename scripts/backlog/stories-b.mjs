@@ -97,7 +97,8 @@ export const storiesB = [
     tests: { happy: "full path to COMPLETED", validation: "every invalid transition 409", authorization: "viewer cannot transition", external: "provider failure → PARTIALLY_FAILED", retry: "retry from PARTIALLY_FAILED" },
   },
   {
-    id: "US-047", epic: "Campaign management", code: "CAMP", priority: "P1", status: "Backlog", sprint: 4,
+    id: "US-047", epic: "Campaign management", code: "CAMP", priority: "P1", status: "Done",
+    evidence: "2026-11-01: Distribute panel on the campaign page: posts counted by state from content statuses (campaignCounts), one next step worded as what Banyan did and what it needs (nextCampaignStep), live posts linked to their URLs; the old pipeline card that contradicted it was removed. Dashboard launch path (computeJourney) shows the five steps of the promise. tests/journey.test.ts 8 cases; E2E: panel and live link on the campaign page, launch path on the dashboard", sprint: 4,
     title: "See a campaign's progress at a glance",
     as: "founder", want: "a campaign page showing its stage, what waits on me and what was published", so: "I can act without hunting",
     context: "Campaign detail page exists; it lacks the lifecycle and the waiting-on-you queue.",
@@ -122,7 +123,8 @@ export const storiesB = [
     tests: { happy: "pause → resume", validation: "cancel completed → 409", authorization: "viewer cannot pause", external: "n/a", retry: "queued job after pause is a no-op" },
   },
   {
-    id: "US-049", epic: "Campaign management", code: "CAMP", priority: "P0", status: "Backlog", sprint: 4,
+    id: "US-049", epic: "Campaign management", code: "CAMP", priority: "P0", status: "Review",
+    evidence: "2026-11-01: POST /api/campaigns/[id]/distribute attempts every approved post independently, reports each outcome, re-derives the lifecycle (partially failed when some fail) and records an activity event; refuses with export_mode while SocialFlow.ai is unverified, and when the campaign is paused or cancelled. Export mode is the working path: posting kit with tracked links, copy, download, record live URL (E2E: kit holds only approved posts with /t/ links, live link recorded and shown). Remaining: one-click publishing verified against a live provider (blocked on SocialFlow.ai, US-034)", sprint: 4,
     title: "Distribute a whole campaign and handle partial failure",
     as: "founder", want: "to distribute all approved items of a campaign in one action", so: "I do not publish post by post",
     context: "Publishing is per item today.",

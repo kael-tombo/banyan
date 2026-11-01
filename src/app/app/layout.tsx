@@ -39,7 +39,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       workspace={{ id: membership.workspace.id, name: membership.workspace.name, isSelf: membership.workspace.isSelf }}
       product={membership.workspace.profile?.name ?? ""}
       goal={membership.workspace.profile?.goal ?? ""}
-      onboardingComplete={Boolean(user.onboardingCompletedAt)}
+      // Setup is done once the wizard finished or a product profile exists: the
+      // banner asks for exactly that, and the launch path covers what comes next.
+      onboardingComplete={Boolean(user.onboardingCompletedAt || membership.workspace.profile)}
       attention={{ approvals: awaitingContent + awaitingGates + awaitingStrategy }}
     >
       {children}
