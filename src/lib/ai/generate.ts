@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { completeValidated, AIError, extractJSON } from "@/lib/ai/provider";
+import { completeValidated, AIError, extractJSON, type AIProvider } from "@/lib/ai/provider";
 import { CHANNEL_META, isChannel, isFormatFor, type Channel } from "@/lib/formats";
 
 export const videoExtrasSchema = z.object({
@@ -148,6 +148,8 @@ export async function generateDraftPlan(input: {
   goal: string;
   goalTarget?: number | null;
   channels: string[];
+  /** Pass routedProvider(...) so the call is quota-checked and logged. */
+  provider?: AIProvider;
 }): Promise<{ plan: DraftPlan; provider: string; isFallback: boolean; label: string }> {
   const system = [
     "You are Banyan.ai's distribution strategist. You produce honest, evidence-respecting plans.",
@@ -172,6 +174,7 @@ export async function generateDraftPlan(input: {
 
   try {
     const { data, usage } = await completeValidated<string>({
+      provider: input.provider,
       system,
       user,
       maxTokens: 1200,
@@ -249,6 +252,8 @@ export type ContentGenRequest = {
   instruction?: string; // for improve-hook / shorten / change-tone / adapt operations
   /** The approved strategy's messaging angle this draft serves (US-044). */
   angle?: string;
+  /** Pass routedProvider(...) so the call is quota-checked and logged. */
+  provider?: AIProvider;
 };
 
 function clipAtWord(text: string, limit: number): string {
@@ -340,6 +345,7 @@ export async function generateContent(req: ContentGenRequest): Promise<{ body: s
   ].filter(Boolean).join("\n");
 
   const { data, usage } = await completeValidated<string>({
+    provider: req.provider,
     system,
     user: context,
     maxTokens: req.channel === "shortvideo" ? 1600 : 800,

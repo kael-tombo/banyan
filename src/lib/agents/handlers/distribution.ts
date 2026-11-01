@@ -1,3 +1,4 @@
+import { routedProvider } from "@/lib/model/router";
 import { prisma } from "@/lib/db";
 import { recordActivity } from "@/lib/activity";
 import { attemptPublication } from "@/lib/publishing/publish";
@@ -136,6 +137,7 @@ export async function handleContentDraft(ctx: HandlerContext): Promise<HandlerRe
   const result = await generateContent({
     channel,
     format,
+    provider: routedProvider({ workspaceId: ctx.workspaceId, purpose: "content_draft" }),
     // The loop compounds: drafts are written with the workspace's concluded
     // experiments in view, not as if every campaign were the first.
     learning: priorLearningLines(biz.experiments, 4),

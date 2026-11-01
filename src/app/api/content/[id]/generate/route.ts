@@ -1,3 +1,4 @@
+import { routedProvider } from "@/lib/model/router";
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, guardRate, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { generateContent } from "@/lib/ai/generate";
@@ -76,6 +77,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const result = await generateContent({
       channel,
       format,
+      provider: routedProvider({ workspaceId: ctx.workspace.id, purpose: "content_draft" }),
       learning: priorLearningLines(experiments, 4),
       campaign: item.campaign
         ? {

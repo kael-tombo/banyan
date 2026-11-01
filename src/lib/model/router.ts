@@ -211,6 +211,21 @@ export async function recordSchemaResult(modelCallId: string | null, schemaValid
   }
 }
 
+/**
+ * An AIProvider that goes through the router: quota, usage ledger and the
+ * labelled fallback. Hand it to code written against AIProvider (the content
+ * generators) so their calls are counted like every other model call.
+ */
+export function routedProvider(opts: { workspaceId: string; purpose: ModelPurpose; prompt?: PromptRef }): AIProvider {
+  return {
+    name: "routed",
+    async complete(req) {
+      const res = await routeComplete({ ...opts, system: req.system, user: req.user, maxTokens: req.maxTokens, temperature: req.temperature });
+      return { text: res.text, usage: res.usage };
+    },
+  };
+}
+
 /** Aggregate usage for a workspace (settings/usage UI). */
 export async function usageSummary(workspaceId: string, since?: Date) {
   const rows = await prisma.modelCall.groupBy({

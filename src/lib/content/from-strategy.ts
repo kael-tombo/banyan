@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { recordActivity } from "@/lib/activity";
 import { generateContent } from "@/lib/ai/generate";
+import { routedProvider } from "@/lib/model/router";
 import { CHANNEL_META } from "@/lib/formats";
 import type { StrategyBody } from "@/lib/strategy/generate";
 import { approvedStrategy, StrategyError } from "@/lib/strategy/service";
@@ -52,6 +53,7 @@ export async function writeDraftsFromStrategy(workspaceId: string, opts: { strat
       channel: d.channel,
       format: d.format,
       angle: d.angle || undefined,
+      provider: routedProvider({ workspaceId, purpose: "content_draft" }),
       campaign: null,
       profile: {
         name: profile.name,

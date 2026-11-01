@@ -1,3 +1,4 @@
+import { routedProvider } from "@/lib/model/router";
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { randomSlug } from "@/lib/crypto";
@@ -170,6 +171,7 @@ export async function GET() {
   if (!profile) return apiError("Complete steps 1–5 first.", 409);
 
   const result = await generateDraftPlan({
+    provider: routedProvider({ workspaceId: ctx.workspace.id, purpose: "plan_draft" }),
     productName: profile.name,
     productDescription: profile.description,
     problem: profile.problem,
