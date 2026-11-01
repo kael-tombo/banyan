@@ -49,6 +49,7 @@ describe("contract call → MCP tool", () => {
     expect(toolFor("POST", "/v1/posts", { channel: "x", text: "t", scheduled_at: "2026-11-03T09:00:00Z" }, { "Idempotency-Key": "k2" })).toMatchObject({ name: "schedule_post" });
     expect(toolFor("GET", "/v1/posts/p1", undefined, {})).toEqual({ name: "get_post_status", args: { post_id: "p1" } });
     expect(toolFor("GET", "/v1/posts/p1/analytics", undefined, {})).toEqual({ unsupported: "analytics" });
+    expect(toolFor("DELETE", "/v1/posts/p1", undefined, {})).toEqual({ name: "cancel_post", args: { post_id: "p1" } });
   });
 });
 
@@ -85,6 +86,29 @@ describe("SocialFlowProvider over MCP", () => {
     const v = await sf.validateCredentials({ workspaceId: "ws", credentials: { apiKey: "wrong" } });
     expect(v.ok).toBe(false);
     expect(v.detail).toContain("Invalid or revoked API key");
+  });
+
+  it("cancels a scheduled post through cancel_post (C8)", async () => {
+    const mcp = fakeMcp({ toolStatus: (n, a) => (n === "cancel_post" ? { status: 200, body: { id: a.post_id, status: "cancelled" } } : undefined) });
+    const sf = new SocialFlowProvider({ baseUrl: "https://sf.test", transport: mcpTransport(mcp.transport), enabledOverride: true });
+    const out = await sf.cancelScheduled(ctx, "p9");
+    expect(out).toEqual({ ok: true, value: { state: "cancelled" } });
+    expect(mcp.seen.find((s) => s.name === "cancel_post")?.args).toEqual({ post_id: "p9" });
+  });
+
+  it("does not report a cancel that SocialFlow refused (already published)", async () => {
+    const mcp = fakeMcp({ toolStatus: (n) => (n === "cancel_post" ? { status: 409, body: { error: { code: "conflict", message: "already published; delete it on the platform itself" } } } : undefined) });
+    const sf = new SocialFlowProvider({ baseUrl: "https://sf.test", transport: mcpTransport(mcp.transport), enabledOverride: true });
+    const out = await sf.cancelScheduled(ctx, "p1");
+    expect(out.ok).toBe(false);
+  });
+
+  it("does not trust a cancel answer whose status is not cancelled", async () => {
+    const mcp = fakeMcp({ toolStatus: (n, a) => (n === "cancel_post" ? { status: 200, body: { id: a.post_id, status: "published", url: "https://x.com/i/web/status/1" } } : undefined) });
+    const sf = new SocialFlowProvider({ baseUrl: "https://sf.test", transport: mcpTransport(mcp.transport), enabledOverride: true });
+    const out = await sf.cancelScheduled(ctx, "p1");
+    expect(out.ok).toBe(false);
+    if (!out.ok) expect(out.error.message).toContain("instead of cancelled");
   });
 
   it("answers analytics honestly as unsupported, without a network call", async () => {

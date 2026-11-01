@@ -192,6 +192,14 @@ export class SocialFlowProvider implements DistributionProvider {
     return { ok: true as const, value: { state: res.value.status, url: res.value.url ?? undefined } };
   }
 
+  async cancelScheduled(ctx: ProviderContext, externalId: string): Promise<Result<{ state: "cancelled" }>> {
+    const res = await call(this.cfg(ctx), ROUTES.cancel, postResponse, { params: { postId: externalId } });
+    if (!res.ok) return res;
+    return res.value.status === "cancelled"
+      ? { ok: true, value: { state: "cancelled" } }
+      : { ok: false, error: { code: "unknown", message: `SocialFlow.ai answered ${res.value.status} instead of cancelled.`, retryable: false } };
+  }
+
   async getAnalytics(ctx: ProviderContext, externalId: string): Promise<Result<PostAnalytics>> {
     const res = await call(this.cfg(ctx), ROUTES.analytics, analyticsResponse, { params: { postId: externalId } });
     if (!res.ok) {

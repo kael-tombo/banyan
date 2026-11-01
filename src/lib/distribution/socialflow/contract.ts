@@ -28,6 +28,7 @@ export const ROUTES = {
   capabilities: { method: "GET", path: "/v1/accounts/:accountId/capabilities" }, // C4
   publish: { method: "POST", path: "/v1/posts" }, // C5 (publish now) and C6 (schedule, with scheduled_at)
   status: { method: "GET", path: "/v1/posts/:postId" }, // C7
+  cancel: { method: "DELETE", path: "/v1/posts/:postId" }, // C8: cancel a scheduled post
   analytics: { method: "GET", path: "/v1/posts/:postId/analytics" }, // C9
   revoke: { method: "DELETE", path: "/v1/accounts/:accountId" }, // C10
 } as const;
@@ -69,7 +70,7 @@ export const publishRequest = z.object({
   scheduled_at: z.string().datetime({ offset: true }).optional(),
 });
 
-export const postStatus = z.enum(["queued", "scheduled", "published", "failed"]);
+export const postStatus = z.enum(["queued", "scheduled", "published", "failed", "cancelled"]);
 
 export const postResponse = z.object({
   id: z.string().min(1),

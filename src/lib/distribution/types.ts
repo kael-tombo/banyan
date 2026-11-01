@@ -95,7 +95,9 @@ export interface DistributionProvider {
   revokeAccount(ctx: ProviderContext, accountId: string): Promise<Result<{ platformConfirmed: boolean }>>;
   publish(req: PublishRequest): Promise<PublishOutcome>;
   schedule(req: PublishRequest & { scheduledFor: Date }): Promise<PublishOutcome>;
-  getStatus(ctx: ProviderContext, externalId: string): Promise<Result<{ state: "queued" | "scheduled" | "published" | "failed" | "unknown"; url?: string }>>;
+  getStatus(ctx: ProviderContext, externalId: string): Promise<Result<{ state: "queued" | "scheduled" | "published" | "failed" | "cancelled" | "unknown"; url?: string }>>;
+  /** Cancel a post scheduled at the provider before it goes out (C8). Never unpublishes. */
+  cancelScheduled(ctx: ProviderContext, externalId: string): Promise<Result<{ state: "cancelled" }>>;
   getAnalytics(ctx: ProviderContext, externalId: string): Promise<Result<PostAnalytics>>;
 }
 

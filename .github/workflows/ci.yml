@@ -78,3 +78,30 @@ jobs:
         run: npx tsx scripts/autonomy-check.ts
       - name: Credit concurrency
         run: npx tsx scripts/credits-concurrency.ts
+
+  socialflow:
+    # Banyan's real SocialFlow adapter against SocialFlow Lite built from source,
+    # over REST and MCP, with stand-in LinkedIn and X servers (no real accounts).
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: kael-tombo/socialFlow
+          ref: socialflow-lite
+          path: socialflow-lite
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: socialflow-lite/go.mod
+          cache-dependency-path: socialflow-lite/go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Banyan ↔ SocialFlow Lite integration
+        env:
+          SOCIALFLOW_LITE_DIR: ${{ github.workspace }}/socialflow-lite
+        run: npx tsx scripts/socialflow-integration-check.ts

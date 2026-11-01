@@ -33,6 +33,7 @@ export function toolFor(method: string, path: string, body: Record<string, unkno
   }
   if (m === "GET" && seg[1] === "posts" && seg[3] === "analytics") return { unsupported: "analytics" };
   if (m === "GET" && seg[1] === "posts" && seg.length === 3) return { name: "get_post_status", args: { post_id: seg[2] } };
+  if (m === "DELETE" && seg[1] === "posts" && seg.length === 3) return { name: "cancel_post", args: { post_id: seg[2] } };
   return { unsupported: `${m} ${path}` };
 }
 
