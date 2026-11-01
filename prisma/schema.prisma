@@ -91,6 +91,8 @@ model Workspace {
   agentTasks      AgentTask[]
   profileFacts    ProfileFact[]
   strategies      Strategy[]
+  creditEntries   CreditEntry[]
+  creditAccount   CreditAccount?
   recommendations Recommendation[]
   modelCalls      ModelCall[]
   chatMessages    ChatMessage[]
@@ -715,4 +717,38 @@ model Strategy {
 
   @@unique([workspaceId, version])
   @@index([workspaceId, status])
+}
+
+/// Credit ledger entry (US-055). Amounts are positive except for adjust; the
+/// kind decides how the balances move (src/lib/credits/ledger.ts). An entry
+/// is written once per idempotency key, so a retried operation never charges
+/// twice.
+model CreditEntry {
+  id             String    @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  // grant | reserve | settle | release | refund | expire | adjust
+  kind           String
+  amount         Int
+  idempotencyKey String
+  // The reserve entry a settle/release belongs to
+  reservationKey String?
+  campaignId     String?
+  note           String    @default("")
+  createdAt      DateTime  @default(now())
+
+  @@unique([workspaceId, idempotencyKey])
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, reservationKey])
+}
+
+/// Cached balance per workspace (US-055/062). It is the row reservations lock,
+/// so a balance check and a reserve happen atomically. Always equal to the
+/// fold of CreditEntry rows, updated in the same transaction.
+model CreditAccount {
+  workspaceId String    @id
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  available   Int       @default(0)
+  reserved    Int       @default(0)
+  updatedAt   DateTime  @updatedAt
 }

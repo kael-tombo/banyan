@@ -42,12 +42,15 @@ export function StrategyReview({
   profile,
   canApprove,
   agentWork = null,
+  creditsAvailable = null,
 }: {
   initial: StrategyView | null;
   versions: Version[];
   changes: string[];
   profile: { exists: boolean; needsApproval: boolean };
   canApprove: boolean;
+  /** Available credits, to show what approving will cost (US-056). */
+  creditsAvailable?: number | null;
   /** An autopilot run: the strategist drafting, or the creator writing drafts. */
   agentWork?: { kind: "strategy" | "drafts"; running: boolean; title: string; error: string | null } | null;
 }) {
@@ -193,6 +196,14 @@ export function StrategyReview({
           </div>
         </div>
 
+        {(isProposed || s.status === "approved") && s.draftEstimate.drafts > 0 && (
+          <p className="mt-3 text-[13px] text-charcoal-soft">
+            {isProposed ? "Approving starts Banyan writing " : "Writing "}
+            {s.draftEstimate.drafts} draft{s.draftEstimate.drafts === 1 ? "" : "s"} for <span className="num font-medium text-charcoal">{s.draftEstimate.total} credit{s.draftEstimate.total === 1 ? "" : "s"}</span>
+            {creditsAvailable !== null && <> · <span className={creditsAvailable < s.draftEstimate.total ? "text-clay" : ""}>{creditsAvailable} available</span></>}
+            <span className="text-muted"> ({s.draftEstimate.lines.map((l) => `${l.label}: ${l.credits}`).join(", ")})</span>
+          </p>
+        )}
         {s.stale && (
           <p className="mt-4 flex items-start gap-2 rounded-lg border border-fig/30 bg-fig/[0.06] px-3 py-2.5 text-[13px] leading-5 text-charcoal">
             <AlertTriangle size={16} className="mt-0.5 shrink-0 text-fig-deep" aria-hidden="true" />

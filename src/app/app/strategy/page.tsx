@@ -1,3 +1,4 @@
+import { getBalance } from "@/lib/credits/service";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireWorkspaceServer } from "@/lib/workspace";
@@ -132,6 +133,7 @@ export default async function GrowthStrategyPage() {
         profile={profileGate}
         canApprove={canApprove(ctx.membership.role)}
         agentWork={agentWork}
+        creditsAvailable={(await getBalance(wid).catch(() => null))?.available ?? null}
       />
 
       {/* ————— Goal & constraints ————— */}

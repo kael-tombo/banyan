@@ -307,6 +307,11 @@ req POST /api/content/from-strategy "$JAR1" '{}'
                                        check "$STATUS" 409 "no drafts without an approved strategy"
 req POST /api/content/from-strategy "$JAR3" "{\"strategyId\":\"$S3\"}"
                                        check "$STATUS" 409 "no drafts from a strategy that is not approved"
+req GET /api/credits "$JAR3"
+contains "$BODY" '"available":50' "a new workspace starts with 50 credits"
+req GET "/api/strategies/$S2" "$JAR3"
+EST=$(printf '%s' "$BODY" | jget '.strategy.draftEstimate.total')
+[ -n "$EST" ] && [ "$EST" -gt 0 ] 2>/dev/null && ok "the strategy shows what its drafts will cost ($EST credits)" || bad "the strategy shows what its drafts will cost" "$BODY"
 req POST /api/content/from-strategy "$JAR3" "{\"strategyId\":\"$S2\"}"
                                        check "$STATUS" 201 "drafts written from the approved strategy"
 NDRAFTS=$(printf '%s' "$BODY" | jget '.created.length')
@@ -314,6 +319,9 @@ case "$NDRAFTS" in ''|0) bad "one draft per channel and format" "$BODY";; *) ok 
 req POST /api/content/from-strategy "$JAR3" "{\"strategyId\":\"$S2\"}"
                                        check "$STATUS" 200 "writing drafts again creates no duplicates"
 contains "$BODY" '"created":[]' "second run created nothing"
+req GET /api/credits "$JAR3"
+check "$(printf '%s' "$BODY" | jget '.available')" "$((50 - EST))" "drafts were charged exactly the estimate, once"
+contains "$BODY" '"reserved":0' "nothing stays held after the run"
 req GET /app/approvals "$JAR3"
 contains "$BODY" "Strategy v2" "drafts wait in the approvals queue"
 contains "$BODY" "1 strategy to approve" "the strategy proposal is listed in Approvals with the drafts"

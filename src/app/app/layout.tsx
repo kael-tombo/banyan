@@ -1,3 +1,4 @@
+import { getBalance } from "@/lib/credits/service";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getSessionUser, readSessionToken } from "@/lib/auth/session";
@@ -33,6 +34,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     prisma.strategy.count({ where: { workspaceId: membership.workspace.id, status: "proposed" } }),
   ]);
 
+  const credits = await getBalance(membership.workspace.id).catch(() => null);
+
   return (
     <AppShell
       user={{ name: user.name, email: user.email }}
@@ -43,6 +46,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       // banner asks for exactly that, and the launch path covers what comes next.
       onboardingComplete={Boolean(user.onboardingCompletedAt || membership.workspace.profile)}
       attention={{ approvals: awaitingContent + awaitingGates + awaitingStrategy }}
+      credits={credits?.available ?? null}
     >
       {children}
     </AppShell>

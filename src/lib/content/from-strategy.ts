@@ -1,3 +1,5 @@
+import { estimateDraftRun } from "@/lib/credits/ledger";
+import { finalizeReservation, reserveCredits } from "@/lib/credits/service";
 import { campaignForStrategy, syncCampaignLifecycle } from "@/lib/campaign/lifecycle-service";
 import { generationBlocked, isLifecycle } from "@/lib/campaign/lifecycle";
 import { prisma } from "@/lib/db";
@@ -51,8 +53,22 @@ export async function writeDraftsFromStrategy(workspaceId: string, opts: { strat
   });
   const done = new Set(existing.map(draftKey));
   const plan = planDrafts(body).filter((d) => !done.has(draftKey(d)));
+  if (plan.length === 0) {
+    await syncCampaignLifecycle(campaign.id);
+    return { strategyId: strategy.id, version: strategy.version, campaignId: campaign.id, created: [], skipped: existing.length, credits: { estimated: 0, spent: 0 } };
+  }
+
+  // US-056: estimate and hold the credits before any model work. A short
+  // balance refuses here, with nothing started. The key names this run: a
+  // retry of the same run reuses its hold; a later run is charged anew.
+  const everCreated = await prisma.contentItem.count({ where: { workspaceId, strategyId: strategy.id } });
+  const estimate = estimateDraftRun({ drafts: plan.length, channels: new Set(plan.map((d) => d.channel)).size });
+  const reservationKey = `drafts:${strategy.id}:n${everCreated}`;
+  await reserveCredits(workspaceId, estimate.total, reservationKey, { campaignId: campaign.id, note: `Drafts from strategy v${strategy.version}` });
 
   const created: { id: string; channel: string; format: string; flagged: boolean; isFallback: boolean }[] = [];
+  const spentFor = () => estimateDraftRun({ drafts: created.length, channels: new Set(created.map((c) => c.channel)).size }).total;
+  try {
   for (const d of plan) {
     const result = await generateContent({
       channel: d.channel,
@@ -93,6 +109,13 @@ export async function writeDraftsFromStrategy(workspaceId: string, opts: { strat
     });
     created.push({ id: item.id, channel: d.channel, format: d.format, flagged: flags.length > 0, isFallback: result.isFallback });
   }
+  } catch (err) {
+    // Charge only for drafts that exist; return the rest of the hold.
+    await finalizeReservation(workspaceId, reservationKey, spentFor());
+    throw err;
+  }
+  const spent = spentFor();
+  await finalizeReservation(workspaceId, reservationKey, spent);
 
   if (created.length) {
     await recordActivity({
@@ -104,5 +127,5 @@ export async function writeDraftsFromStrategy(workspaceId: string, opts: { strat
     });
   }
   await syncCampaignLifecycle(campaign.id);
-  return { strategyId: strategy.id, version: strategy.version, campaignId: campaign.id, created, skipped: existing.length };
+  return { strategyId: strategy.id, version: strategy.version, campaignId: campaign.id, created, skipped: existing.length, credits: { estimated: estimate.total, spent } };
 }

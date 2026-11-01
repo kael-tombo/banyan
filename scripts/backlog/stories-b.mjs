@@ -204,7 +204,8 @@ export const storiesB = [
 
   // ───────────────────────── BILL — credits ─────────────────────────
   {
-    id: "US-055", epic: "Credits and billing", code: "BILL", priority: "P0", status: "Backlog", sprint: 5,
+    id: "US-055", epic: "Credits and billing", code: "BILL", priority: "P0", status: "Done",
+    evidence: "2026-11-01: CreditEntry ledger (grant, reserve, settle, release, refund, expire, adjust) with an idempotency key unique per workspace, and a CreditAccount balance row kept equal to the fold in the same transaction (migration credits). tests/credits.test.ts: fold of any sequence equals the balance; scripts/credits-concurrency.ts against Postgres: cached balance equals the ledger; Credits page flags any mismatch", sprint: 5,
     title: "Auditable credit ledger",
     as: "operator", want: "every credit movement recorded in an append-only ledger", so: "balances are always explainable",
     context: "No credit system exists. Decisions: hybrid acquisition, complexity-based pricing, hybrid expiry.",
@@ -216,7 +217,8 @@ export const storiesB = [
     tests: { happy: "grant → reserve → settle", validation: "negative amounts rejected", authorization: "scoped", external: "n/a", retry: "same idempotency key applied once" },
   },
   {
-    id: "US-056", epic: "Credits and billing", code: "BILL", priority: "P0", status: "Backlog", sprint: 5,
+    id: "US-056", epic: "Credits and billing", code: "BILL", priority: "P0", status: "Done",
+    evidence: "2026-11-01: writing drafts is estimated (1 per run + 1 per draft + 1 per extra channel) and shown on the strategy before approval, reserved before any model work, settled at the actual cost with the remainder released, and released on failure; a short balance refuses with 402 and nothing started; the reservation key names the run so a retry is charged once and a later run anew. E2E: 50 starter credits, estimate shown, charged exactly the estimate once, nothing held after, no-op rerun free. Scope: strategy-driven drafts; goal-cycle and editor regenerations are not charged yet", sprint: 5,
     title: "Estimate, reserve, settle and refund campaign credits",
     as: "founder", want: "to see what a campaign costs before running it and be refunded when it fails", so: "I only pay for work that happened",
     context: "Complexity-based pricing: channels × assets × analysis depth.",
@@ -240,7 +242,8 @@ export const storiesB = [
     tests: { happy: "grant → consume → expire", validation: "n/a", authorization: "admin-only manual grants", external: "n/a", retry: "expiry re-run no-op" },
   },
   {
-    id: "US-062", epic: "Credits and billing", code: "BILL", priority: "P0", status: "Backlog", sprint: 5,
+    id: "US-062", epic: "Credits and billing", code: "BILL", priority: "P0", status: "Done",
+    evidence: "2026-11-01: every credit operation locks the workspace CreditAccount row (SELECT … FOR UPDATE) inside the transaction that checks and writes. scripts/credits-concurrency.ts on Postgres: 10 available, two concurrent 8-credit reservations, exactly one succeeds, the other gets InsufficientCredits; the retried winner is reused, not charged again", sprint: 5,
     title: "No overspending under concurrency",
     as: "operator", want: "concurrent campaigns unable to overspend one balance", so: "the ledger can never go negative",
     context: "Brief: never allow concurrent campaigns to overspend the same balance.",
@@ -252,7 +255,8 @@ export const storiesB = [
     tests: { happy: "single reservation", validation: "n/a", authorization: "n/a", external: "n/a", retry: "50 parallel reservations never exceed balance" },
   },
   {
-    id: "US-063", epic: "Credits and billing", code: "BILL", priority: "P1", status: "Backlog", sprint: 5,
+    id: "US-063", epic: "Credits and billing", code: "BILL", priority: "P1", status: "Done",
+    evidence: "2026-11-01: /app/credits shows available, held and spent from the ledger, the history with each entry linked to its campaign, and how pricing works; available credits in the top bar (red under 5); GET /api/credits. Expiring-soon waits for US-061 batches", sprint: 5,
     title: "See my credits and their history",
     as: "founder", want: "my available and reserved credits and every movement", so: "I trust the numbers",
     context: "Dashboard should show available credits (brief §18).",

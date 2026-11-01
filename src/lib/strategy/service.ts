@@ -1,3 +1,5 @@
+import { estimateDraftRun, type Estimate } from "@/lib/credits/ledger";
+import { planDrafts } from "@/lib/content/plan";
 import { Prisma, type Strategy } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { recordActivity } from "@/lib/activity";
@@ -131,6 +133,8 @@ export type StrategyView = {
   approvedAt: string | null;
   rejectedReason: string | null;
   createdAt: string;
+  /** What writing this strategy's drafts costs (US-056), shown before approval. */
+  draftEstimate: Estimate & { drafts: number };
 };
 
 export async function strategyView(s: Strategy): Promise<StrategyView> {
@@ -155,6 +159,10 @@ export async function strategyView(s: Strategy): Promise<StrategyView> {
     approvedAt: s.approvedAt?.toISOString() ?? null,
     rejectedReason: s.rejectedReason,
     createdAt: s.createdAt.toISOString(),
+    draftEstimate: (() => {
+      const plan = planDrafts(JSON.parse(s.body) as StrategyBody);
+      return { ...estimateDraftRun({ drafts: plan.length, channels: new Set(plan.map((d) => d.channel)).size }), drafts: plan.length };
+    })(),
   };
 }
 

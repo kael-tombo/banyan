@@ -32,6 +32,8 @@ type AppShellProps = {
   goal: string;
   onboardingComplete: boolean;
   attention: { approvals: number };
+  /** Available credits (US-063), null when unknown. */
+  credits?: number | null;
   children: React.ReactNode;
 };
 
@@ -99,6 +101,7 @@ export function AppShell({
   goal,
   onboardingComplete,
   attention,
+  credits = null,
   children,
 }: AppShellProps) {
   const pathname = usePathname();
@@ -286,6 +289,15 @@ export function AppShell({
             </nav>
 
             <div className="ml-auto flex items-center gap-2">
+              {credits !== null && (
+                <Link
+                  href="/app/credits"
+                  className={`hidden h-8 items-center gap-1.5 rounded-lg px-2 text-[13px] transition-colors hover:bg-bark/[0.06] sm:inline-flex ${credits < 5 ? "text-clay" : "text-charcoal-soft"}`}
+                  title="Available credits"
+                >
+                  <span className="num font-medium text-charcoal">{credits}</span> credits
+                </Link>
+              )}
               {attention.approvals > 0 && (
                 <Link
                   href="/app/approvals"

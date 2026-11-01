@@ -1,3 +1,4 @@
+import { InsufficientCreditsError } from "@/lib/credits/service";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { apiError, assertSameOrigin, guardRate, json, readJson, requireWorkspace } from "@/lib/api-utils";
@@ -28,6 +29,7 @@ export async function POST(req: NextRequest) {
     return json(result, result.created.length > 0 ? 201 : 200);
   } catch (err) {
     if (err instanceof StrategyError) return json({ error: err.message, code: err.code }, err.status);
+    if (err instanceof InsufficientCreditsError) return json({ error: err.message, code: "insufficient_credits", needed: err.needed, available: err.available }, 402);
     throw err;
   }
 }

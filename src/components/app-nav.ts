@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
-  BarChart3, BookOpen, Bot, CalendarDays, CheckCircle2, ClipboardList, Compass, FlaskConical,
+  BarChart3, BookOpen, Coins, Bot, CalendarDays, CheckCircle2, ClipboardList, Compass, FlaskConical,
   LayoutDashboard, Lightbulb, LineChart, Link2, Megaphone, Package, PenLine, Receipt, RefreshCw,
   ScanSearch, Settings, Share2, Target, Users2,
 } from "lucide-react";
@@ -70,6 +70,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/app/connections", label: "Connections", icon: Link2, keywords: "integrations socialflow credentials" },
       { href: "/app/activity", label: "Agent activity", icon: Bot, keywords: "tasks runs audit log agents" },
       { href: "/app/usage", label: "Model usage", icon: Receipt, keywords: "cost tokens billing" },
+      { href: "/app/credits", label: "Credits", icon: Coins, keywords: "balance billing ledger spend" },
     ],
   },
 ];
