@@ -3,9 +3,9 @@
   "source": "scripts/backlog/stories-*.mjs",
   "totals": {
     "stories": 77,
-    "done": 29,
+    "done": 30,
     "ready": 2,
-    "backlog": 37,
+    "backlog": 35,
     "blocked": 5
   },
   "criticalPath": [
@@ -2505,9 +2505,9 @@
       "epic": "Campaign management",
       "code": "CAMP",
       "priority": "P0",
-      "status": "Backlog",
+      "status": "Done",
       "sprint": 4,
-      "wave": 1,
+      "wave": 0,
       "story": {
         "as": "founder",
         "want": "every campaign to have one clear status from draft to completed",
@@ -2550,7 +2550,7 @@
         "external": "provider failure → PARTIALLY_FAILED",
         "retry": "retry from PARTIALLY_FAILED"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: src/lib/campaign/lifecycle.ts defines the 16 states; decision moves validated in decide() (invalid → 409), work states derived from content statuses (deriveWorkState) after review, edit, schedule, publish attempts and manual records; conditional updates on the starting state; every move writes a campaign activity event; legacy status kept in step and mapped on the old PATCH; migration maps existing statuses. tests/campaign-lifecycle.test.ts (AC2: 2 published + 1 failed → partially_failed). E2E: strategy campaign derived to content_review, invalid approve 409, pause → drafts 409, resume returns to content_review, cross-workspace 404, AC1 pending_approval campaign refuses content (409). Approve/reject need the approve role, other moves workflow control",
       "blocker": null
     },
     {
@@ -2561,7 +2561,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 2,
+      "wave": 1,
       "story": {
         "as": "founder",
         "want": "a campaign page showing its stage, what waits on me and what was published",
@@ -2611,9 +2611,9 @@
       "epic": "Campaign management",
       "code": "CAMP",
       "priority": "P1",
-      "status": "Backlog",
+      "status": "Review",
       "sprint": 5,
-      "wave": 2,
+      "wave": 1,
       "story": {
         "as": "founder",
         "want": "to stop a campaign safely",
@@ -2657,7 +2657,7 @@
         "external": "n/a",
         "retry": "queued job after pause is a no-op"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: pause/resume/cancel on the lifecycle (resume returns to the paused-from state and re-derives); a paused or cancelled campaign holds its publications: the executor exits before claiming, nothing changes and no attempt is counted, and the maintenance sweep picks due items up after resume (holdsPublishing, unit-tested). E2E covers pause/resume and the draft block. Remaining: an end-to-end run of a held scheduled publication (export mode creates none) and credit release on cancel (US-056)",
       "blocker": null
     },
     {
@@ -2668,7 +2668,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 2,
+      "wave": 1,
       "story": {
         "as": "founder",
         "want": "to distribute all approved items of a campaign in one action",
@@ -3854,7 +3854,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 5,
-      "wave": 2,
+      "wave": 1,
       "story": {
         "as": "founder",
         "want": "a notification when something waits on me or fails",
@@ -3905,7 +3905,7 @@
       "priority": "P2",
       "status": "Backlog",
       "sprint": 6,
-      "wave": 3,
+      "wave": 2,
       "story": {
         "as": "founder",
         "want": "an email when content waits for my approval",

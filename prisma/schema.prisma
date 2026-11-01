@@ -204,6 +204,13 @@ model Campaign {
   completedAt    DateTime?
   isSelfCampaign Boolean   @default(false)
   selfTheme      String?
+  // US-046: the one campaign lifecycle (src/lib/campaign/lifecycle.ts). `status`
+  // above is kept in step for older screens. Work states are derived from content.
+  lifecycle      String    @default("draft")
+  // The state to return to on resume
+  pausedFrom     String?
+  // The approved strategy this campaign distributes (US-044/046), one campaign per strategy
+  strategyId     String?   @unique
   // The goal this campaign serves (agentic execution); null for standalone campaigns
   goalId         String?
   goal           Goal?     @relation(fields: [goalId], references: [id], onDelete: SetNull)

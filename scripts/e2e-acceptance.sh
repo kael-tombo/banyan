@@ -316,6 +316,31 @@ contains "$BODY" "Strategy v2" "drafts wait in the approvals queue"
 contains "$BODY" "1 strategy to approve" "the strategy proposal is listed in Approvals with the drafts"
 req GET /app/usage "$JAR3"
 contains "$BODY" "content_draft" "draft generation is recorded in the model-usage ledger"
+
+# US-046: one campaign lifecycle.
+req POST /api/content/from-strategy "$JAR3" "{\"strategyId\":\"$S2\"}"
+SCAMP=$(printf '%s' "$BODY" | jget '.campaignId')
+[ -n "$SCAMP" ] && ok "strategy drafts belong to the strategy campaign" || bad "strategy drafts belong to the strategy campaign" "$BODY"
+req GET "/api/campaigns/$SCAMP" "$JAR3"
+contains "$BODY" '"lifecycle":"content_review"' "campaign lifecycle derived from its content (in review)"
+req POST "/api/campaigns/$SCAMP/lifecycle" "$JAR3" '{"action":"approve"}'
+                                       check "$STATUS" 409 "an invalid lifecycle move is refused"
+req POST "/api/campaigns/$SCAMP/lifecycle" "$JAR3" '{"action":"pause"}'
+                                       check "$STATUS" 200 "campaign paused"
+contains "$BODY" '"lifecycle":"paused"' "lifecycle is paused"
+req POST /api/content/from-strategy "$JAR3" "{\"strategyId\":\"$S2\"}"
+                                       check "$STATUS" 409 "no drafts are written for a paused campaign"
+req POST "/api/campaigns/$SCAMP/lifecycle" "$JAR3" '{"action":"resume"}'
+                                       check "$STATUS" 200 "campaign resumed"
+contains "$BODY" '"lifecycle":"content_review"' "resumed where it was paused"
+req POST "/api/campaigns/$SCAMP/lifecycle" "$JAR1" '{"action":"cancel"}'
+                                       check "$STATUS" 404 "another workspace cannot move the campaign"
+req POST /api/campaigns "$JAR3" '{"name":"Manual launch","objective":"Launch week","targetAudience":"Freelancers","keyMessage":"Get paid without Wi-Fi","cta":"Try it","channels":["x"],"formats":["single"],"successMetric":"signups"}'
+MCAMP=$(printf '%s' "$BODY" | jget '.campaign.id')
+req POST "/api/campaigns/$MCAMP/lifecycle" "$JAR3" '{"action":"submit"}'
+contains "$BODY" '"lifecycle":"pending_approval"' "manual campaign submitted for approval"
+req POST /api/content "$JAR3" "{\"channel\":\"x\",\"format\":\"single\",\"campaignId\":\"$MCAMP\"}"
+                                       check "$STATUS" 409 "content is refused while the campaign waits on approval"
 req GET "/api/goals/$GOAL_ID" "$JAR3"
 check "$STATUS" 404 "cross-workspace goal access denied (404)"
 req GET "/api/content/$CONTENT_ID" "$JAR3"

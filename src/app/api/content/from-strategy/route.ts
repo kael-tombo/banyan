@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
   if (!ctx) return apiError("Unauthorized", 401);
   const forbidden = requireRole(ctx.membership.role, "write");
   if (forbidden) return apiError(forbidden, 403);
-  const limited = await guardRate(req, "content-from-strategy", 4, 60_000);
+  const limited = await guardRate(req, "content-from-strategy", 10, 60_000);
   if (limited) return limited;
   const parsed = await readJson(req, body);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);

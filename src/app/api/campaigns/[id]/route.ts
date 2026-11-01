@@ -1,3 +1,5 @@
+import { lifecycleForLegacy } from "@/lib/campaign/lifecycle";
+import { syncCampaignLifecycle } from "@/lib/campaign/lifecycle-service";
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { recordActivity } from "@/lib/activity";
@@ -55,8 +57,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (parsed.data.schedule) data.schedule = JSON.stringify(parsed.data.schedule);
   if (parsed.data.status === "in_progress") data.startedAt = campaign.startedAt ?? new Date();
   if (parsed.data.status === "completed") data.completedAt = new Date();
+  // The legacy status maps onto the lifecycle (US-046); in_progress is derived from content.
+  if (parsed.data.status && parsed.data.status !== campaign.status) {
+    const mapped = lifecycleForLegacy(parsed.data.status);
+    if (mapped) data.lifecycle = mapped;
+    else if (parsed.data.status === "in_progress") data.lifecycle = "content_review";
+  }
 
   const updated = await prisma.campaign.update({ where: { id: campaign.id }, data });
+  if (parsed.data.status === "in_progress") await syncCampaignLifecycle(campaign.id);
   if (parsed.data.status) {
     await recordActivity({
       workspaceId: ctx.workspace.id,

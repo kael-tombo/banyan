@@ -1,3 +1,4 @@
+import { syncCampaignLifecycle } from "@/lib/campaign/lifecycle-service";
 import { routedProvider } from "@/lib/model/router";
 import { prisma } from "@/lib/db";
 import { recordActivity } from "@/lib/activity";
@@ -52,6 +53,7 @@ export async function handleCampaignPlan(ctx: HandlerContext): Promise<HandlerRe
 
   const campaign = await prisma.campaign.create({
     data: {
+      lifecycle: "approved",
       workspaceId: ctx.workspaceId,
       goalId: goal.id,
       name: `${goal.objective.slice(0, 60)} — wave 1`,
@@ -181,6 +183,7 @@ export async function handleContentDraft(ctx: HandlerContext): Promise<HandlerRe
   await prisma.contentRevision.create({
     data: { contentItemId: item.id, title: item.title, body: result.body, note: `Agent draft — ${result.label}`, authorType: "ai", meta: JSON.stringify({ taskId: ctx.task.id }) },
   });
+  await syncCampaignLifecycle(campaign?.id);
   await recordActivity({
     workspaceId: ctx.workspaceId,
     type: "content_created",

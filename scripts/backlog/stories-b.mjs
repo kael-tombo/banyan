@@ -84,7 +84,8 @@ export const storiesB = [
 
   // ───────────────────────── CAMP — campaigns ─────────────────────────
   {
-    id: "US-046", epic: "Campaign management", code: "CAMP", priority: "P0", status: "Backlog", sprint: 4,
+    id: "US-046", epic: "Campaign management", code: "CAMP", priority: "P0", status: "Done",
+    evidence: "2026-11-01: src/lib/campaign/lifecycle.ts defines the 16 states; decision moves validated in decide() (invalid → 409), work states derived from content statuses (deriveWorkState) after review, edit, schedule, publish attempts and manual records; conditional updates on the starting state; every move writes a campaign activity event; legacy status kept in step and mapped on the old PATCH; migration maps existing statuses. tests/campaign-lifecycle.test.ts (AC2: 2 published + 1 failed → partially_failed). E2E: strategy campaign derived to content_review, invalid approve 409, pause → drafts 409, resume returns to content_review, cross-workspace 404, AC1 pending_approval campaign refuses content (409). Approve/reject need the approve role, other moves workflow control", sprint: 4,
     title: "One explicit campaign lifecycle",
     as: "founder", want: "every campaign to have one clear status from draft to completed", so: "I always know where it stands",
     context: "TD-05: the lifecycle is split across campaign, goal, content and publication machines. Brief defines 12 states plus pause, resume, cancel, failure.",
@@ -108,7 +109,8 @@ export const storiesB = [
     tests: { happy: "render each lifecycle state", validation: "n/a", authorization: "foreign campaign 404", external: "n/a", retry: "n/a" },
   },
   {
-    id: "US-048", epic: "Campaign management", code: "CAMP", priority: "P1", status: "Backlog", sprint: 5,
+    id: "US-048", epic: "Campaign management", code: "CAMP", priority: "P1", status: "Review",
+    evidence: "2026-11-01: pause/resume/cancel on the lifecycle (resume returns to the paused-from state and re-derives); a paused or cancelled campaign holds its publications: the executor exits before claiming, nothing changes and no attempt is counted, and the maintenance sweep picks due items up after resume (holdsPublishing, unit-tested). E2E covers pause/resume and the draft block. Remaining: an end-to-end run of a held scheduled publication (export mode creates none) and credit release on cancel (US-056)", sprint: 5,
     title: "Pause, resume or cancel a campaign",
     as: "founder", want: "to stop a campaign safely", so: "nothing goes out when circumstances change",
     context: "Brief: support pause, resume, cancellation per business rules.",

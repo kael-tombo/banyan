@@ -1,3 +1,4 @@
+import { assertCampaignAllowsGeneration, LifecycleError } from "@/lib/campaign/lifecycle-service";
 import { routedProvider } from "@/lib/model/router";
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, guardRate, json, requireWorkspace, readJson } from "@/lib/api-utils";
@@ -31,6 +32,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   const item = await load(id, ctx.workspace.id);
   if (!item) return apiError("Content not found.", 404);
+  try {
+    await assertCampaignAllowsGeneration(ctx.workspace.id, item.campaignId);
+  } catch (err) {
+    if (err instanceof LifecycleError) return apiError(err.message, err.status);
+    throw err;
+  }
 
   // Preserve user edits: generation applies only from draft/rejected states.
   if (!canTransitionContent(item.status, "ready_for_review") || ["published", "archived", "scheduled", "approved", "ready_for_review"].includes(item.status)) {

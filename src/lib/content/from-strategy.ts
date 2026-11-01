@@ -1,3 +1,5 @@
+import { campaignForStrategy, syncCampaignLifecycle } from "@/lib/campaign/lifecycle-service";
+import { generationBlocked, isLifecycle } from "@/lib/campaign/lifecycle";
 import { prisma } from "@/lib/db";
 import { recordActivity } from "@/lib/activity";
 import { generateContent } from "@/lib/ai/generate";
@@ -38,6 +40,9 @@ export async function writeDraftsFromStrategy(workspaceId: string, opts: { strat
     voice = {};
   }
   const banned = bannedTerms(voice.avoid);
+  const campaign = await campaignForStrategy(workspaceId, strategy);
+  const blocked = isLifecycle(campaign.lifecycle) ? generationBlocked(campaign.lifecycle) : null;
+  if (blocked) throw new StrategyError("invalid_state", blocked, 409);
   const body = JSON.parse(strategy.body) as StrategyBody;
 
   const existing = await prisma.contentItem.findMany({
@@ -74,6 +79,7 @@ export async function writeDraftsFromStrategy(workspaceId: string, opts: { strat
         title: `Strategy v${strategy.version} — ${CHANNEL_META[d.channel].label} ${d.format.replace(/_/g, " ")}`.slice(0, 160),
         body: text,
         status: "ready_for_review",
+        campaignId: campaign.id,
         strategyId: strategy.id,
         angle: d.angle || null,
         checks: JSON.stringify(flags),
@@ -97,5 +103,6 @@ export async function writeDraftsFromStrategy(workspaceId: string, opts: { strat
       meta: { strategyId: strategy.id },
     });
   }
-  return { strategyId: strategy.id, version: strategy.version, created, skipped: existing.length };
+  await syncCampaignLifecycle(campaign.id);
+  return { strategyId: strategy.id, version: strategy.version, campaignId: campaign.id, created, skipped: existing.length };
 }

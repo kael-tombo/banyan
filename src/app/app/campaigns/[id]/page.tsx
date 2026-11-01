@@ -1,3 +1,4 @@
+import { availableActions, isLifecycle, ACTION_LABEL, LIFECYCLE_LABEL } from "@/lib/campaign/lifecycle";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
@@ -78,14 +79,16 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         description={`${campaign.objective} · metric: ${campaign.successMetric}`}
         actions={
           <>
-            <CampaignActions campaign={{ id: campaign.id, status: campaign.status, name: campaign.name }} />
+            <CampaignActions campaign={{ id: campaign.id, name: campaign.name }} actions={(isLifecycle(campaign.lifecycle) ? availableActions(campaign.lifecycle) : []).map((a) => ({ action: a, label: ACTION_LABEL[a] }))} />
             <LinkButton href="/app/campaigns/new" variant="secondary" size="sm"><Plus size={14} aria-hidden="true" /> New</LinkButton>
           </>
         }
       />
 
       <div className="flex items-center gap-2">
-        <StatusBadge status={campaign.status} />
+        <Badge variant={campaign.lifecycle === "partially_failed" || campaign.lifecycle === "failed" ? "clay" : campaign.lifecycle === "paused" ? "warm" : "forest"}>
+          {isLifecycle(campaign.lifecycle) ? LIFECYCLE_LABEL[campaign.lifecycle] : campaign.lifecycle}
+        </Badge>
         {campaign.isSelfCampaign ? <Badge variant="warm">self-distribution theme</Badge> : null}
         {campaign.startedAt && <span className="text-xs text-charcoal-soft">started {campaign.startedAt.toLocaleDateString()}</span>}
         {campaign.completedAt && <span className="text-xs text-charcoal-soft">completed {campaign.completedAt.toLocaleDateString()}</span>}

@@ -1,3 +1,5 @@
+import { holdsPublishing } from "@/lib/campaign/lifecycle";
+import { syncCampaignLifecycle } from "@/lib/campaign/lifecycle-service";
 import { prisma } from "@/lib/db";
 import { isExportableContent } from "@/lib/state-machines";
 import { providerFor, credentialsFromConnection, EXPORT_MODE_MESSAGE } from "@/lib/distribution/providers";
@@ -21,7 +23,7 @@ export const UNUSABLE_CONNECTION_STATUSES = ["error", "removed"];
  *  - published status is only ever set after real provider confirmation
  *    (or an explicit manual action with a submitted live URL).
  */
-export async function attemptPublication(input: {
+async function attemptPublicationInner(input: {
   contentItemId: string;
   workspaceId: string;
   connectionId: string | null;
@@ -84,7 +86,7 @@ export async function attemptPublication(input: {
   return { ok: result.ok, status: result.status, message: result.message, publicationId: publication.id };
 }
 
-export async function executePublication(publicationId: string): Promise<{ ok: boolean; status: string; message: string }> {
+async function executePublicationInner(publicationId: string): Promise<{ ok: boolean; status: string; message: string }> {
   const publication = await prisma.publication.findUnique({
     where: { id: publicationId },
     include: { contentItem: true, connection: true },
@@ -101,6 +103,13 @@ export async function executePublication(publicationId: string): Promise<{ ok: b
   }
 
   const item = publication.contentItem;
+  // A paused or cancelled campaign holds its publications (US-048): exit before
+  // claiming, so nothing changes and no attempt is counted.
+  if (item.campaignId) {
+    const campaign = await prisma.campaign.findUnique({ where: { id: item.campaignId }, select: { lifecycle: true } });
+    const held = holdsPublishing(campaign?.lifecycle);
+    if (held) return { ok: false, status: "skipped", message: held };
+  }
   if (!isExportableContent(item)) {
     await prisma.publication.update({
       where: { id: publication.id },
@@ -208,7 +217,7 @@ export async function executePublication(publicationId: string): Promise<{ ok: b
  * they published themselves. This is a genuine confirmation from a human,
  * recorded distinctly (manual=true) — never fabricated automatically.
  */
-export async function recordManualPublication(input: { contentItemId: string; workspaceId: string; url: string }): Promise<{ ok: boolean; message: string }> {
+async function recordManualPublicationInner(input: { contentItemId: string; workspaceId: string; url: string }): Promise<{ ok: boolean; message: string }> {
   const item = await prisma.contentItem.findUnique({ where: { id: input.contentItemId }, include: { publications: true } });
   if (!item || item.workspaceId !== input.workspaceId) return { ok: false, message: "Content not found." };
   const existing = item.publications.find((p) => p.status === "published");
@@ -256,6 +265,33 @@ export async function recordManualPublication(input: { contentItemId: string; wo
 }
 
 /** Worker entry point: attempt every due scheduled publication. */
+// ————— Campaign lifecycle (US-046): every publishing outcome re-derives the campaign state —————
+
+async function syncForContent(contentItemId: string | null | undefined) {
+  if (!contentItemId) return;
+  const item = await prisma.contentItem.findUnique({ where: { id: contentItemId }, select: { campaignId: true } }).catch(() => null);
+  await syncCampaignLifecycle(item?.campaignId);
+}
+
+export async function attemptPublication(input: Parameters<typeof attemptPublicationInner>[0]) {
+  const result = await attemptPublicationInner(input);
+  await syncForContent(input.contentItemId);
+  return result;
+}
+
+export async function executePublication(publicationId: string) {
+  const result = await executePublicationInner(publicationId);
+  const pub = await prisma.publication.findUnique({ where: { id: publicationId }, select: { contentItemId: true } }).catch(() => null);
+  await syncForContent(pub?.contentItemId);
+  return result;
+}
+
+export async function recordManualPublication(input: Parameters<typeof recordManualPublicationInner>[0]) {
+  const result = await recordManualPublicationInner(input);
+  await syncForContent(input.contentItemId);
+  return result;
+}
+
 export async function processDueSchedule(now = new Date()): Promise<{ attempted: number; published: number; failed: number }> {
   const due = await prisma.publication.findMany({
     where: { status: "scheduled", scheduledFor: { lte: now } },

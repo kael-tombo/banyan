@@ -1,3 +1,4 @@
+import { syncCampaignLifecycle } from "@/lib/campaign/lifecycle-service";
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { canTransitionContent } from "@/lib/state-machines";
@@ -34,6 +35,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       where: { id: item.id },
       data: { status: "approved", scheduledFor: null },
     });
+    await syncCampaignLifecycle(updated.campaignId);
     return json({ item: updated, cancelled: true });
   }
 
@@ -48,5 +50,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     where: { id: item.id },
     data: { status: "scheduled", scheduledFor: when },
   });
+  await syncCampaignLifecycle(updated.campaignId);
   return json({ item: updated });
 }
