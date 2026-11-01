@@ -17,7 +17,7 @@ same-origin (CSRF), validates with zod and is rate-limited where public.
 ## Epic A — Authentication and Organization
 
 ### BOS-001 — An organization for every founder
-- **Role** Founder · **Status** IN_PROGRESS · **Depends on** BOS-002 · **Maps to** new
+- **Role** Founder · **Status** REVIEW · **Depends on** BOS-002 · **Maps to** new
 - **Story** As a founder, I want my account to belong to an organization, so that all my products, members and credits live under one business.
 - **Value** The trunk of the tree: everything multi-product hangs off it.
 - **Functional** 1) Signup creates an organization named after the user and makes them OWNER. 2) Each existing workspace is backfilled into its own organization, with its owners as OWNER. 3) The organization has a name, a slug and a created date.
@@ -35,7 +35,7 @@ same-origin (CSRF), validates with zod and is rate-limited where public.
 - **Acceptance / tests** E2E acceptance script: signup, login, bad login, logout (passing). **Security** httpOnly, sameSite=lax, secure in prod.
 
 ### BOS-003 — Organization roles
-- **Role** Organization owner · **Status** READY · **Depends on** BOS-001 · **Maps to** new
+- **Role** Organization owner · **Status** REVIEW · **Depends on** BOS-001 · **Maps to** new
 - **Story** As an owner, I want members to hold OWNER, ADMIN, MEMBER or BILLING_MANAGER roles, so that I control who manages products, people and money.
 - **Value** Safe delegation. **Functional** 1) Role on `OrganizationMember`. 2) OWNER/ADMIN see and manage every product. 3) MEMBER sees only products they are a member of. 4) BILLING_MANAGER sees billing and credits only. 5) At least one OWNER always remains.
 - **Technical** a pure policy `orgCan(role, action)` with unit tests; checked in services.
@@ -81,7 +81,7 @@ same-origin (CSRF), validates with zod and is rate-limited where public.
 ## Epic B — Multi-Product Management
 
 ### BOS-008 — Create multiple products
-- **Role** Organization owner/admin · **Status** IN_PROGRESS · **Depends on** BOS-001, BOS-003 · **Maps to** new
+- **Role** Organization owner/admin · **Status** REVIEW · **Depends on** BOS-001, BOS-003 · **Maps to** new
 - **Story** As an organization owner, I want to create multiple products, so that I can independently manage the distribution of each business from one Banyan account.
 - **Value** No separate Banyan account per business.
 - **Functional** 1) A create-product action. 2) Name (required). 3) Product type (SaaS, Web app, Mobile app, E-commerce, Developer tool, Digital product, Agency service, Personal brand, Other). 4) Optional website URL. 5) Created under the active organization. 6) Unique id. 7) Default settings: time zone from the org, a starter credit policy. 8) The creator becomes PRODUCT_ADMIN. 9) The user lands in the new product. 10) The selector updates.
@@ -92,7 +92,7 @@ same-origin (CSRF), validates with zod and is rate-limited where public.
 - **Security** The org is validated server side; the product id is never accepted from the client.
 
 ### BOS-009 — Switch the active product
-- **Role** Any member · **Status** IN_PROGRESS · **Depends on** BOS-008 · **Maps to** new
+- **Role** Any member · **Status** REVIEW · **Depends on** BOS-008 · **Maps to** new
 - **Story** As a founder, I want to switch between my products, so that every screen shows that product's data and nothing else.
 - **Value** The multi-workspace experience.
 - **Functional** 1) Selecting a product sets the active product. 2) All pages and APIs then load that product. 3) The active product is visible at all times. 4) The choice is never changed silently, and a change says so.
@@ -113,7 +113,7 @@ same-origin (CSRF), validates with zod and is rate-limited where public.
 - **Security** Every lookup includes the product id.
 
 ### BOS-011 — List and search products
-- **Role** Member · **Status** IN_PROGRESS · **Depends on** BOS-008 · **Maps to** new
+- **Role** Member · **Status** REVIEW · **Depends on** BOS-008 · **Maps to** new
 - **Story** As a founder with many products, I want to search my products and see recently used ones, so that switching is fast.
 - **Value** Speed at scale. **Functional** list with name, type, logo initial and status; search; the last 3 used first.
 - **Data** workspaces · **API** `GET /api/products` · **UI** selector with search
