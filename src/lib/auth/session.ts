@@ -20,11 +20,23 @@ export async function createSession(userId: string): Promise<{ token: string; ex
   return { token, expiresAt };
 }
 
+/**
+ * Production: SameSite=Lax, Secure.
+ *
+ * Development only: SameSite=None; Secure; Partitioned. Embedded previews
+ * (Ship Studio shows the app inside its own window) are a cross-site frame,
+ * and browsers refuse to store a Lax cookie set there, so sign-in silently
+ * fails. Chrome treats http://localhost as a secure context, so Secure works
+ * without HTTPS, and Partitioned (CHIPS) keeps the cookie allowed in a frame.
+ * Mutating requests are still origin-checked (assertSameOrigin).
+ */
 export function sessionCookieOptions() {
+  const embeddable = env.NODE_ENV === "development";
   return {
     httpOnly: true,
-    sameSite: "lax" as const,
-    secure: isProd,
+    sameSite: embeddable ? ("none" as const) : ("lax" as const),
+    secure: isProd || embeddable,
+    ...(embeddable ? { partitioned: true } : {}),
     path: "/",
     expires: new Date(Date.now() + SESSION_TTL_MS),
   };
