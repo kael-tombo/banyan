@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { reviewDecision, validateEditedBody, diffStrategies } from "@/lib/strategy/review";
+import { reviewDecision, validateEditedBody, diffStrategies, pickCurrent } from "@/lib/strategy/review";
+import { resolveActivityEvidence } from "@/lib/growth-loop";
 import { templateStrategy, type StrategyInput, type StrategyBody } from "@/lib/strategy/generate";
 import { profileFacts } from "@/lib/strategy/facts";
 
@@ -81,5 +82,18 @@ describe("version diff reads as sentences", () => {
 
   it("is empty for identical versions", () => {
     expect(diffStrategies(base, base)).toEqual([]);
+  });
+});
+
+describe("which strategy is current", () => {
+  it("prefers a proposal waiting on the founder, then the approved one, then the newest", () => {
+    expect(pickCurrent([{ v: 3, status: "rejected" }, { v: 2, status: "proposed" }, { v: 1, status: "approved" }])?.v).toBe(2);
+    expect(pickCurrent([{ v: 3, status: "rejected" }, { v: 1, status: "approved" }])?.v).toBe(1);
+    expect(pickCurrent([{ v: 2, status: "rejected" }, { v: 1, status: "superseded" }])?.v).toBe(2);
+    expect(pickCurrent([])).toBeNull();
+  });
+
+  it("strategy activity links to the strategy page", () => {
+    expect(resolveActivityEvidence(JSON.stringify({ strategyId: "s1" }))).toEqual({ href: "/app/strategy", label: "View strategy" });
   });
 });

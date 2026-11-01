@@ -120,6 +120,7 @@ export default async function DashboardPage() {
     attributedSignups,
     awaitingApprovalCount,
     awaitingGateCount,
+    proposedStrategy,
     chatMessagesRaw,
   ] = await Promise.all([
     prisma.productProfile.findUnique({ where: { workspaceId: wid } }),
@@ -143,6 +144,8 @@ export default async function DashboardPage() {
     // Exact counts for the human queue and its gates (the focus list is capped).
     prisma.contentItem.count({ where: { workspaceId: wid, status: "ready_for_review" } }),
     prisma.agentTask.count({ where: { workspaceId: wid, type: "approval_gate", status: "waiting_approval" } }),
+    // A strategy proposal waiting on the founder (US-043).
+    prisma.strategy.findFirst({ where: { workspaceId: wid, status: "proposed" }, orderBy: { version: "desc" }, select: { id: true, version: true, method: true } }),
     // Command center chat — last 30 turns of the persisted conversation.
     prisma.chatMessage.findMany({ where: { workspaceId: wid }, orderBy: { createdAt: "desc" }, take: 30 }),
   ]);
@@ -195,6 +198,15 @@ export default async function DashboardPage() {
   // ————— This week's growth focus: the highest-leverage moves, in one list —————
   type FocusItem = { id: string; title: string; body: string; badge: React.ReactNode; cta: { href: string; label: string }; evidence?: string };
   const focus: FocusItem[] = [];
+  if (proposedStrategy) {
+    focus.push({
+      id: proposedStrategy.id,
+      title: `Review distribution strategy v${proposedStrategy.version}`,
+      body: "Channels, cadence and KPIs drafted from your approved profile. Content is written only from a strategy you approve.",
+      badge: <Badge variant="warm">Waiting on you</Badge>,
+      cta: { href: "/app/strategy", label: "Review strategy" },
+    });
+  }
   for (const t of blockedTasks) {
     focus.push({
       id: t.id, title: t.title,
@@ -250,7 +262,7 @@ export default async function DashboardPage() {
   const trackedClicks = linksAgg._sum.clicks ?? 0;
 
   // ————— The command bar's live numbers —————
-  const waitingOnYou = awaitingApprovalCount + awaitingGateCount;
+  const waitingOnYou = awaitingApprovalCount + awaitingGateCount + (proposedStrategy ? 1 : 0);
   const completedTaskCount = goalTasks.filter((t) => t.status === "completed").length;
   const countableTaskCount = goalTasks.filter((t) => t.status !== "cancelled").length;
   const today = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
@@ -419,7 +431,7 @@ export default async function DashboardPage() {
           label="Waiting on you"
           value={waitingOnYou}
           waiting={waitingOnYou > 0}
-          note={waitingOnYou > 0 ? `${plural(awaitingApprovalCount, "review")} · ${plural(awaitingGateCount, "gate")}` : "The queue is clear"}
+          note={waitingOnYou > 0 ? [awaitingApprovalCount ? plural(awaitingApprovalCount, "review") : "", awaitingGateCount ? plural(awaitingGateCount, "gate") : "", proposedStrategy ? "1 strategy" : ""].filter(Boolean).join(" · ") : "The queue is clear"}
         />
         <Stat
           href="/app/activity"

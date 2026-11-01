@@ -5,13 +5,14 @@ import { apiError, assertSameOrigin, guardRate, json, readJson, requireWorkspace
 import { requireRole } from "@/lib/permissions";
 import { createStrategy, strategyView, StrategyError } from "@/lib/strategy/service";
 import { StrategyInputError } from "@/lib/strategy/generate";
+import { pickCurrent } from "@/lib/strategy/review";
 
 /** GET: the latest strategy with its history. POST: generate a new version (US-042). */
 export async function GET() {
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
   const all = await prisma.strategy.findMany({ where: { workspaceId: ctx.workspace.id }, orderBy: { version: "desc" }, take: 20 });
-  const current = all.find((s) => s.status === "approved" || s.status === "proposed") ?? all[0] ?? null;
+  const current = pickCurrent(all);
   return json({
     strategy: current ? await strategyView(current) : null,
     versions: all.map((s) => ({ id: s.id, version: s.version, status: s.status, method: s.method, createdAt: s.createdAt.toISOString() })),

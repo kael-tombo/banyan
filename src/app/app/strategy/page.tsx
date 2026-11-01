@@ -8,7 +8,7 @@ import {
 } from "lucide-react";
 
 import { strategyView } from "@/lib/strategy/service";
-import { diffStrategies } from "@/lib/strategy/review";
+import { diffStrategies, pickCurrent } from "@/lib/strategy/review";
 import type { StrategyBody } from "@/lib/strategy/generate";
 import { approvalState } from "@/lib/product/profile-review";
 import { canApprove } from "@/lib/permissions";
@@ -70,7 +70,7 @@ export default async function GrowthStrategyPage() {
 
   // ————— Distribution strategy (US-042/043) —————
   const strategies = await prisma.strategy.findMany({ where: { workspaceId: wid }, orderBy: { version: "desc" }, take: 12 });
-  const current = strategies.find((x) => x.status === "proposed") ?? strategies.find((x) => x.status === "approved") ?? strategies[0] ?? null;
+  const current = pickCurrent(strategies);
   const currentView = current ? await strategyView(current) : null;
   const previous = current ? strategies.find((x) => x.version < current.version) : null;
   const strategyChanges = current && previous ? diffStrategies(JSON.parse(previous.body) as StrategyBody, JSON.parse(current.body) as StrategyBody) : [];

@@ -13,7 +13,16 @@ import { finalizeStrategy, strategyDraftSchema, KPI_LABEL, type StrategyBody, ty
  */
 
 export type StrategyStatus = "proposed" | "approved" | "rejected" | "superseded";
-export type ReviewAction = "approve" | "reject" | "edit";
+export type ReviewAction = "approve" | "reject";
+
+/**
+ * The version to show: a proposal waiting on the founder first (it needs a
+ * decision), then the approved one content is written from, then the newest.
+ * Expects versions newest first.
+ */
+export function pickCurrent<T extends { status: string }>(newestFirst: T[]): T | null {
+  return newestFirst.find((s) => s.status === "proposed") ?? newestFirst.find((s) => s.status === "approved") ?? newestFirst[0] ?? null;
+}
 
 export function reviewDecision(
   status: string,
@@ -31,8 +40,7 @@ export function reviewDecision(
     if (status !== "proposed") return { ok: false, reason: `Only a proposed strategy can be rejected (this one is ${status}).` };
     return { ok: true };
   }
-  if (status === "superseded" || status === "rejected") return { ok: true }; // editing an old version starts a new proposal from it
-  return { ok: true };
+  return { ok: false, reason: "Unknown action." };
 }
 
 /** Validate a founder-edited body with the same rules as model output. */
