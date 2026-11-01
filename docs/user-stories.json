@@ -3,15 +3,13 @@
   "source": "scripts/backlog/stories-*.mjs",
   "totals": {
     "stories": 77,
-    "done": 26,
+    "done": 27,
     "ready": 2,
-    "backlog": 40,
+    "backlog": 39,
     "blocked": 5
   },
   "criticalPath": [
-    "US-045",
-    "US-042",
-    "US-043",
+    "US-039",
     "US-040",
     "US-041",
     "US-074",
@@ -2169,7 +2167,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 4,
+      "wave": 2,
       "story": {
         "as": "new user",
         "want": "to see my first distribution strategy before onboarding ends",
@@ -2227,7 +2225,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 5,
+      "wave": 3,
       "story": {
         "as": "new user",
         "want": "onboarding to end with my first approved post published",
@@ -2282,9 +2280,9 @@
       "epic": "AI distribution strategy",
       "code": "AI",
       "priority": "P0",
-      "status": "Backlog",
+      "status": "Done",
       "sprint": 3,
-      "wave": 2,
+      "wave": 0,
       "story": {
         "as": "founder",
         "want": "a strategy with channels, rationale, formats, angles, objectives, cadence and KPIs",
@@ -2335,7 +2333,7 @@
         "external": "model timeout → fallback",
         "retry": "one retry"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: src/lib/strategy (generate.ts pure, service.ts, facts.ts) + prompt strategy.v1; Strategy model versioned per workspace with profileVersion, prompt, modelCallId and a facts snapshot; every channel cites profile facts by id and unknown ids are rejected; publishing/scheduling come from verified capabilities (scheduling always false while SocialFlow.ai is unverified); KPIs limited to first-party metrics; invalid output retried once then the labelled template is used (tests/strategy.test.ts, 13 cases); E2E against Docker: 409 while analysis fields are unapproved, 201 after, profileVersion recorded, export mode, hypothesis label, v2 supersedes v1, cross-workspace 404. Deviation: generation runs in the request (one bounded model call) rather than as a queued job",
       "blocker": null
     },
     {
@@ -2346,7 +2344,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 3,
-      "wave": 3,
+      "wave": 1,
       "story": {
         "as": "founder",
         "want": "full control over the strategy before any content is written",
@@ -2400,7 +2398,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 4,
+      "wave": 2,
       "story": {
         "as": "founder",
         "want": "drafts written for each channel in my brand voice",
@@ -2509,7 +2507,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 4,
+      "wave": 2,
       "story": {
         "as": "founder",
         "want": "every campaign to have one clear status from draft to completed",
@@ -2563,7 +2561,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 5,
+      "wave": 3,
       "story": {
         "as": "founder",
         "want": "a campaign page showing its stage, what waits on me and what was published",
@@ -2615,7 +2613,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 5,
-      "wave": 5,
+      "wave": 3,
       "story": {
         "as": "founder",
         "want": "to stop a campaign safely",
@@ -2670,7 +2668,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 5,
+      "wave": 3,
       "story": {
         "as": "founder",
         "want": "to distribute all approved items of a campaign in one action",
@@ -3856,7 +3854,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 5,
-      "wave": 5,
+      "wave": 3,
       "story": {
         "as": "founder",
         "want": "a notification when something waits on me or fails",
@@ -3907,7 +3905,7 @@
       "priority": "P2",
       "status": "Backlog",
       "sprint": 6,
-      "wave": 6,
+      "wave": 4,
       "story": {
         "as": "founder",
         "want": "an email when content waits for my approval",
@@ -3961,7 +3959,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 6,
-      "wave": 6,
+      "wave": 4,
       "story": {
         "as": "product owner",
         "want": "the full journey tested automatically against the Compose stack",
@@ -4018,7 +4016,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 6,
-      "wave": 7,
+      "wave": 5,
       "story": {
         "as": "product owner",
         "want": "automated tests for every mandatory failure scenario",

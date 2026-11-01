@@ -1,0 +1,158 @@
+import { Prisma, type Strategy } from "@prisma/client";
+import { prisma } from "@/lib/db";
+import { recordActivity } from "@/lib/activity";
+import { CHANNELS } from "@/lib/formats";
+import { enabledProviderIds } from "@/lib/distribution/providers";
+import { approvalState } from "@/lib/product/profile-review";
+import { recordSchemaResult, routeComplete } from "@/lib/model/router";
+import { generateStrategy, type ChannelCapability, type ProfileFact, type StrategyBody, type StrategyCompleter } from "./generate";
+import { objectiveFromProfile, preferredChannels, profileFacts } from "./facts";
+
+/**
+ * Strategy persistence and gating — US-042. The generation rules live in
+ * generate.ts (pure, unit-tested); this module loads context, enforces the
+ * approved-profile gate and stores each version.
+ */
+
+export class StrategyError extends Error {
+  constructor(public code: "no_profile" | "profile_not_approved" | "not_found" | "invalid_state" | "no_facts", message: string, public status: number) {
+    super(message);
+  }
+}
+
+/**
+ * What each channel can do right now. SocialFlow.ai publishing is used only
+ * when its adapter is enabled (verified); scheduling through it is not
+ * verified anywhere yet, so it is always false. Short-form video is produced
+ * and published by hand.
+ */
+export function channelCapabilities(): ChannelCapability[] {
+  const socialflow = enabledProviderIds().includes("socialflow");
+  return CHANNELS.map((channel) =>
+    channel === "shortvideo"
+      ? { channel, publishing: "manual" as const, scheduling: false }
+      : { channel, publishing: socialflow ? ("socialflow" as const) : ("export" as const), scheduling: false },
+  );
+}
+
+function toneOf(brandVoice: string | null | undefined): string | undefined {
+  try {
+    const v = JSON.parse(brandVoice || "{}") as { tone?: unknown };
+    return typeof v.tone === "string" && v.tone.trim() ? v.tone.trim() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+export async function createStrategy(opts: { workspaceId: string; userId: string | null; goalId?: string | null }): Promise<Strategy> {
+  const profile = await prisma.productProfile.findUnique({ where: { workspaceId: opts.workspaceId } });
+  if (!profile) throw new StrategyError("no_profile", "Add your product profile first. The strategy is built from it.", 422);
+  const approval = approvalState(profile);
+  if (approval.needsApproval) throw new StrategyError("profile_not_approved", approval.reason, 409);
+
+  const goal = opts.goalId ? await prisma.goal.findFirst({ where: { id: opts.goalId, workspaceId: opts.workspaceId } }) : null;
+  if (opts.goalId && !goal) throw new StrategyError("not_found", "Goal not found.", 404);
+
+  const facts = profileFacts(profile);
+  if (facts.length === 0) throw new StrategyError("no_facts", "The product profile is empty. Describe the product before generating a strategy.", 422);
+  const objective = goal ? `${goal.objective}${goal.successMetric ? ` (success metric: ${goal.successMetric.replace(/_/g, " ")})` : ""}` : objectiveFromProfile(profile);
+
+  let lastCallId: string | null = null;
+  const complete: StrategyCompleter = async ({ system, user, maxTokens, temperature, prompt, attempt }) => {
+    const res = await routeComplete({ workspaceId: opts.workspaceId, purpose: "strategy", system, user, maxTokens, temperature, prompt, attempt });
+    lastCallId = res.modelCallId;
+    return {
+      text: res.text,
+      live: res.usage.provider !== "template-fallback" && !res.quotaDeferred,
+      report: (valid) => recordSchemaResult(res.modelCallId, valid),
+    };
+  };
+
+  const outcome = await generateStrategy(
+    { facts, objective, preferredChannels: preferredChannels(profile.channels), capabilities: channelCapabilities(), tone: toneOf(profile.brandVoice) },
+    complete,
+  );
+
+  // Versions are per workspace; a concurrent generation loses the unique
+  // race and retries once with the next number.
+  for (let tries = 0; ; tries++) {
+    try {
+      const created = await prisma.$transaction(async (tx) => {
+        const last = await tx.strategy.findFirst({ where: { workspaceId: opts.workspaceId }, orderBy: { version: "desc" }, select: { version: true } });
+        await tx.strategy.updateMany({ where: { workspaceId: opts.workspaceId, status: "proposed" }, data: { status: "superseded" } });
+        return tx.strategy.create({
+          data: {
+            workspaceId: opts.workspaceId,
+            goalId: goal?.id ?? null,
+            version: (last?.version ?? 0) + 1,
+            body: JSON.stringify(outcome.body),
+            method: outcome.method,
+            fallbackReason: outcome.fallbackReason,
+            facts: JSON.stringify(facts),
+            objective,
+            profileVersion: profile.version,
+            promptName: outcome.prompt?.name ?? null,
+            promptVersion: outcome.prompt?.version ?? null,
+            modelCallId: outcome.method === "model" ? lastCallId : null,
+            createdById: opts.userId,
+          },
+        });
+      });
+      await recordActivity({
+        workspaceId: opts.workspaceId,
+        type: "strategy",
+        actorType: outcome.method === "model" ? "ai" : "system",
+        summary: `Strategy v${created.version} proposed (${outcome.method === "model" ? "model" : "template"}): ${outcome.body.channels.map((c) => c.channel).join(", ")}.`,
+        meta: { strategyId: created.id },
+      });
+      return created;
+    } catch (err) {
+      if (tries === 0 && err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") continue;
+      throw err;
+    }
+  }
+}
+
+export type StrategyView = {
+  id: string;
+  version: number;
+  status: string;
+  method: string;
+  fallbackReason: string | null;
+  objective: string;
+  body: StrategyBody;
+  facts: ProfileFact[];
+  profileVersion: number;
+  /** True when the profile has changed (or lost its approval) since generation. */
+  stale: boolean;
+  prompt: string | null;
+  model: { provider: string; model: string; isFallback: boolean } | null;
+  approvedAt: string | null;
+  rejectedReason: string | null;
+  createdAt: string;
+};
+
+export async function strategyView(s: Strategy): Promise<StrategyView> {
+  const [profile, call] = await Promise.all([
+    prisma.productProfile.findUnique({ where: { workspaceId: s.workspaceId }, select: { version: true, approvedAt: true, fieldSources: true } }),
+    s.modelCallId ? prisma.modelCall.findUnique({ where: { id: s.modelCallId }, select: { provider: true, model: true, isFallback: true } }) : null,
+  ]);
+  const stale = !profile || profile.version !== s.profileVersion || approvalState(profile).needsApproval;
+  return {
+    id: s.id,
+    version: s.version,
+    status: s.status,
+    method: s.method,
+    fallbackReason: s.fallbackReason,
+    objective: s.objective,
+    body: JSON.parse(s.body) as StrategyBody,
+    facts: JSON.parse(s.facts || "[]") as ProfileFact[],
+    profileVersion: s.profileVersion,
+    stale,
+    prompt: s.promptName ? `${s.promptName}.v${s.promptVersion}` : null,
+    model: call,
+    approvedAt: s.approvedAt?.toISOString() ?? null,
+    rejectedReason: s.rejectedReason,
+    createdAt: s.createdAt.toISOString(),
+  };
+}

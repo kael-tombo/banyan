@@ -3,3 +3,4 @@
  */
 export * from "./registry";
 export { productAnalysisV1 } from "./product-analysis.v1";
+export { strategyV1 } from "./strategy.v1";

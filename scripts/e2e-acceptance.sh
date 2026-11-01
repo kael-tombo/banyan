@@ -224,6 +224,8 @@ req POST /api/product/profile/apply-analysis "$JAR3" "{\"analysisId\":\"$A3_ID\"
                                        check "$STATUS" 200 "analysis applied to the profile as a draft"
 req POST /api/goals "$JAR3" '{"rawInput":"Get 20 signups from developers in 30 days"}'
                                        check "$STATUS" 409 "strategy refused until the drafted profile is approved"
+req POST /api/strategies "$JAR3" '{}'
+                                       check "$STATUS" 409 "strategy generation refused while analysis-drafted fields are unapproved"
 req POST /api/product/profile/approve "$JAR3" '{}'
                                        check "$STATUS" 422 "profile without a description cannot be approved"
 req PATCH /api/profile "$JAR3" '{"name":"Example","description":"A plain example page used for tests.","stage":"building","problem":"Founders need a stable public page to test with.","valueProp":"Always there, always the same.","website":"https://example.com"}'
@@ -236,6 +238,25 @@ req PATCH /api/profile "$JAR3" '{"name":"Example","description":"A plain example
 req GET /api/profile "$JAR3"
 contains "$BODY" '"version":2' "editing an approved profile starts version 2"
 contains "$BODY" '"approvedAt":null' "the new version needs approving again"
+
+# US-042: a structured strategy, only from an approved profile.
+# The founder rewrote every analysis field, so the profile is their own words and needs no extra approval.
+req POST /api/strategies "$JAR3" '{}'
+                                       check "$STATUS" 201 "strategy generated from the approved profile"
+SID=$(printf '%s' "$BODY" | jget '.strategy.id')
+contains "$BODY" '"profileVersion":2' "strategy records the profile version it came from"
+contains "$BODY" '"labelled_as":"hypothesis"' "strategy is labelled a hypothesis"
+contains "$BODY" '"source":"first_party"' "KPIs are first-party measurements"
+contains "$BODY" '"scheduling":false' "unverified scheduling is never assumed"
+case "$BODY" in *'"publishing":"socialflow"'*) bad "export mode used while SocialFlow.ai is unverified" "$BODY";; *) ok "export mode used while SocialFlow.ai is unverified";; esac
+contains "$BODY" '"stale":false' "fresh strategy is not stale"
+req POST /api/strategies "$JAR3" '{}'
+                                       check "$STATUS" 201 "regenerating creates the next version"
+contains "$BODY" '"version":2' "second strategy is version 2"
+req GET "/api/strategies/$SID" "$JAR3"
+contains "$BODY" '"status":"superseded"' "previous proposal superseded, not deleted"
+req GET "/api/strategies/$SID" "$JAR1"
+                                       check "$STATUS" 404 "another workspace cannot read the strategy"
 req GET "/api/goals/$GOAL_ID" "$JAR3"
 check "$STATUS" 404 "cross-workspace goal access denied (404)"
 req GET "/api/content/$CONTENT_ID" "$JAR3"

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 
 export type ActivityType =
+  | "strategy"
   | "content_created"
   | "content_generated"
   | "approval"

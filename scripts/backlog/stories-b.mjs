@@ -30,7 +30,8 @@ export const storiesB = [
 
   // ───────────────────────── AI — strategy and content ─────────────────────────
   {
-    id: "US-042", epic: "AI distribution strategy", code: "AI", priority: "P0", status: "Backlog", sprint: 3,
+    id: "US-042", epic: "AI distribution strategy", code: "AI", priority: "P0", status: "Done",
+    evidence: "2026-11-01: src/lib/strategy (generate.ts pure, service.ts, facts.ts) + prompt strategy.v1; Strategy model versioned per workspace with profileVersion, prompt, modelCallId and a facts snapshot; every channel cites profile facts by id and unknown ids are rejected; publishing/scheduling come from verified capabilities (scheduling always false while SocialFlow.ai is unverified); KPIs limited to first-party metrics; invalid output retried once then the labelled template is used (tests/strategy.test.ts, 13 cases); E2E against Docker: 409 while analysis fields are unapproved, 201 after, profileVersion recorded, export mode, hypothesis label, v2 supersedes v1, cross-workspace 404. Deviation: generation runs in the request (one bounded model call) rather than as a queued job", sprint: 3,
     title: "Generate a structured distribution strategy",
     as: "founder", want: "a strategy with channels, rationale, formats, angles, objectives, cadence and KPIs", so: "I know exactly what to publish, where, and why",
     context: "Planner and strategist agents exist. Brief Workflow B defines the inputs and outputs.",

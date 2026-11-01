@@ -90,6 +90,7 @@ model Workspace {
   goals           Goal[]
   agentTasks      AgentTask[]
   profileFacts    ProfileFact[]
+  strategies      Strategy[]
   recommendations Recommendation[]
   modelCalls      ModelCall[]
   chatMessages    ChatMessage[]
@@ -667,4 +668,38 @@ model ProductAnalysis {
   updatedAt     DateTime  @updatedAt
 
   @@index([workspaceId, createdAt])
+}
+
+/// A distribution strategy (US-042, US-043). Versioned per workspace; each
+/// new version supersedes the previous proposal. `body` is the validated
+/// JSON from src/lib/strategy/generate.ts; `facts` snapshots the profile
+/// facts it cites so citations still resolve after the profile changes.
+model Strategy {
+  id             String    @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  goalId         String?
+  version        Int
+  // proposed | approved | rejected | superseded
+  status         String    @default("proposed")
+  body           String
+  // model | template
+  method         String
+  fallbackReason String?
+  facts          String    @default("[]")
+  objective      String    @default("")
+  // The product profile version this was generated from (US-023 → US-042)
+  profileVersion Int
+  promptName     String?
+  promptVersion  Int?
+  modelCallId    String?
+  createdById    String?
+  approvedAt     DateTime?
+  approvedById   String?
+  rejectedReason String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([workspaceId, version])
+  @@index([workspaceId, status])
 }
