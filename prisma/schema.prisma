@@ -244,6 +244,11 @@ model ContentItem {
   // JSON: { hook, scenes: [...], onScreenText, caption, cta } for short-form video
   videoExtras     String    @default("{}")
   sourceRef       String?
+  // US-044: the approved strategy and messaging angle this draft serves, and
+  // pre-review flags (banned terms, over-limit) as JSON [{code, message, ...}]
+  strategyId      String?
+  angle           String?
+  checks          String    @default("[]")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -253,6 +258,7 @@ model ContentItem {
 
   @@index([workspaceId, status])
   @@index([campaignId])
+  @@index([workspaceId, strategyId])
 }
 
 model ContentRevision {

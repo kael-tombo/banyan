@@ -54,6 +54,24 @@ export function StrategyReview({
   const [editing, setEditing] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
+  const [drafts, setDrafts] = useState<{ created: number; skipped: number; flagged: number; fallback: boolean } | null>(null);
+
+  async function writeDrafts(strategyId: string) {
+    setBusy("drafts");
+    setError(null);
+    try {
+      const res = await fetch("/api/content/from-strategy", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ strategyId }) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Could not write drafts. Try again.");
+      const created = (data.created ?? []) as { flagged: boolean; isFallback: boolean }[];
+      setDrafts({ created: created.length, skipped: data.skipped ?? 0, flagged: created.filter((c) => c.flagged).length, fallback: created.some((c) => c.isFallback) });
+      router.refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  }
   const s = initial;
 
   async function call(label: string, url: string, method: string, body?: unknown) {
@@ -159,8 +177,23 @@ export function StrategyReview({
         )}
         {s.status === "rejected" && s.rejectedReason && <p className="mt-4 text-[13px] text-charcoal-soft">Rejected: {s.rejectedReason}</p>}
         {s.status === "approved" && s.approvedAt && (
-          <p className="mt-4 flex items-center gap-1.5 text-[13px] text-forest">
-            <CheckCircle2 size={14} aria-hidden="true" /> Approved {new Date(s.approvedAt).toLocaleDateString()}. Content is written from this version.
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-canvas px-4 py-3">
+            <p className="flex items-center gap-1.5 text-[13px] text-forest">
+              <CheckCircle2 size={14} aria-hidden="true" /> Approved {new Date(s.approvedAt).toLocaleDateString()}. Drafts are written from this version.
+            </p>
+            {canApprove && (
+              <Button size="sm" onClick={() => writeDrafts(s.id)} disabled={!!busy}>
+                <PenLine size={14} aria-hidden="true" /> {busy === "drafts" ? "Writing drafts…" : "Write drafts from this strategy"}
+              </Button>
+            )}
+          </div>
+        )}
+        {drafts && (
+          <p role="status" className="mt-3 text-[13px] leading-5 text-charcoal-soft">
+            {drafts.created > 0
+              ? `${drafts.created} draft${drafts.created === 1 ? "" : "s"} written${drafts.flagged ? `, ${drafts.flagged} with something to check` : ""}${drafts.fallback ? ". No model is configured, so they are built from your profile; edit before approving" : ""}. `
+              : `Every channel and format in this strategy already has a draft (${drafts.skipped}). `}
+            <Link href="/app/approvals" className="font-medium text-forest underline-offset-4 hover:underline">Review them in Approvals</Link>
           </p>
         )}
 

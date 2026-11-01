@@ -139,8 +139,14 @@ req POST "/api/goals/$GOAL_ID/plan/approve" "$JAR1" '{"decision":"approve"}'
 
 # --- 4. Agents produce research -> strategy -> campaign -> content ------------
 drive 16 "$JAR1"
-req GET /api/content "$JAR1"
-CONTENT_COUNT=$(printf '%s' "$BODY" | jget '.items.length')
+# Content tasks run on the worker; on a cold stack they can finish after the
+# last advance, so wait for the drafts instead of checking once.
+for i in $(seq 1 15); do
+  req GET /api/content "$JAR1"
+  CONTENT_COUNT=$(printf '%s' "$BODY" | jget '.items.length')
+  [ -n "$CONTENT_COUNT" ] && [ "$CONTENT_COUNT" -ge 1 ] 2>/dev/null && break
+  sleep 2; drive 1 "$JAR1"
+done
 [ -n "$CONTENT_COUNT" ] && [ "$CONTENT_COUNT" -ge 1 ] 2>/dev/null && ok "content drafted by agents ($CONTENT_COUNT items)" || bad "content drafted" "items=$CONTENT_COUNT body=${BODY:0:200}"
 CONTENT_ID=$(printf '%s' "$BODY" | jget '.items[0].id')
 
@@ -292,6 +298,22 @@ req POST "/api/strategies/$S3/approve" "$JAR3" '{}'
 contains "$BODY" 'Regenerate' "the refusal says to regenerate"
 req POST "/api/strategies/$S3/approve" "$JAR1" '{}'
                                        check "$STATUS" 404 "another workspace cannot approve the strategy"
+
+# US-044: drafts are written only from an approved strategy.
+req POST /api/content/from-strategy "$JAR1" '{}'
+                                       check "$STATUS" 409 "no drafts without an approved strategy"
+req POST /api/content/from-strategy "$JAR3" "{\"strategyId\":\"$S3\"}"
+                                       check "$STATUS" 409 "no drafts from a strategy that is not approved"
+req POST /api/content/from-strategy "$JAR3" "{\"strategyId\":\"$S2\"}"
+                                       check "$STATUS" 201 "drafts written from the approved strategy"
+NDRAFTS=$(printf '%s' "$BODY" | jget '.created.length')
+case "$NDRAFTS" in ''|0) bad "one draft per channel and format" "$BODY";; *) ok "one draft per channel and format ($NDRAFTS)";; esac
+req POST /api/content/from-strategy "$JAR3" "{\"strategyId\":\"$S2\"}"
+                                       check "$STATUS" 200 "writing drafts again creates no duplicates"
+contains "$BODY" '"created":[]' "second run created nothing"
+req GET /app/approvals "$JAR3"
+contains "$BODY" "Strategy v2" "drafts wait in the approvals queue"
+contains "$BODY" "1 strategy to approve" "the strategy proposal is listed in Approvals with the drafts"
 req GET "/api/goals/$GOAL_ID" "$JAR3"
 check "$STATUS" 404 "cross-workspace goal access denied (404)"
 req GET "/api/content/$CONTENT_ID" "$JAR3"

@@ -1,3 +1,5 @@
+import { bannedTerms, checkDraft } from "@/lib/content/checks";
+import { isChannel } from "@/lib/formats";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -29,6 +31,14 @@ export default async function ContentEditorPage({ params }: { params: Promise<{ 
   // Tracked link for this content if it exists
   const link = await prisma.trackedLink.findFirst({ where: { workspaceId: ctx.workspace.id, contentItemId: item.id } });
   const timezone = profile?.timezone ?? "UTC";
+  // US-044: checked against the current text, so an edit clears its own flag.
+  let avoid = "";
+  try {
+    avoid = (JSON.parse(profile?.brandVoice || "{}") as { avoid?: string }).avoid ?? "";
+  } catch {
+    avoid = "";
+  }
+  const flags = isChannel(item.channel) ? checkDraft({ channel: item.channel, format: item.format, body: item.body, banned: bannedTerms(avoid) }) : [];
 
   // ————— Studio computations (pure, from recorded data) —————
   const videoExtras = JSON.parse(item.videoExtras || "{}");
@@ -76,6 +86,8 @@ export default async function ContentEditorPage({ params }: { params: Promise<{ 
           rejectionReason: item.rejectionReason,
           sourceRef: item.sourceRef,
           videoExtras,
+          angle: item.angle,
+          flags: flags.map((f) => f.message),
         }}
         revisions={revisions.map((r) => ({ id: r.id, title: r.title, body: r.body.slice(0, 200), note: r.note, authorType: r.authorType, createdAt: r.createdAt.toISOString() }))}
         publications={publications.map((p) => ({

@@ -13,6 +13,8 @@ type ItemShape = {
   id: string; title: string; body: string; channel: string; format: string; status: string;
   campaignId: string | null; scheduledFor: string | null; approvedAt: string | null; rejectionReason: string | null;
   sourceRef: string | null; videoExtras: VideoExtras;
+  /** US-044: the strategy angle this draft serves, and pre-review flags on the current text. */
+  angle?: string | null; flags?: string[];
 };
 
 type PubShape = {
@@ -408,6 +410,15 @@ export function ContentEditor({
           <h2 className="mb-3 flex items-center gap-2 font-medium text-charcoal"><Eye size={15} className="text-clay" aria-hidden="true" /> Review &amp; approval</h2>
           <div className="flex flex-col gap-2 text-sm">
             <div className="flex items-center gap-2"><span className="text-charcoal-soft">Status:</span><StatusBadge status={item.status} /></div>
+            {item.angle && <p className="text-xs text-charcoal-soft"><span className="font-medium text-charcoal">Strategy angle:</span> {item.angle}</p>}
+            {item.flags && item.flags.length > 0 && (
+              <div role="status" className="rounded-md border border-fig/30 bg-fig/[0.06] px-2.5 py-2 text-xs leading-5 text-charcoal">
+                <p className="font-medium">Check before approving</p>
+                <ul className="mt-1 list-disc pl-4 text-charcoal-soft">
+                  {item.flags.map((f) => <li key={f}>{f}</li>)}
+                </ul>
+              </div>
+            )}
             {item.approvedAt && <p className="text-xs text-moss">Approved at {new Date(item.approvedAt).toLocaleString()} — approval recorded server-side with the approver's identity.</p>}
             {item.rejectionReason && <p className="rounded-md bg-clay/5 px-2 py-1 text-xs text-clay">Rejected: {item.rejectionReason}</p>}
 

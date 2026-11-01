@@ -43,8 +43,8 @@ export const storiesB = [
     tests: { happy: "mock model → valid strategy", validation: "schema violation → fallback", authorization: "n/a", external: "model timeout → fallback", retry: "one retry" },
   },
   {
-    id: "US-043", epic: "AI distribution strategy", code: "AI", priority: "P0", status: "Review",
-    evidence: "2026-11-01: /api/strategies/[id] approve (owners/members, idempotent, conditional update, refused when stale), reject (reason required), PATCH saves edits as the next version under the same rules and fact snapshot, regenerate via POST /api/strategies; review screen on /app/strategy with cited facts, publishing mode, stale warning, version list and a sentence diff (readable without colour). tests/strategy-review.test.ts 8 cases; E2E: reason required (400), approve 200 twice, approved cannot be rejected (409), edit → v+1 proposed with approved untouched, bad citation 422, stale approve 409, cross-workspace 404. Remaining: content generation reads the approved strategy and is gated on it (lands with the content stories)", sprint: 3,
+    id: "US-043", epic: "AI distribution strategy", code: "AI", priority: "P0", status: "Done",
+    evidence: "2026-11-01: /api/strategies/[id] approve (owners/members, idempotent, conditional update, refused when stale), reject (reason required), PATCH saves edits as the next version under the same rules and fact snapshot, regenerate via POST /api/strategies; review screen on /app/strategy with cited facts, publishing mode, stale warning, version list and a sentence diff (readable without colour). tests/strategy-review.test.ts 8 cases; E2E: reason required (400), approve 200 twice, approved cannot be rejected (409), edit → v+1 proposed with approved untouched, bad citation 422, stale approve 409, cross-workspace 404. Content generation from a strategy requires it to be approved (US-044, E2E 409/201). The goal-cycle agents keep their own plan-approval gate", sprint: 3,
     title: "Review, edit, approve, reject or regenerate a strategy",
     as: "founder", want: "full control over the strategy before any content is written", so: "nothing is produced on a plan I did not agree to",
     context: "Goal plan approval exists (E2E). It must operate on the structured strategy and keep versions.",
@@ -56,7 +56,8 @@ export const storiesB = [
     tests: { happy: "approve", validation: "approve twice is idempotent", authorization: "viewer cannot approve", external: "n/a", retry: "regenerate after failure" },
   },
   {
-    id: "US-044", epic: "Content generation and approval", code: "CONTENT", priority: "P0", status: "Backlog", sprint: 4,
+    id: "US-044", epic: "Content generation and approval", code: "CONTENT", priority: "P0", status: "Done",
+    evidence: "2026-11-01: POST /api/content/from-strategy writes one draft per channel and format of the approved strategy (planDrafts, priority order, angles round-robin, max 6 a run), refuses without an approved strategy (409) and skips existing drafts on re-run; ContentItem.strategyId/angle/checks (migration content_strategy); X threads split into numbered posts within 280; over-limit and brand-voice banned terms flagged, recomputed from the current text on the draft and in Approvals (tests/content-checks.test.ts 8 cases); E2E: 409 without approval, 409 for an unapproved version, 201 with 4 drafts, 200 and none created on repeat, drafts and the strategy proposal listed in Approvals. Limits: runs in the request rather than a queued job; without a model, profile-built drafts do not use the angle in their text", sprint: 4,
     title: "Generate platform-specific content from the approved strategy",
     as: "founder", want: "drafts written for each channel in my brand voice", so: "I edit instead of writing from scratch",
     context: "Channel drafts exist (E2E). Brief Workflow C adds brand restrictions and strategy grounding.",

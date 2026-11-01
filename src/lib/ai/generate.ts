@@ -247,6 +247,8 @@ export type ContentGenRequest = {
   /** Concluded-experiment lines from priorLearningLines — the loop's memory. */
   learning?: string[];
   instruction?: string; // for improve-hook / shorten / change-tone / adapt operations
+  /** The approved strategy's messaging angle this draft serves (US-044). */
+  angle?: string;
 };
 
 function clipAtWord(text: string, limit: number): string {
@@ -332,6 +334,7 @@ export async function generateContent(req: ContentGenRequest): Promise<{ body: s
           ...req.learning.map((line) => `- ${line}`),
         ]
       : []),
+    req.angle ? `Messaging angle this post serves (from the approved strategy): ${req.angle}` : "",
     `Channel: ${meta.label}; format: ${req.format}`,
     req.instruction ? `Special instruction: ${req.instruction}` : "",
   ].filter(Boolean).join("\n");
