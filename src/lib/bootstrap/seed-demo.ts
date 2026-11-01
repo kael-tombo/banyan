@@ -31,11 +31,12 @@ export async function seedDemoDatabase(prisma: PrismaClient): Promise<{ email: s
     },
   });
 
-  const organization = await prisma.organization.upsert({
-    where: { slug: "banyan" },
-    update: { name: "Banyan" },
-    create: { name: "Banyan", slug: "banyan" },
-  });
+  // Reuse the organization the seeded product already belongs to (an existing database was backfilled
+  // one organization per workspace); create "Banyan" only on a fresh database.
+  const existingProduct = await prisma.workspace.findUnique({ where: { slug: "banyan-ai" }, select: { organizationId: true } });
+  const organization = existingProduct
+    ? await prisma.organization.findUniqueOrThrow({ where: { id: existingProduct.organizationId } })
+    : await prisma.organization.upsert({ where: { slug: "banyan" }, update: { name: "Banyan" }, create: { name: "Banyan", slug: "banyan" } });
   await prisma.organizationMember.upsert({
     where: { organizationId_userId: { organizationId: organization.id, userId: user.id } },
     update: { role: "OWNER" },

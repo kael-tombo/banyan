@@ -9,6 +9,8 @@
 import { prisma } from "@/lib/db";
 import { accessibleProducts, resolveActiveProduct } from "@/lib/products";
 import { createOrganizationWithProduct, orgCan } from "@/lib/organizations";
+import { getBalance } from "@/lib/credits/service";
+import { STARTER_GRANT } from "@/lib/credits/ledger";
 
 async function main() {
   let failures = 0;
@@ -51,6 +53,15 @@ async function main() {
     const visibleInB = await prisma.campaign.count({ where: { workspaceId: inB!.workspace.id } });
     const visibleInA = await prisma.campaign.count({ where: { workspaceId: (await resolveActiveProduct(owner.id, A.id))!.workspace.id } });
     check(visibleInA === 1 && visibleInB === 0, "a campaign in A is visible in A and not in B", `A=${visibleInA} B=${visibleInB}`);
+
+    // Credits: only the organization's first product gets the starter grant (no minting by creating products).
+    const balA = await getBalance(A.id);
+    const balB = await getBalance(B.id);
+    check(balA.available === STARTER_GRANT && balB.available === 0, "only the organization's first product receives starter credits", `A=${balA.available} B=${balB.available}`);
+    const balX = await getBalance(X.id);
+    check(balX.available === STARTER_GRANT, "another organization still gets its own starter credits", String(balX.available));
+    const [againA, againB] = await Promise.all([getBalance(A.id), getBalance(B.id)]);
+    check(againA.available === STARTER_GRANT && againB.available === 0, "reading balances again grants nothing more");
 
     // Removing someone's product membership ends their access at once.
     await prisma.membership.deleteMany({ where: { userId: member.id, workspaceId: A.id } });

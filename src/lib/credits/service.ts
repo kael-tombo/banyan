@@ -26,9 +26,19 @@ async function lockAccount(tx: Tx, workspaceId: string): Promise<Balance> {
   const rows = await tx.$queryRaw<{ available: number; reserved: number }[]>`
     SELECT "available", "reserved" FROM "CreditAccount" WHERE "workspaceId" = ${workspaceId} FOR UPDATE`;
   let balance = { available: Number(rows[0]?.available ?? 0), reserved: Number(rows[0]?.reserved ?? 0) };
-  // Every workspace starts with a grant, written once.
+  // The starter grant is written once — and, since a founder can create many products (ADR-005),
+  // only for the first product of each organization; otherwise every new product would mint free
+  // credits. The organization row is locked so two products cannot both claim it. (BOS-061 moves
+  // the whole balance to the organization.)
   const starter = await tx.creditEntry.findUnique({ where: { workspaceId_idempotencyKey: { workspaceId, idempotencyKey: "starter-grant" } } });
-  if (!starter) balance = await apply(tx, workspaceId, balance, "grant", STARTER_GRANT, "starter-grant", { note: "Starter credits" });
+  if (!starter) {
+    const ws = await tx.workspace.findUnique({ where: { id: workspaceId }, select: { organizationId: true } });
+    if (ws) await tx.$queryRaw`SELECT "id" FROM "Organization" WHERE "id" = ${ws.organizationId} FOR UPDATE`;
+    const orgAlreadyGranted = ws
+      ? await tx.creditEntry.findFirst({ where: { idempotencyKey: "starter-grant", workspace: { organizationId: ws.organizationId } }, select: { id: true } })
+      : null;
+    if (!orgAlreadyGranted) balance = await apply(tx, workspaceId, balance, "grant", STARTER_GRANT, "starter-grant", { note: "Starter credits" });
+  }
   return balance;
 }
 
