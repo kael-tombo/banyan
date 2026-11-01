@@ -74,6 +74,9 @@ model Workspace {
   industry      String  @default("")
   businessModel String  @default("")
   timeZone      String  @default("UTC")
+  // Supervised autonomy (Level 2): the founder's policy as JSON, see src/lib/autonomy/policy.ts.
+  // Only a human changes it; "{}" means approve each draft.
+  autonomyPolicy String @default("{}")
   createdAt DateTime @default(now())
 
   memberships     Membership[]

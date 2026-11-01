@@ -4,6 +4,7 @@ import { approvalState } from "@/lib/product/profile-review";
 import { createStrategy } from "@/lib/strategy/service";
 import { writeDraftsFromStrategy } from "@/lib/content/from-strategy";
 import { enqueue, JOB, queueConfigured } from "@/lib/queue/jobs";
+import { superviseDrafts } from "@/lib/autonomy/service";
 
 /**
  * Autopilot — the agents act on the founder's decisions.
@@ -97,7 +98,14 @@ export async function runAutopilotDrafts(workspaceId: string, strategyId: string
   if (!taskId) return { ran: false, reason: "already running or done" };
   try {
     const r = await writeDraftsFromStrategy(workspaceId, { strategyId });
-    await finish(taskId, true, `${r.created.length} draft${r.created.length === 1 ? "" : "s"} written from strategy v${strategy.version}; waiting on your review.`, { strategyId, campaignId: r.campaignId });
+    // Level 2: approve and schedule what the founder's policy allows; the rest waits for them.
+    const s = await superviseDrafts(workspaceId, r.campaignId);
+    const written = `${r.created.length} draft${r.created.length === 1 ? "" : "s"} written from strategy v${strategy.version}`;
+    const supervised =
+      s.approved > 0
+        ? `; ${s.approved} approved under your policy${s.scheduled ? ` (${s.scheduled} scheduled)` : ""}, ${s.escalated} waiting on your review.`
+        : "; waiting on your review.";
+    await finish(taskId, true, written + supervised, { strategyId, campaignId: r.campaignId });
     return { ran: true, reason: "written" };
   } catch (err) {
     await finish(taskId, false, err instanceof Error ? err.message : "Draft writing failed.");

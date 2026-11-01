@@ -152,6 +152,22 @@ is excluded. No learning is copied into a second table, so correcting an
 experiment immediately changes what the next plan reads. Memory is per
 workspace; there is no cross-workspace learning.
 
+## Autonomy levels
+
+| Level | What Banyan does alone | Status |
+| --- | --- | --- |
+| 1 · Approved execution | Approving the profile starts the strategist; approving the strategy starts the creator (`src/lib/agents/autopilot.ts`). Nothing is approved or published without you. | Built |
+| 2 · Supervised | Within a founder-set policy, routine drafts are approved and scheduled; everything else escalates with its reason (`src/lib/autonomy/`, `/app/autonomy`). | Built; scheduling path awaits a verified provider |
+| 3 · Autonomous operations | Continuous cycles under budget, sampling and incident review | Out of scope (STRATEGY.md §12) |
+
+**Level 2 rules.** The policy (`Workspace.autonomyPolicy`, versioned) names the channels Banyan may run, posts per channel per day, quiet hours and blackout dates in the workspace time zone, and whether approved posts are also scheduled. Only an owner or member changes it (`PUT /api/autonomy`); the system never calls `setPolicy`.
+
+**Always escalated, whatever the policy says:** an unsupported claim, a banned term, an over-limit body, a template-fallback draft, the first post on a channel, any short-form video, and any channel outside the policy. Paused agents do nothing.
+
+**Accountability.** An auto-approval approves exactly the revision that was checked (a concurrent edit wins), and is attributed to the founder whose policy allowed it. Every decision is an `autonomy` activity row with its reasons and policy version. That row feeds the decision log and the weekly digest on `/app/autonomy`. Scheduling picks the next slot that respects the daily cap, quiet hours, blackouts and a 3-hour gap between posts on a channel; with no verified connection the post stays approved and is logged as not scheduled.
+
+**Verify:** `npx tsx --env-file=.env scripts/autonomy-check.ts` runs a supervision pass in a throwaway workspace against the real database (14 checks). Unit tests: `tests/autonomy-policy.test.ts`.
+
 ## Permissions and safety
 
 - Every API route resolves the workspace via `requireWorkspace()` and scopes

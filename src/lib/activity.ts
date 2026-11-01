@@ -26,7 +26,10 @@ export type ActivityType =
   // Human control over the agentic runtime (pause/resume)
   | "agent_control"
   // Product profile review and approval (US-023)
-  | "profile";
+  | "profile"
+  // Supervised autonomy: policy changes (human) and each decision made under a policy
+  | "autonomy_policy"
+  | "autonomy";
 
 export async function recordActivity(input: {
   workspaceId: string;
