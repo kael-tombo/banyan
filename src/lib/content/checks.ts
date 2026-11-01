@@ -1,4 +1,5 @@
 import { CHANNEL_LIMITS, type Channel } from "@/lib/formats";
+import { unsupportedClaims, type ClaimKind } from "@/lib/content/claims";
 
 /**
  * Draft formatting and pre-review checks — US-044. Pure and unit-tested.
@@ -13,7 +14,8 @@ export const X_POST_LIMIT = 280;
 
 export type DraftFlag =
   | { code: "banned_term"; term: string; message: string }
-  | { code: "over_limit"; limit: number; length: number; message: string };
+  | { code: "over_limit"; limit: number; length: number; message: string }
+  | { code: "unsupported_claim"; kind: ClaimKind; phrase: string; key: string; message: string };
 
 /** Terms from the brand voice "avoid" field: comma, semicolon or line separated. */
 export function bannedTerms(avoid: string | null | undefined): string[] {
@@ -72,7 +74,11 @@ export function formatDraft(channel: Channel, format: string, body: string): str
   return body.trim();
 }
 
-export function checkDraft(input: { channel: Channel; format: string; body: string; banned: string[] }): DraftFlag[] {
+/**
+ * evidence: when given, claims the evidence does not back are flagged (US-054);
+ * approval is refused until each is removed or vouched for.
+ */
+export function checkDraft(input: { channel: Channel; format: string; body: string; banned: string[]; evidence?: string[] }): DraftFlag[] {
   const flags: DraftFlag[] = [];
   for (const term of findBannedTerms(input.body, input.banned)) {
     flags.push({ code: "banned_term", term, message: `Contains "${term}", which your brand voice says to avoid.` });
@@ -83,6 +89,11 @@ export function checkDraft(input: { channel: Channel; format: string; body: stri
     if (long) flags.push({ code: "over_limit", limit: X_POST_LIMIT, length: long.trim().length, message: `A thread post is ${long.trim().length} characters; X allows ${X_POST_LIMIT}.` });
   } else if (input.body.length > limit) {
     flags.push({ code: "over_limit", limit, length: input.body.length, message: `${input.body.length} characters; the limit here is ${limit}.` });
+  }
+  if (input.evidence) {
+    for (const c of unsupportedClaims(input.body, input.evidence)) {
+      flags.push({ code: "unsupported_claim", kind: c.kind, phrase: c.phrase, key: c.key, message: `"${c.phrase}" is ${c.why} nothing in your profile, facts or campaign evidence backs. Remove it, add the source, or vouch for it when approving.` });
+    }
   }
   return flags;
 }

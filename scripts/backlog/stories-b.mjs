@@ -190,7 +190,7 @@ export const storiesB = [
     evidence: "Page /app/calendar compiled in next build and served in the dev preview (2026-11-01). No dedicated test yet.",
   },
   {
-    id: "US-054", epic: "Content generation and approval", code: "CONTENT", priority: "P1", status: "Backlog", sprint: 4,
+    id: "US-054", epic: "Content generation and approval", code: "CONTENT", priority: "P1", status: "Review", sprint: 4,
     title: "Guard against fabricated claims and brand violations",
     as: "founder", want: "drafts checked against my approved profile and brand rules", so: "Banyan never puts words in my mouth",
     context: "Brief: avoid fabricated product claims; respect content restrictions.",

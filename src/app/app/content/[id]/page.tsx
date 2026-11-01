@@ -1,4 +1,5 @@
 import { bannedTerms, checkDraft } from "@/lib/content/checks";
+import { loadClaimEvidence } from "@/lib/content/claim-evidence";
 import { isChannel } from "@/lib/formats";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -38,7 +39,10 @@ export default async function ContentEditorPage({ params }: { params: Promise<{ 
   } catch {
     avoid = "";
   }
-  const flags = isChannel(item.channel) ? checkDraft({ channel: item.channel, format: item.format, body: item.body, banned: bannedTerms(avoid) }) : [];
+  const evidenceFor = await loadClaimEvidence(ctx.workspace.id);
+  const flags = isChannel(item.channel)
+    ? checkDraft({ channel: item.channel, format: item.format, body: item.body, banned: bannedTerms(avoid), evidence: evidenceFor(item.campaignId, item.sourceRef) })
+    : [];
 
   // ————— Studio computations (pure, from recorded data) —————
   const videoExtras = JSON.parse(item.videoExtras || "{}");

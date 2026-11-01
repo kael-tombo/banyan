@@ -10,6 +10,7 @@ import { CHANNEL_META } from "@/lib/formats";
 import type { StrategyBody } from "@/lib/strategy/generate";
 import { approvedStrategy, StrategyError } from "@/lib/strategy/service";
 import { bannedTerms, checkDraft, formatDraft } from "./checks";
+import { loadClaimEvidence } from "./claim-evidence";
 import { DISCARDED_STATUSES, draftKey, planDrafts } from "./plan";
 
 /**
@@ -69,6 +70,7 @@ export async function writeDraftsFromStrategy(workspaceId: string, opts: { strat
   const created: { id: string; channel: string; format: string; flagged: boolean; isFallback: boolean }[] = [];
   const spentFor = () => estimateDraftRun({ drafts: created.length, channels: new Set(created.map((c) => c.channel)).size }).total;
   try {
+  const evidence = (await loadClaimEvidence(workspaceId))(campaign.id, null);
   for (const d of plan) {
     const result = await generateContent({
       channel: d.channel,
@@ -86,7 +88,7 @@ export async function writeDraftsFromStrategy(workspaceId: string, opts: { strat
       brandVoice: voice,
     });
     const text = formatDraft(d.channel, d.format, result.body);
-    const flags = checkDraft({ channel: d.channel, format: d.format, body: text, banned });
+    const flags = checkDraft({ channel: d.channel, format: d.format, body: text, banned, evidence });
     const item = await prisma.contentItem.create({
       data: {
         workspaceId,

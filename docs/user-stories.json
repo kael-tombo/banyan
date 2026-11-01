@@ -5,7 +5,7 @@
     "stories": 77,
     "done": 35,
     "ready": 3,
-    "backlog": 27,
+    "backlog": 26,
     "blocked": 3
   },
   "criticalPath": [
@@ -2921,7 +2921,7 @@
       "epic": "Content generation and approval",
       "code": "CONTENT",
       "priority": "P1",
-      "status": "Backlog",
+      "status": "Review",
       "sprint": 4,
       "wave": 1,
       "story": {

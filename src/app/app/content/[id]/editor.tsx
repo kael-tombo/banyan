@@ -57,6 +57,9 @@ export function ContentEditor({
   const [tone, setTone] = useState("");
   const [adaptTexts, setAdaptTexts] = useState<Record<string, string>>(adaptations);
   const [adaptDirty, setAdaptDirty] = useState(false);
+  // US-054: claims the server refused to approve without the approver vouching for them.
+  const [claimGate, setClaimGate] = useState<{ key: string; phrase: string; why: string }[] | null>(null);
+  const [vouched, setVouched] = useState<string[]>([]);
 
   const isChannelNow = isChannel(channel);
 
@@ -117,7 +120,34 @@ export function ContentEditor({
   }
 
   async function review(action: string, reason?: string) {
+    if (action === "approve") return approve([]);
     await post(`/api/content/${item.id}/review`, reason ? { action, reason } : { action }, action);
+  }
+
+  async function approve(vouchedClaims: string[]) {
+    if (dirty) {
+      setError("You have unsaved edits. Save them first — generation and review never silently overwrite your work.");
+      return;
+    }
+    setBusy("approve"); setError(null); setNotice(null);
+    try {
+      const res = await fetch(`/api/content/${item.id}/review`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "approve", vouchedClaims }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 409 && Array.isArray(data.unsupportedClaims)) {
+        setClaimGate(data.unsupportedClaims);
+        setVouched((v) => v.filter((k) => data.unsupportedClaims.some((c: { key: string }) => c.key === k)));
+        return;
+      }
+      if (!res.ok) throw new Error(data.error || "Action failed.");
+      setClaimGate(null); setVouched([]);
+      router.refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function sched() {
@@ -417,6 +447,28 @@ export function ContentEditor({
                 <ul className="mt-1 list-disc pl-4 text-charcoal-soft">
                   {item.flags.map((f) => <li key={f}>{f}</li>)}
                 </ul>
+              </div>
+            )}
+            {claimGate && claimGate.length > 0 && item.status === "ready_for_review" && (
+              <div role="alert" className="rounded-md border border-clay/30 bg-clay/[0.05] px-2.5 py-2 text-xs leading-5 text-charcoal">
+                <p className="font-medium">Unsupported claims: approval is on hold</p>
+                <p className="mt-0.5 text-charcoal-soft">Nothing in your profile, facts or campaign evidence backs these. Edit them out, add the source (the source reference field counts), or vouch for each one.</p>
+                <ul className="mt-1.5 space-y-1">
+                  {claimGate.map((c) => (
+                    <li key={c.key}>
+                      <label className="flex items-start gap-2">
+                        <input type="checkbox" className="mt-0.5" checked={vouched.includes(c.key)} onChange={(e) => setVouched((v) => (e.target.checked ? [...v, c.key] : v.filter((k) => k !== c.key)))} />
+                        <span><span className="font-medium text-charcoal">“{c.phrase}”</span> <span className="text-charcoal-soft">({c.why}) — I can back this up</span></span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-2 flex gap-2">
+                  <Button size="sm" variant="primary" onClick={() => approve(vouched)} disabled={!!busy || claimGate.some((c) => !vouched.includes(c.key))}>
+                    Approve, vouching for {claimGate.length === 1 ? "this claim" : "these claims"}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => { setClaimGate(null); setVouched([]); }}>Cancel</Button>
+                </div>
               </div>
             )}
             {item.approvedAt && <p className="text-xs text-moss">Approved at {new Date(item.approvedAt).toLocaleString()} — approval recorded server-side with the approver's identity.</p>}

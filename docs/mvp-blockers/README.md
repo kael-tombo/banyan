@@ -34,7 +34,7 @@ Postgres, Redis and a queue worker (US-001–007).
 | [04](04-onboarding-does-not-reach-first-cycle.md) | Onboarding stops before the first campaign and publication | The cycle a new founder actually walks; <30 min | Build | M |
 | [05](05-no-cycle-report.md) | No cycle report — **✅ built (not browser-checked; product signups need a pixel)** | "measured results, and the next move" as one closing artefact | Build | S |
 | [06](06-no-email-delivery.md) | No email delivery | Account recovery, verification, "approval needed" reminders | Build + vendor | M |
-| [07](07-claims-guard-missing.md) | No fabricated-claims / brand guard | Acceptance criterion "Fabricated data: zero" | Build | M |
+| [07](07-claims-guard-missing.md) | No fabricated-claims / brand guard — **✅ claims gate enforced at approval (brand disclosures pending)** | Acceptance criterion "Fabricated data: zero" | Build | M |
 | [08](08-no-activation-measurement.md) | No activation funnel — **✅ built (`npm run report:activation`; active time not measured)** | Cannot prove <30 min, <24 h to first approved asset, or activation | Build | S |
 | [09](09-integration-errors-not-recoverable.md) | Integration errors not recoverable everywhere | "Every state visible… with provider response and retry history" | Build | S |
 | [10](10-production-hardening.md) | Production hardening gaps | Holding real OAuth tokens safely: headers, logs, backups, CI | Ops | M |

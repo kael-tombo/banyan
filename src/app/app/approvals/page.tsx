@@ -1,4 +1,5 @@
 import { bannedTerms, checkDraft } from "@/lib/content/checks";
+import { loadClaimEvidence, type EvidenceFor } from "@/lib/content/claim-evidence";
 import { isChannel } from "@/lib/formats";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -22,10 +23,12 @@ export const metadata: Metadata = { title: "Approvals" };
  * already recorded.
  */
 /** Pre-review flags on the current text (US-044). */
-function makeFlagCounter(avoid: string) {
+function makeFlagCounter(avoid: string, evidenceFor: EvidenceFor) {
   const banned = bannedTerms(avoid);
-  return (item: { channel: string; format: string; body: string }) =>
-    isChannel(item.channel) ? checkDraft({ channel: item.channel, format: item.format, body: item.body, banned }).length : 0;
+  return (item: { channel: string; format: string; body: string; campaignId?: string | null; sourceRef?: string | null }) =>
+    isChannel(item.channel)
+      ? checkDraft({ channel: item.channel, format: item.format, body: item.body, banned, evidence: evidenceFor(item.campaignId ?? null, item.sourceRef) }).length
+      : 0;
 }
 
 export default async function ApprovalsPage() {
@@ -36,7 +39,7 @@ export default async function ApprovalsPage() {
   } catch {
     avoid = "";
   }
-  const flagCount = makeFlagCounter(avoid);
+  const flagCount = makeFlagCounter(avoid, await loadClaimEvidence(ctx.workspace.id));
 
   const [queue, gateTasks, decisions, counts, proposedStrategy] = await Promise.all([
     prisma.contentItem.findMany({
