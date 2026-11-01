@@ -18,6 +18,7 @@
   --color-ivory: #f7f4ec;        /* app canvas: warm bone paper */
   --color-ivory-deep: #eee9dd;   /* sunken paper: wells, quiet bands */
   --color-paper: #ffffff;        /* landing paper: pure white canvas */
+  --color-canvas: #f6f7f5;       /* app canvas: near-white with a leaf cast; white cards sit on it */
   --color-mist: #f2f6f1;         /* tinted landing band: light through leaves */
   --color-forest: #23523f;       /* the green of the leaf itself */
   --color-forest-deep: #0e2a21;  /* canopy ink: headings, brand moments */
@@ -110,9 +111,10 @@ body {
   background: var(--color-rail);
 }
 
-/* App canvas: flat bone paper. The content carries the color. */
+/* App canvas: near-white, so white cards read as sheets and the content
+   carries the color. Matches the white landing and sign-in pages. */
 .app-canvas {
-  background: var(--color-ivory);
+  background: var(--color-canvas);
 }
 
 /* Interior icons share one stroke, whatever size a call site asks for. */

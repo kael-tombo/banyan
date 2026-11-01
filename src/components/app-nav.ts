@@ -8,19 +8,27 @@ import {
 /**
  * The app's information architecture, in one place.
  *
- * Grouped by the job it does — plan, understand the context, distribute,
- * measure, operate. Both the sidebar and the command palette read from here,
+ * Grouped by the job it does: what needs you today, plan, distribute,
+ * measure, then the context and system pages you set up once and revisit. Both the sidebar and the command palette read from here,
  * so a route can never exist in one and be missing from the other.
  */
 
 export type NavItem = { href: string; label: string; icon: LucideIcon; keywords?: string };
-export type NavGroup = { label: string; items: NavItem[] };
+/** `collapsed`: starts closed in the sidebar unless the current page is inside it. */
+export type NavGroup = { label: string; items: NavItem[]; collapsed?: boolean };
 
 export const NAV_GROUPS: NavGroup[] = [
   {
-    label: "Plan",
+    // What needs the founder today: the overview and the one queue only a human can move.
+    label: "Today",
     items: [
       { href: "/app", label: "Dashboard", icon: LayoutDashboard, keywords: "home command center overview" },
+      { href: "/app/approvals", label: "Approvals", icon: CheckCircle2, keywords: "review queue gate waiting" },
+    ],
+  },
+  {
+    label: "Plan",
+    items: [
       { href: "/app/cycles", label: "Cycles", icon: RefreshCw, keywords: "complete cycle intake product url distribution run" },
       { href: "/app/goals", label: "Goals", icon: Target, keywords: "objective plan target" },
       { href: "/app/strategy", label: "Strategy", icon: Compass, keywords: "positioning messaging recommendation" },
@@ -28,21 +36,10 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    label: "Context",
-    items: [
-      { href: "/app/product", label: "Product profile", icon: ScanSearch, keywords: "website analysis url approve profile" },
-      { href: "/app/brief", label: "Product & Audience", icon: ClipboardList, keywords: "brief profile positioning" },
-      { href: "/app/audience", label: "Audience", icon: Users2, keywords: "segments people personas" },
-      { href: "/app/workspace", label: "Workspace", icon: Package, keywords: "product channels profile" },
-      { href: "/app/context", label: "Context", icon: BookOpen, keywords: "facts learning memory" },
-    ],
-  },
-  {
     label: "Distribute",
     items: [
       { href: "/app/campaigns", label: "Campaigns", icon: Megaphone, keywords: "launch campaign plan" },
       { href: "/app/content", label: "Content", icon: PenLine, keywords: "drafts posts copy" },
-      { href: "/app/approvals", label: "Approvals", icon: CheckCircle2, keywords: "review queue gate waiting" },
       { href: "/app/calendar", label: "Calendar", icon: CalendarDays, keywords: "schedule publishing" },
       { href: "/app/publishing", label: "Publishing", icon: Share2, keywords: "channels publish schedule" },
     ],
@@ -56,7 +53,19 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: "Context",
+    collapsed: true,
+    items: [
+      { href: "/app/product", label: "Product profile", icon: ScanSearch, keywords: "website analysis url approve profile" },
+      { href: "/app/brief", label: "Product & Audience", icon: ClipboardList, keywords: "brief profile positioning" },
+      { href: "/app/audience", label: "Audience", icon: Users2, keywords: "segments people personas" },
+      { href: "/app/workspace", label: "Workspace", icon: Package, keywords: "product channels profile" },
+      { href: "/app/context", label: "Context", icon: BookOpen, keywords: "facts learning memory" },
+    ],
+  },
+  {
     label: "System",
+    collapsed: true,
     items: [
       { href: "/app/connections", label: "Connections", icon: Link2, keywords: "integrations socialflow credentials" },
       { href: "/app/activity", label: "Agent activity", icon: Bot, keywords: "tasks runs audit log agents" },

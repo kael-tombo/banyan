@@ -15,11 +15,14 @@ import {
 /**
  * The platform shell.
  *
- * A deep canopy rail holds the brand, the workspace and the grouped routes;
- * the working surface is warm bone paper with one quiet top bar. The rail is
- * the only dark surface in the app, so the eye spends its contrast budget on
- * content. Navigation groups collapse, and the command palette (⌘K / Ctrl-K)
- * makes all 22 destinations reachable without scanning a list.
+ * A light sidebar on white, the same paper as the landing and sign-in pages,
+ * so the product reads as one place. The working surface is a near-white
+ * canvas where white cards sit; colour is spent on content and on the one
+ * signal that matters, the fig dot for what waits on a human.
+ *
+ * Navigation leads with "Today" (dashboard and approvals). Set-up pages
+ * (Context, System) start collapsed unless you are in one, and the command
+ * palette (⌘K / Ctrl-K) reaches every destination without scanning a list.
  */
 
 type AppShellProps = {
@@ -43,19 +46,14 @@ function isActiveRoute(pathname: string, href: string): boolean {
 }
 
 /** The signature: a fig dot appears only where something waits on a human. */
-function FigDot({ onDark = false }: { onDark?: boolean }) {
-  return (
-    <span
-      className={`h-1.5 w-1.5 shrink-0 rounded-full ${onDark ? "bg-fig-light" : "bg-fig"}`}
-      aria-hidden="true"
-    />
-  );
+function FigDot() {
+  return <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-fig" aria-hidden="true" />;
 }
 
 const RAIL_ROW =
-  "group flex h-8 items-center gap-2.5 rounded-lg px-2 text-sm transition-colors duration-150";
-const RAIL_ROW_ACTIVE = "bg-white/[0.08] text-ivory shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]";
-const RAIL_ROW_IDLE = "text-rail-ink hover:bg-white/[0.05] hover:text-ivory";
+  "group flex h-8 items-center gap-2.5 rounded-lg px-2 text-sm transition-colors duration-150 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-forest";
+const RAIL_ROW_ACTIVE = "bg-forest/[0.07] font-medium text-forest-deep";
+const RAIL_ROW_IDLE = "text-charcoal-soft hover:bg-bark/[0.05] hover:text-charcoal";
 
 function NavRow({
   item,
@@ -80,14 +78,14 @@ function NavRow({
     >
       <Icon
         size={16}
-        className={`shrink-0 transition-colors ${active ? "text-ivory" : "text-rail-muted group-hover:text-rail-ink"}`}
+        className={`shrink-0 transition-colors ${active ? "text-forest" : "text-muted group-hover:text-charcoal-soft"}`}
         aria-hidden="true"
       />
       <span className="truncate">{item.label}</span>
       {showCount && (
         <span className="ml-auto flex items-center gap-1.5" aria-label={`${attention} waiting on you`}>
-          <FigDot onDark />
-          <span className="num font-mono text-xs text-rail-ink">{attention}</span>
+          <FigDot />
+          <span className="num font-mono text-xs text-charcoal-soft">{attention}</span>
         </span>
       )}
     </Link>
@@ -107,7 +105,7 @@ export function AppShell({
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [closedGroups, setClosedGroups] = useState<Record<string, boolean>>({});
+  const [groupOverrides, setGroupOverrides] = useState<Record<string, boolean>>({});
   // Show the shortcut the viewer's keyboard actually has.
   const [shortcut, setShortcut] = useState("Ctrl K");
   useEffect(() => {
@@ -161,8 +159,12 @@ export function AppShell({
     router.refresh();
   }
 
-  const toggleGroup = (label: string) =>
-    setClosedGroups((prev) => ({ ...prev, [label]: !prev[label] }));
+  // Collapsed groups start closed unless they hold the current page.
+  const isGroupOpen = (group: (typeof NAV_GROUPS)[number]) =>
+    groupOverrides[group.label] ??
+    (!group.collapsed || group.items.some((i) => isActiveRoute(pathname, i.href)));
+  const toggleGroup = (group: (typeof NAV_GROUPS)[number]) =>
+    setGroupOverrides((prev) => ({ ...prev, [group.label]: !isGroupOpen(group) }));
 
   return (
     <div className="app-canvas min-h-screen text-charcoal">
@@ -176,14 +178,14 @@ export function AppShell({
 
       {/* ————— Desktop canopy rail ————— */}
       <aside
-        className="canopy fixed inset-y-0 left-0 z-40 hidden w-[264px] flex-col border-r border-white/[0.06] px-3 pb-3 pt-4 text-ivory md:flex"
+        className="fixed inset-y-0 left-0 z-40 hidden w-[256px] flex-col border-r border-bark/10 bg-white px-3 pb-3 pt-4 md:flex"
         aria-label="Main navigation"
       >
         <div className="shrink-0">
-          <Link href="/app" className="flex h-8 items-center gap-2.5 px-2" aria-label="Banyan.ai command center">
-            <BanyanMark size={24} variant="white" />
-            <span className="font-serif text-[17px] leading-none text-ivory">
-              Banyan<span className="text-rail-muted">.ai</span>
+          <Link href="/app" className="flex h-8 items-center gap-2 px-2" aria-label="Banyan.ai command center">
+            <BanyanMark size={24} />
+            <span className="text-[16px] font-medium leading-none tracking-[-0.01em] text-forest-deep">
+              Banyan<span className="text-forest">.ai</span>
             </span>
           </Link>
 
@@ -197,20 +199,20 @@ export function AppShell({
           />
         </div>
 
-        <nav className="app-scroll mt-2 min-h-0 flex-1 overflow-y-auto pr-1" aria-label="Sections">
+        <nav className="app-light-scroll mt-1 min-h-0 flex-1 overflow-y-auto pr-1" aria-label="Sections">
           {NAV_GROUPS.map((group) => {
-            const open = !closedGroups[group.label];
+            const open = isGroupOpen(group);
             const groupHasAttention = group.items.some((i) => i.href === "/app/approvals") && attention.approvals > 0;
             return (
               <div key={group.label} className="mt-4">
                 <button
                   type="button"
-                  onClick={() => toggleGroup(group.label)}
+                  onClick={() => toggleGroup(group)}
                   aria-expanded={open}
-                  className="mb-1 flex h-6 w-full items-center gap-2 rounded-md px-2 text-xs font-medium text-rail-muted transition-colors hover:text-rail-ink"
+                  className="mb-1 flex h-6 w-full items-center gap-2 rounded-md px-2 text-xs font-medium text-muted transition-colors hover:text-charcoal-soft"
                 >
                   {group.label}
-                  {groupHasAttention && !open && <FigDot onDark />}
+                  {groupHasAttention && !open && <FigDot />}
                   <ChevronDown
                     size={14}
                     className={`ml-auto transition-transform duration-150 ${open ? "" : "-rotate-90"}`}
@@ -229,19 +231,19 @@ export function AppShell({
           })}
         </nav>
 
-        <div className="mt-auto flex shrink-0 flex-col gap-0.5 border-t border-white/[0.08] pt-2">
+        <div className="mt-auto flex shrink-0 flex-col gap-0.5 border-t border-bark/10 pt-2">
           {workspace.isSelf && <GrowthRow pathname={pathname} />}
           <NavRow item={SETTINGS_ITEM} pathname={pathname} attention={attention.approvals} />
           <div className="mt-1 flex h-12 items-center gap-2.5 px-2">
             <span
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-medium text-ivory"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sage text-[11px] font-medium text-forest-deep"
               aria-hidden="true"
             >
               {initials}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[13px] font-medium leading-5 text-ivory">{user.name || "Signed in"}</span>
-              <span className="block truncate text-xs leading-4 text-rail-muted" title={user.email}>
+              <span className="block truncate text-[13px] font-medium leading-5 text-charcoal">{user.name || "Signed in"}</span>
+              <span className="block truncate text-xs leading-4 text-muted" title={user.email}>
                 {user.email}
               </span>
             </span>
@@ -250,7 +252,7 @@ export function AppShell({
               onClick={logout}
               aria-label="Log out"
               title="Log out"
-              className="flex h-8 w-8 items-center justify-center rounded-lg text-rail-muted transition-colors hover:bg-white/[0.08] hover:text-ivory"
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-colors hover:bg-bark/[0.06] hover:text-charcoal"
             >
               <LogOut size={16} aria-hidden="true" />
             </button>
@@ -259,8 +261,8 @@ export function AppShell({
       </aside>
 
       {/* ————— Working surface ————— */}
-      <div className="md:pl-[264px]">
-        <header className="sticky top-0 z-30 border-b border-bark/10 bg-ivory">
+      <div className="min-w-0 md:pl-[256px]">
+        <header className="sticky top-0 z-30 border-b border-bark/10 bg-white">
           <div className="mx-auto flex h-14 w-full max-w-[1440px] items-center gap-2 px-4 sm:px-6 lg:px-8">
             <button
               type="button"
@@ -287,7 +289,7 @@ export function AppShell({
               {attention.approvals > 0 && (
                 <Link
                   href="/app/approvals"
-                  className="hidden h-8 items-center gap-2 rounded-lg px-2 text-[13px] text-charcoal transition-colors hover:bg-bark/[0.06] sm:inline-flex"
+                  className="hidden h-8 items-center gap-2 rounded-lg border border-fig/30 bg-fig/[0.06] px-2.5 text-[13px] text-charcoal transition-colors hover:bg-fig/[0.1] sm:inline-flex"
                 >
                   <FigDot />
                   <span className="num">{attention.approvals}</span>
@@ -298,12 +300,12 @@ export function AppShell({
               <button
                 type="button"
                 onClick={() => setPaletteOpen(true)}
-                className="hidden h-8 w-56 items-center gap-2 rounded-lg border border-bark/15 bg-white px-2.5 text-left text-[13px] text-muted transition-colors hover:border-bark/25 sm:flex"
+                className="hidden h-8 w-64 items-center gap-2 rounded-lg border border-bark/12 bg-canvas px-2.5 text-left text-[13px] text-muted transition-colors hover:border-bark/25 sm:flex"
                 aria-label="Open command palette"
               >
                 <Search size={16} className="shrink-0" aria-hidden="true" />
                 <span className="flex-1 truncate">Search</span>
-                <kbd className="flex h-5 items-center rounded border border-bark/15 bg-ivory px-1.5 font-mono text-[11px] leading-none text-muted">
+                <kbd className="flex h-5 items-center rounded border border-bark/15 bg-white px-1.5 font-mono text-[11px] leading-none text-muted">
                   {shortcut}
                 </kbd>
               </button>
@@ -321,8 +323,8 @@ export function AppShell({
         </header>
 
         {!onboardingComplete && (
-          <div className="border-b border-bark/10 bg-white">
-            <div className="mx-auto flex w-full max-w-[1440px] flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 sm:px-6 lg:px-8">
+          <div className="mx-auto w-full max-w-[1440px] px-4 pt-6 sm:px-6 lg:px-8">
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-bark/10 bg-white px-4 py-3">
               <Sprout size={16} className="shrink-0 text-muted" aria-hidden="true" />
               <p className="text-[13px] leading-5 text-charcoal">
                 <span className="font-medium">Finish setup when you&apos;re ready</span>{" "}
@@ -359,13 +361,13 @@ export function AppShell({
             role="dialog"
             aria-modal="true"
             aria-label="Main navigation"
-            className="canopy absolute inset-y-0 left-0 flex w-[88%] max-w-[320px] flex-col overflow-y-auto px-3 pb-4 pt-4 text-ivory"
+            className="absolute inset-y-0 left-0 flex w-[88%] max-w-[320px] flex-col overflow-y-auto bg-white px-3 pb-4 pt-4"
           >
             <div className="flex items-center gap-2.5 px-2">
-              <Link href="/app" onClick={() => setMenuOpen(false)} className="flex items-center gap-2.5">
-                <BanyanMark size={24} variant="white" />
-                <span className="font-serif text-[17px] leading-none text-ivory">
-                  Banyan<span className="text-rail-muted">.ai</span>
+              <Link href="/app" onClick={() => setMenuOpen(false)} className="flex items-center gap-2">
+                <BanyanMark size={24} />
+                <span className="text-[16px] font-medium leading-none tracking-[-0.01em] text-forest-deep">
+                  Banyan<span className="text-forest">.ai</span>
                 </span>
               </Link>
               <button
@@ -373,7 +375,7 @@ export function AppShell({
                 onClick={() => setMenuOpen(false)}
                 data-drawer-close
                 aria-label="Close navigation"
-                className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-rail-ink hover:bg-white/[0.08] hover:text-ivory"
+                className="ml-auto flex h-8 w-8 items-center justify-center rounded-lg text-charcoal-soft hover:bg-bark/[0.06] hover:text-charcoal"
               >
                 <X size={16} aria-hidden="true" />
               </button>
@@ -390,7 +392,7 @@ export function AppShell({
             <nav className="mt-2 flex flex-col" aria-label="Sections">
               {NAV_GROUPS.map((group) => (
                 <div key={group.label} className="mt-4">
-                  <p className="mb-1 flex h-6 items-center px-2 text-xs font-medium text-rail-muted">{group.label}</p>
+                  <p className="mb-1 flex h-6 items-center px-2 text-xs font-medium text-muted">{group.label}</p>
                   <div className="flex flex-col gap-0.5">
                     {group.items.map((item) => (
                       <NavRow
@@ -406,7 +408,7 @@ export function AppShell({
               ))}
             </nav>
 
-            <div className="mt-6 flex flex-col gap-0.5 border-t border-white/[0.08] pt-2">
+            <div className="mt-6 flex flex-col gap-0.5 border-t border-bark/10 pt-2">
               {workspace.isSelf && <GrowthRow pathname={pathname} onNavigate={() => setMenuOpen(false)} />}
               <NavRow
                 item={SETTINGS_ITEM}
@@ -415,9 +417,9 @@ export function AppShell({
                 onNavigate={() => setMenuOpen(false)}
               />
               <button type="button" onClick={logout} className={`${RAIL_ROW} ${RAIL_ROW_IDLE} w-full text-left`}>
-                <LogOut size={16} className="shrink-0 text-rail-muted" aria-hidden="true" />
+                <LogOut size={16} className="shrink-0 text-muted" aria-hidden="true" />
                 <span className="truncate">Log out</span>
-                <span className="ml-auto truncate text-xs text-rail-muted">{user.email}</span>
+                <span className="ml-auto truncate text-xs text-muted">{user.email}</span>
               </button>
             </div>
           </aside>
@@ -448,14 +450,14 @@ function WorkspaceCard({
   const body = (
     <>
       <span
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/[0.08] text-[13px] font-medium text-ivory"
+        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-forest-deep text-[13px] font-medium text-white"
         aria-hidden="true"
       >
         {productInitial}
       </span>
       <span className="min-w-0">
-        <span className="block truncate text-sm font-medium leading-5 text-ivory">{product || "No product yet"}</span>
-        <span className="block truncate text-xs leading-4 text-rail-muted">
+        <span className="block truncate text-sm font-medium leading-5 text-charcoal">{product || "No product yet"}</span>
+        <span className="block truncate text-xs leading-4 text-muted">
           {workspace.name}
           {workspace.isSelf ? " · self-distribution" : ""}
           {goal ? ` · ${goal.replace(/_/g, " ")} goal` : ""}
@@ -463,9 +465,9 @@ function WorkspaceCard({
       </span>
     </>
   );
-  const cls = `flex items-center gap-2.5 rounded-xl border border-white/[0.08] bg-white/[0.04] p-2 ${className}`;
+  const cls = `flex items-center gap-2.5 rounded-xl border border-bark/10 bg-canvas p-2 ${className}`;
   return href ? (
-    <Link href={href} className={`${cls} transition-colors hover:bg-white/[0.07]`} aria-label="Open workspace profile">
+    <Link href={href} className={`${cls} transition-colors hover:border-bark/20`} aria-label="Open workspace profile">
       {body}
     </Link>
   ) : (
@@ -483,7 +485,7 @@ function GrowthRow({ pathname, onNavigate }: { pathname: string; onNavigate?: ()
       aria-current={active ? "page" : undefined}
       className={`${RAIL_ROW} ${active ? RAIL_ROW_ACTIVE : RAIL_ROW_IDLE}`}
     >
-      <Sprout size={16} className={`shrink-0 ${active ? "text-ivory" : "text-rail-muted"}`} aria-hidden="true" />
+      <Sprout size={16} className={`shrink-0 ${active ? "text-forest" : "text-muted"}`} aria-hidden="true" />
       <span className="truncate">Self-distribution</span>
     </Link>
   );
