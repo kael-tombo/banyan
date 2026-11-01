@@ -6,6 +6,23 @@ The pieces exist — publications, tracked visits and signups, experiments, a re
 cycle with one report: what shipped, what it produced, what cannot be attributed, and the one variable to change
 next.
 
+## Status — 2026-11-01: built
+
+`/app/cycles/[goalId]/report` (linked from the cycle cockpit as "Cycle report"), built on the pure
+`src/lib/cycle-report.ts` with 11 tests. It covers what shipped, against the objective, what it produced, what
+cannot be attributed, and change one thing next. Checked against the local database: the one existing cycle reports
+"Not measured", with dashes rather than zeros, and lists its five limits.
+
+Differences from the plan below:
+
+- **No stored snapshot.** The report is computed live and labelled *Final* once the deadline passes, so it needed no
+  migration. Freezing it as JSON can come later if late-arriving rows turn out to matter.
+- **"Start the next cycle" links to the blank intake.** It does not pre-fill the proposed change yet.
+- **Signups for a founder's own product are not tracked automatically.** Only Banyan's own signups arrive as
+  first-party events; others must be recorded by hand on the campaign. The report says so whenever it applies.
+  Closing that gap needs a signup pixel or webhook (new story).
+- **Not opened in a browser yet.** The dev server was not running.
+
 ## Evidence
 
 - STRATEGY.md §10 P0: "Results report with explicit limitations — **Partial**, measurement exists, no cycle

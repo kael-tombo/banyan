@@ -32,7 +32,7 @@ Postgres, Redis and a queue worker (US-001–007).
 | [02](02-no-production-environment.md) | No production environment | Nothing runs for a real founder; OAuth needs a public HTTPS callback | Ops | M |
 | [03](03-no-live-model-provider.md) | No live model provider configured | "channel-native assets" in the founder's voice | Ops + quality | S |
 | [04](04-onboarding-does-not-reach-first-cycle.md) | Onboarding stops before the first campaign and publication | The cycle a new founder actually walks; <30 min | Build | M |
-| [05](05-no-cycle-report.md) | No cycle report | "measured results, and the next move" as one closing artefact | Build | S |
+| [05](05-no-cycle-report.md) | No cycle report — **✅ built (not browser-checked; product signups need a pixel)** | "measured results, and the next move" as one closing artefact | Build | S |
 | [06](06-no-email-delivery.md) | No email delivery | Account recovery, verification, "approval needed" reminders | Build + vendor | M |
 | [07](07-claims-guard-missing.md) | No fabricated-claims / brand guard | Acceptance criterion "Fabricated data: zero" | Build | M |
 | [08](08-no-activation-measurement.md) | No activation funnel | Cannot prove <30 min, <24 h to first approved asset, or activation | Build | S |

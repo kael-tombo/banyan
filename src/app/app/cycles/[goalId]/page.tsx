@@ -234,6 +234,9 @@ export default async function CyclePage({ params }: { params: Promise<{ goalId: 
             <LinkButton href={`/app/goals/${goal.id}`} variant="ghost" size="sm">
               Execution view
             </LinkButton>
+            <LinkButton href={`/app/cycles/${goal.id}/report`} variant="ghost" size="sm">
+              Cycle report
+            </LinkButton>
             {pendingReview.length > 0 && (
               <LinkButton href="/app/approvals" variant="secondary" size="sm">
                 Review {pendingReview.length}
