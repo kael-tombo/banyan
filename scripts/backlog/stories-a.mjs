@@ -269,7 +269,7 @@ export const storiesA = [
     tests: { happy: "answers saved", validation: "empty required answer rejected", authorization: "scoped", external: "n/a", retry: "n/a" },
   },
   {
-    id: "US-021", epic: "Website analysis and product intelligence", code: "PROFILE", priority: "P0", status: "In Progress", sprint: 3,
+    id: "US-021", epic: "Website analysis and product intelligence", code: "PROFILE", priority: "P0", status: "Done", sprint: 3,
     title: "Submit my product URL for analysis",
     as: "founder", want: "to paste my product URL and have Banyan read it", so: "I do not have to describe my product from scratch",
     context: "URL normalisation and SSRF-safe fetch exist (cycle intake). The brief needs it as an onboarding stage that starts an analysis job.",
@@ -279,7 +279,7 @@ export const storiesA = [
     deps: { stories: ["US-018", "US-005"], optional: [], external: ["The product's public website"], infra: ["Redis"], api: [] },
     impl: { frontend: "Product URL stage with live status", backend: "POST /api/product/analyze, GET /api/product/analyze/:id", database: "ProductAnalysis(id, workspaceId, url, status, pages, result, error)", integration: "safeFetch", jobs: "product.analyze" },
     tests: { happy: "fixture site → draft profile", validation: "malformed URL 400", authorization: "analysis id from another workspace 404", external: "site 500 / timeout → failed state with reason", retry: "transient fetch error retried once" },
-    evidence: "2026-11-01: POST /api/product/analyze + GET /api/product/analyze/[id]; private, internal and non-web URLs refused before any request; runs as product.analyze on the queue (inline without Redis); queued → reading → analysing → ready|failed persisted; one retry for transient failures; marks the product_url onboarding stage. E2E 61/61. Remaining: the URL stage UI showing live progress",
+    evidence: "2026-11-01: POST/GET /api/product/analyze; private, internal and non-web URLs refused before any request; product.analyze worker job (inline without Redis); queued → reading → analysing → ready|failed persisted and shown live on /app/product; one retry for transient failures; marks the product_url stage. E2E 69/69 (example.com analysed through the queue, unreachable site fails); page rendered with a ready analysis",
   },
   {
     id: "US-022", epic: "Website analysis and product intelligence", code: "PROFILE", priority: "P0", status: "Done", sprint: 3,
@@ -295,7 +295,7 @@ export const storiesA = [
     evidence: "2026-11-01: src/lib/product/analyze.ts — Workflow A schema (incl. missing_information and provenance), prompt version product-analysis.v1, one retry on invalid output then the labelled basic extraction, template fallback never used as analysis. 22 unit tests with a mocked provider (no live model key in this environment). Live in Docker: example.com → ready, method basic, unknown fields listed as missing. Found and fixed: the word \"pricing\" in a nav link counted as a stated price",
   },
   {
-    id: "US-023", epic: "Website analysis and product intelligence", code: "PROFILE", priority: "P0", status: "Backlog", sprint: 3,
+    id: "US-023", epic: "Website analysis and product intelligence", code: "PROFILE", priority: "P0", status: "Done", sprint: 3,
     title: "Review, correct and approve my product profile",
     as: "founder", want: "to correct anything Banyan got wrong before it is used", so: "strategy and content never rest on a wrong assumption",
     context: "Snapshot correction exists in cycle intake; it must cover the full profile and record approval.",
@@ -305,6 +305,7 @@ export const storiesA = [
     deps: { stories: ["US-022"], optional: [], external: [], infra: [], api: [] },
     impl: { frontend: "Profile review screen", backend: "PUT /api/product/profile, POST /api/product/profile/approve", database: "ProductProfile.version, approvedAt, approvedBy", integration: "None", jobs: "None" },
     tests: { happy: "edit and approve", validation: "empty product name rejected", authorization: "viewer cannot approve", external: "n/a", retry: "n/a" },
+    evidence: "2026-11-01: /app/product review page (fields with their source, missing information, instruction-like text warning, approve); apply-analysis keeps founder-written fields; approve requires name and description (422 otherwise); goal creation returns 409 until a drafted profile is approved; editing an approved profile creates version 2 and clears approval; cycle intake submission counts as approval. E2E 8 new checks, unit (11). Showing strategies as based on an older version moves to US-042, which creates strategy records",
   },
   {
     id: "US-024", epic: "Security, reliability and operations", code: "PROFILE", priority: "P0", status: "Done", sprint: 3,
@@ -320,7 +321,7 @@ export const storiesA = [
     evidence: "2026-11-01: src/lib/ai/untrusted.ts — sanitises (scripts, comments, hidden and aria-hidden text removed), flags instruction-like passages, fences page text with a per-call nonce, and UNTRUSTED_CONTENT_RULES go in the system prompt; analysis output schema has no action fields. tests/untrusted-content.test.ts (9); product-analysis tests assert the fence and rules reach the model. Found and fixed: the hidden-attribute pattern deleted the next visible paragraph",
   },
   {
-    id: "US-025", epic: "Website analysis and product intelligence", code: "PROFILE", priority: "P0", status: "In Progress", sprint: 3,
+    id: "US-025", epic: "Website analysis and product intelligence", code: "PROFILE", priority: "P0", status: "Review", sprint: 3,
     title: "Recover gracefully when analysis cannot run",
     as: "founder", want: "a clear next step when my site cannot be read", so: "I am never stuck in onboarding",
     context: "Brief failure scenarios: invalid URL, site unavailable, AI provider unavailable.",
@@ -330,6 +331,7 @@ export const storiesA = [
     deps: { stories: ["US-021"], optional: [], external: [], infra: [], api: [] },
     impl: { frontend: "Error states on the URL stage", backend: "Error classification in product.analyze", database: "ProductAnalysis.error code", integration: "safeFetch error mapping", jobs: "product.analyze" },
     tests: { happy: "n/a", validation: "invalid URL message", authorization: "n/a", external: "503, timeout, DNS failure, model down each show the right state", retry: "retry succeeds after transient failure" },
+    evidence: "2026-11-01: named failure codes with one-sentence next steps (unit, E2E unreachable); /app/product shows the failure with Try again and Describe it yourself. Remaining: render the failure state on screen",
   },
   {
     id: "US-026", epic: "User onboarding", code: "ONB", priority: "P1", status: "Backlog", sprint: 3,

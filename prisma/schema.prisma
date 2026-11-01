@@ -130,6 +130,19 @@ model ProductProfile {
   // JSON: { tone, language, themes, avoid, cta, approvalPreference }
   brandVoice      String   @default("{}")
   timezone        String   @default("UTC")
+  // Structured profile from the website analysis (US-022/US-023), JSON arrays of strings
+  features           String    @default("[]")
+  problemsSolved     String    @default("[]")
+  differentiators    String    @default("[]")
+  missingInformation String    @default("[]")
+  // JSON: field -> "user" | "analysis" — the founder's own words always win
+  fieldSources       String    @default("{}")
+  lastAnalysisId     String?
+  // Approval (US-023). A profile with analysis-sourced fields must be approved
+  // before strategy work; editing an approved profile starts a new version.
+  approvedAt         DateTime?
+  approvedById       String?
+  version            Int       @default(1)
   updatedAt       DateTime @updatedAt
 }
 

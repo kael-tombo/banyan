@@ -3,13 +3,13 @@
   "source": "scripts/backlog/stories-*.mjs",
   "totals": {
     "stories": 77,
-    "done": 24,
+    "done": 26,
     "ready": 2,
-    "backlog": 42,
+    "backlog": 41,
     "blocked": 5
   },
   "criticalPath": [
-    "US-023",
+    "US-045",
     "US-042",
     "US-043",
     "US-040",
@@ -1124,9 +1124,9 @@
       "epic": "Website analysis and product intelligence",
       "code": "PROFILE",
       "priority": "P0",
-      "status": "In Progress",
+      "status": "Done",
       "sprint": 3,
-      "wave": 1,
+      "wave": 0,
       "story": {
         "as": "founder",
         "want": "to paste my product URL and have Banyan read it",
@@ -1175,7 +1175,7 @@
         "external": "site 500 / timeout → failed state with reason",
         "retry": "transient fetch error retried once"
       },
-      "evidence": "2026-11-01: POST /api/product/analyze + GET /api/product/analyze/[id]; private, internal and non-web URLs refused before any request; runs as product.analyze on the queue (inline without Redis); queued → reading → analysing → ready|failed persisted; one retry for transient failures; marks the product_url onboarding stage. E2E 61/61. Remaining: the URL stage UI showing live progress",
+      "evidence": "2026-11-01: POST/GET /api/product/analyze; private, internal and non-web URLs refused before any request; product.analyze worker job (inline without Redis); queued → reading → analysing → ready|failed persisted and shown live on /app/product; one retry for transient failures; marks the product_url stage. E2E 69/69 (example.com analysed through the queue, unreachable site fails); page rendered with a ready analysis",
       "blocker": null
     },
     {
@@ -1244,9 +1244,9 @@
       "epic": "Website analysis and product intelligence",
       "code": "PROFILE",
       "priority": "P0",
-      "status": "Backlog",
+      "status": "Done",
       "sprint": 3,
-      "wave": 1,
+      "wave": 0,
       "story": {
         "as": "founder",
         "want": "to correct anything Banyan got wrong before it is used",
@@ -1289,7 +1289,7 @@
         "external": "n/a",
         "retry": "n/a"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: /app/product review page (fields with their source, missing information, instruction-like text warning, approve); apply-analysis keeps founder-written fields; approve requires name and description (422 otherwise); goal creation returns 409 until a drafted profile is approved; editing an approved profile creates version 2 and clears approval; cycle intake submission counts as approval. E2E 8 new checks, unit (11). Showing strategies as based on an older version moves to US-042, which creates strategy records",
       "blocker": null
     },
     {
@@ -1350,9 +1350,9 @@
       "epic": "Website analysis and product intelligence",
       "code": "PROFILE",
       "priority": "P0",
-      "status": "In Progress",
+      "status": "Review",
       "sprint": 3,
-      "wave": 2,
+      "wave": 1,
       "story": {
         "as": "founder",
         "want": "a clear next step when my site cannot be read",
@@ -1393,7 +1393,7 @@
         "external": "503, timeout, DNS failure, model down each show the right state",
         "retry": "retry succeeds after transient failure"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: named failure codes with one-sentence next steps (unit, E2E unreachable); /app/product shows the failure with Try again and Describe it yourself. Remaining: render the failure state on screen",
       "blocker": null
     },
     {
@@ -2114,7 +2114,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 3,
-      "wave": 2,
+      "wave": 1,
       "story": {
         "as": "founder",
         "want": "to choose objectives, platforms, frequency, formats and audience focus",
@@ -2295,7 +2295,8 @@
         "Inputs: approved profile, audience, objective, brand, preferences, verified capabilities",
         "Output schema validated: channels[{channel, rationale}], formats, messaging_angles, objectives, frequency, kpis",
         "Only channels with a verified or export capability are recommended",
-        "Each recommendation cites profile facts"
+        "Each recommendation cites profile facts",
+        "Records the product profile version it was generated from and shows when that version is no longer the approved one (moved here from US-023)"
       ],
       "nonFunctionalRequirements": [
         "Reliability: labelled template fallback when no model",
@@ -2924,7 +2925,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 2,
+      "wave": 1,
       "story": {
         "as": "founder",
         "want": "drafts checked against my approved profile and brand rules",

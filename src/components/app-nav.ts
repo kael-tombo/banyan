@@ -2,7 +2,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   BarChart3, BookOpen, Bot, CalendarDays, CheckCircle2, ClipboardList, Compass, FlaskConical,
   LayoutDashboard, Lightbulb, LineChart, Link2, Megaphone, Package, PenLine, Receipt, RefreshCw,
-  Settings, Share2, Target, Users2,
+  ScanSearch, Settings, Share2, Target, Users2,
 } from "lucide-react";
 
 /**
@@ -30,6 +30,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Context",
     items: [
+      { href: "/app/product", label: "Product profile", icon: ScanSearch, keywords: "website analysis url approve profile" },
       { href: "/app/brief", label: "Product & Audience", icon: ClipboardList, keywords: "brief profile positioning" },
       { href: "/app/audience", label: "Audience", icon: Users2, keywords: "segments people personas" },
       { href: "/app/workspace", label: "Workspace", icon: Package, keywords: "product channels profile" },

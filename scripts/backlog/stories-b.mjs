@@ -34,7 +34,7 @@ export const storiesB = [
     title: "Generate a structured distribution strategy",
     as: "founder", want: "a strategy with channels, rationale, formats, angles, objectives, cadence and KPIs", so: "I know exactly what to publish, where, and why",
     context: "Planner and strategist agents exist. Brief Workflow B defines the inputs and outputs.",
-    fr: ["Inputs: approved profile, audience, objective, brand, preferences, verified capabilities", "Output schema validated: channels[{channel, rationale}], formats, messaging_angles, objectives, frequency, kpis", "Only channels with a verified or export capability are recommended", "Each recommendation cites profile facts"],
+    fr: ["Inputs: approved profile, audience, objective, brand, preferences, verified capabilities", "Output schema validated: channels[{channel, rationale}], formats, messaging_angles, objectives, frequency, kpis", "Only channels with a verified or export capability are recommended", "Each recommendation cites profile facts", "Records the product profile version it was generated from and shows when that version is no longer the approved one (moved here from US-023)"],
     nfr: ["Reliability: labelled template fallback when no model", "Cost: logged per call"],
     ac: ["Given scheduling is unverified, When a strategy is generated, Then it never assumes automated scheduling", "Given the model returns an invalid schema, When retried and still invalid, Then the template strategy is returned and labelled"],
     deps: { stories: ["US-023", "US-045"], optional: ["US-039", "US-026"], external: ["AI provider (optional)"], infra: [], api: [] },

@@ -63,6 +63,11 @@ export async function POST(req: NextRequest) {
       audiencePain: d.audiencePain || null,
       audienceOutcome: d.audienceOutcome || null,
       ...(channelsJson ? { channels: channelsJson } : {}),
+      // The founder reviewed and corrected this snapshot before submitting it:
+      // every field is theirs and this submission is the approval (US-023).
+      fieldSources: JSON.stringify({ name: "user", description: "user", valueProp: "user", problem: "user", audience: "user" }),
+      approvedAt: new Date(),
+      approvedById: ctx.user.id,
     },
     update: {
       name: d.name,
@@ -75,6 +80,11 @@ export async function POST(req: NextRequest) {
       audiencePain: d.audiencePain || null,
       audienceOutcome: d.audienceOutcome || null,
       ...(channelsJson ? { channels: channelsJson } : {}),
+      // The founder reviewed and corrected this snapshot before submitting it:
+      // every field is theirs and this submission is the approval (US-023).
+      fieldSources: JSON.stringify({ name: "user", description: "user", valueProp: "user", problem: "user", audience: "user" }),
+      approvedAt: new Date(),
+      approvedById: ctx.user.id,
     },
   });
 

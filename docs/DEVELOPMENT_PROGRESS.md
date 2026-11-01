@@ -12,7 +12,7 @@ says how. Story definitions: [USER_STORIES.md](USER_STORIES.md). Status source o
 | 1 — Backlog | **Done** | 77 stories, dependency graph, roadmap, acceptance criteria, sprint plan; generator validation passes |
 | 2 — Infrastructure | **In progress**: US-001–US-007 and US-009 Done; US-008 next | Compose stack verified 2026-11-01 (E2E 42/42 in Docker) |
 | 3 — Authentication and onboarding | **In progress**: US-018 Done, US-019 in progress | E2E 54/54 |
-| 4 — Product intelligence | **In progress**: US-022, US-024 Done; US-021, US-025 backend done (UI pending); US-023 next | E2E 61/61 |
+| 4 — Product intelligence | **Done except US-025 (in Review)**: US-021–US-024 Done | E2E 61/61 |
 | 5 — SocialFlow.ai integration | **In progress**: US-027–US-030 and US-034 Done, US-031 in Review; live integration **blocked** | [SOCIALFLOW_INTEGRATION_AUDIT.md](SOCIALFLOW_INTEGRATION_AUDIT.md) |
 | 6 — Strategy and content | Not started | |
 | 7 — Campaign execution | Not started | |
@@ -47,10 +47,11 @@ says how. Story definitions: [USER_STORIES.md](USER_STORIES.md). Status source o
 | US-009 Readiness checks | Done | `src/app/api/health/route.ts` | live up/down/back check | — | Redis and queue backlog reported; 503 names Redis when it is down |
 | US-018 Onboarding progress | Done | `prisma` (OnboardingStage, migration), `src/lib/onboarding/*`, `/api/onboarding/progress`, wizard | unit (11), E2E (6 new) | — | Nine stages; resume; optional skip; existing onboarded workspaces backfilled |
 | US-019 Workspace basics | In progress | Workspace fields, wizard step 1 | E2E time zone checks | — | Schedule times not yet shown in the workspace time zone |
-| US-021 URL analysis | In progress | `src/lib/product/{analyze,analysis-runner}.ts`, analyze routes, worker job | E2E (7 new) | — | Backend complete; URL stage UI with live progress pending |
+| US-021 URL analysis | Done | `src/lib/product/{analyze,analysis-runner}.ts`, analyze routes, worker job, `/app/product` | E2E (7) | — | Live progress on the review page |
+| US-023 Profile review and approval | Done | `profile-review.ts`, apply-analysis and approve routes, `/api/profile`, goal gate, `/app/product` | unit (11), E2E (8) | — | Founder-written fields always kept; strategy gated on approval; versioning |
 | US-022 Structured analysis | Done | `src/lib/product/analyze.ts`, router purpose | unit (22) | No live model key here | Model path proven with a mocked provider; basic path live |
 | US-024 Untrusted content | Done | `src/lib/ai/untrusted.ts` | unit (9) | — | Sanitise, flag, fence, rules |
-| US-025 Analysis failures | In progress | error codes and messages in `analyze.ts` | unit (6), E2E unreachable | — | Retry and describe-it-yourself UI pending |
+| US-025 Analysis failures | Review | failure codes and messages, retry and describe-it-yourself UI | unit (6), E2E | — | Failure state not yet rendered on screen |
 | US-027 Distribution interface | Done | `src/lib/distribution/{types,providers}.ts`, `publish.ts` | unit 375/375 | — | Provider-neutral interface with normalised errors; registry empty until SocialFlow.ai is verified |
 | US-028 Postiz removed | Done | deleted `postiz.ts`, `LivingTree.tsx`, `branches.ts`; connections API; migration `20261101120000_remove_postiz`; capability registry; Publishing UI | E2E 43/43 (new: postiz connection refused) | — | Old rows kept as `removed`. The E2E SSRF check moved from the deleted connection probe to product intake, the remaining user-URL fetch |
 | US-029 No Postiz claims | Done | landing, walkthrough, cycle record, privacy, onboarding, nav, agents, formats, README, docs/API.md | Publishing page rendered in Docker | — | Every surface describes SocialFlow.ai (not yet available) and export mode |
@@ -73,8 +74,9 @@ says how. Story definitions: [USER_STORIES.md](USER_STORIES.md). Status source o
   restored, standalone server restarted cleanly, `pg_amcheck --heapallindexed` passed on all 407 relations (no
   corruption). Fix: Compose volumes are now project-scoped and the file warns against global names. Only local
   development data was involved.
-- Port 3000 on the development machine belongs to another application; the Compose stack runs on `WEB_PORT=3100`
-  locally.
+- Port 3000 was held by an orphaned `next dev` from this session (stopping a background task left its child Node
+  process running), not by another application as first recorded. It is still running (pids 14124, 17748): stopping
+  it needs the product owner's permission. The Compose stack stays on `WEB_PORT=3100` locally; the port is configurable.
 
 - 2026-11-01: the C: drive was full (0 MB). Docker's virtual disk was compacted (78.6 GB → 21.3 GB file, 59.5 GB free
   after), with the product owner's approval. All containers restarted with their data.

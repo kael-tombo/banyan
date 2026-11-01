@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, guardRate, json, requireWorkspace, readJson } from "@/lib/api-utils";
+import { approvalState } from "@/lib/product/profile-review";
 import { recordActivity } from "@/lib/activity";
 import { requireRole } from "@/lib/permissions";
 import { canTransitionGoal } from "@/lib/state-machines";
@@ -66,6 +67,11 @@ export async function POST(req: NextRequest) {
   const parsed = await readJson(req, createSchema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
   const raw = parsed.data.rawInput;
+
+  // US-023: strategy work never starts on an unreviewed website analysis.
+  const profile = await prisma.productProfile.findUnique({ where: { workspaceId: ctx.workspace.id }, select: { fieldSources: true, approvedAt: true } });
+  const approval = approvalState(profile);
+  if (approval.needsApproval) return json({ error: approval.reason, code: "profile_not_approved" }, 409);
 
   // 1. Deterministic heuristic parse (always runs; used as fallback and sanity check).
   const heuristic = parseGoalInput(raw);

@@ -4,6 +4,7 @@ import { recordActivity, recordMetricEvent } from "@/lib/activity";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
+import { approvalState, editBump, markUserFields } from "@/lib/product/profile-review";
 
 const schema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -52,7 +53,13 @@ export async function GET() {
       ...profile,
       channels: profile.channels ? safeParse(profile.channels) : [],
       brandVoice: profile.brandVoice ? safeParse(profile.brandVoice) : null,
+      features: safeParse(profile.features) ?? [],
+      problemsSolved: safeParse(profile.problemsSolved) ?? [],
+      differentiators: safeParse(profile.differentiators) ?? [],
+      missingInformation: safeParse(profile.missingInformation) ?? [],
+      fieldSources: safeParse(profile.fieldSources) ?? {},
     },
+    approval: approvalState(profile),
   });
 }
 
@@ -102,6 +109,13 @@ export async function PATCH(req: NextRequest) {
     });
   }
 
+  // US-023 / US-020: whatever the founder edits is theirs; editing an approved
+  // profile starts a new version that needs approving again.
+  const before = await prisma.productProfile.findUnique({ where: { workspaceId: ctx.workspace.id } });
+  if (before && !voiceOnly) {
+    const edited = ["name", "description", "valueProp", "problem", "audience"].filter((f) => f in (parsed.data as object));
+    Object.assign(update, { fieldSources: markUserFields(before.fieldSources, edited), ...editBump(before) });
+  }
   await prisma.productProfile.updateMany({ where: { workspaceId: ctx.workspace.id }, data: update });
   await recordActivity({ workspaceId: ctx.workspace.id, type: "campaign", summary: "Product profile updated." });
   return json({ ok: true });

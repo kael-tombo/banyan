@@ -23,7 +23,9 @@ export type ActivityType =
   | "plan"
   | "task"
   // Human control over the agentic runtime (pause/resume)
-  | "agent_control";
+  | "agent_control"
+  // Product profile review and approval (US-023)
+  | "profile";
 
 export async function recordActivity(input: {
   workspaceId: string;

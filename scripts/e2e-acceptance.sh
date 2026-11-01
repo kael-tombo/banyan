@@ -215,6 +215,27 @@ req POST /api/auth/signup "$JAR3" "{\"name\":\"E2E Other\",\"email\":\"$U2\",\"p
                                        check "$STATUS" 201 "second user signs up"
 req GET "/api/product/analyze/$ANALYSIS_ID" "$JAR3"
                                        check "$STATUS" 404 "cross-workspace analysis access denied (404)"
+
+# US-023: a profile drafted from the website needs approval before strategy work.
+req POST /api/product/analyze "$JAR3" '{"url":"example.com"}'
+A3_ID=$(printf '%s' "$BODY" | jget '.analysis.id')
+for i in $(seq 1 30); do req GET "/api/product/analyze/$A3_ID" "$JAR3"; S3=$(printf '%s' "$BODY" | jget '.analysis.status'); case "$S3" in ready|failed) break;; esac; sleep 1; done
+req POST /api/product/profile/apply-analysis "$JAR3" "{\"analysisId\":\"$A3_ID\"}"
+                                       check "$STATUS" 200 "analysis applied to the profile as a draft"
+req POST /api/goals "$JAR3" '{"rawInput":"Get 20 signups from developers in 30 days"}'
+                                       check "$STATUS" 409 "strategy refused until the drafted profile is approved"
+req POST /api/product/profile/approve "$JAR3" '{}'
+                                       check "$STATUS" 422 "profile without a description cannot be approved"
+req PATCH /api/profile "$JAR3" '{"name":"Example","description":"A plain example page used for tests.","stage":"building","problem":"Founders need a stable public page to test with.","valueProp":"Always there, always the same.","website":"https://example.com"}'
+                                       check "$STATUS" 200 "founder completes the profile in their own words"
+req POST /api/product/profile/approve "$JAR3" '{}'
+                                       check "$STATUS" 200 "profile approved"
+req POST /api/goals "$JAR3" '{"rawInput":"Get 20 signups from developers in 30 days"}'
+                                       check "$STATUS" 201 "strategy unlocked after approval"
+req PATCH /api/profile "$JAR3" '{"name":"Example","description":"A plain example page used for tests.","stage":"building","problem":"Founders need a stable public page to test with.","valueProp":"Always there, never changes.","website":"https://example.com"}'
+req GET /api/profile "$JAR3"
+contains "$BODY" '"version":2' "editing an approved profile starts version 2"
+contains "$BODY" '"approvedAt":null' "the new version needs approving again"
 req GET "/api/goals/$GOAL_ID" "$JAR3"
 check "$STATUS" 404 "cross-workspace goal access denied (404)"
 req GET "/api/content/$CONTENT_ID" "$JAR3"
