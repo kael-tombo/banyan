@@ -10,7 +10,7 @@ says how. Story definitions: [USER_STORIES.md](USER_STORIES.md). Status source o
 | --- | --- | --- |
 | 0 — Repository audit | **Done** | [PROJECT_AUDIT.md](PROJECT_AUDIT.md); baseline 354/354 unit, 42/42 E2E, typecheck clean, build green (2026-11-01) |
 | 1 — Backlog | **Done** | 77 stories, dependency graph, roadmap, acceptance criteria, sprint plan; generator validation passes |
-| 2 — Infrastructure | **In progress**: US-001–US-006 Done; US-007, US-008, US-009 next | Compose stack verified 2026-11-01 (E2E 42/42 in Docker) |
+| 2 — Infrastructure | **In progress**: US-001–US-007 Done; US-008, US-009 next | Compose stack verified 2026-11-01 (E2E 42/42 in Docker) |
 | 3 — Authentication and onboarding | Not started | |
 | 4 — Product intelligence | Not started | |
 | 5 — SocialFlow.ai integration | Not started; live integration **blocked** | [SOCIALFLOW_INTEGRATION_AUDIT.md](SOCIALFLOW_INTEGRATION_AUDIT.md) |
@@ -43,6 +43,7 @@ says how. Story definitions: [USER_STORIES.md](USER_STORIES.md). Status source o
 | US-004 Docker docs | Done | `README.md`, `docs/DOCKER_DEPLOYMENT.md` | — | — | Every documented command executed |
 | US-005 Job queue | Done | `src/lib/queue/*` | `tests/queue-and-claim.test.ts` (19) | — | Delayed jobs held in Redis; processed after worker restart |
 | US-006 Queue worker | Done | `worker/index.ts`, `src/lib/maintenance.ts`, `src/lib/publishing/{claim,publish}.ts`, tick route | claim unit tests | — | Scheduled post attempted 229 ms after due from the queue; atomic claim prevents double delivery; sweep shared with the tick endpoint |
+| US-007 Shared rate limiting | Done | `src/lib/ratelimit.ts`, `src/lib/api-utils.ts`, 16 routes + health | `tests/ratelimit.test.ts` (5) | — | Limit survives a web restart (429 on attempt 11); Lua script makes check-and-record atomic; Redis outage degrades to per-process limiting |
 
 ## Blockers
 

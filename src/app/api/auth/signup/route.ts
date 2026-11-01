@@ -18,7 +18,7 @@ const schema = z.object({
 export async function POST(req: NextRequest) {
   const csrf = assertSameOrigin(req);
   if (csrf) return csrf;
-  const limited = guardRate(req, "signup", 10, 60_000);
+  const limited = await guardRate(req, "signup", 10, 60_000);
   if (limited) return limited;
 
   const parsed = await readJson(req, schema);

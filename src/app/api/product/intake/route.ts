@@ -21,7 +21,7 @@ const schema = z.object({
 export async function POST(req: NextRequest) {
   const csrf = assertSameOrigin(req);
   if (csrf) return csrf;
-  const limited = guardRate(req, "product-intake", 8, 60_000);
+  const limited = await guardRate(req, "product-intake", 8, 60_000);
   if (limited) return limited;
 
   const ctx = await requireWorkspace();

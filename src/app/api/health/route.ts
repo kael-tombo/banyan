@@ -44,7 +44,7 @@ type HealthReport = {
  */
 export async function GET(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
-  const limited = rateLimit(`health:${ip}`, 30, 60_000);
+  const limited = await rateLimit(`health:${ip}`, 30, 60_000);
   if (!limited.ok) {
     return NextResponse.json(
       { error: "Too many requests. Please try again shortly." },

@@ -56,7 +56,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const csrf = assertSameOrigin(req);
   if (csrf) return csrf;
-  const limited = guardRate(req, "goals-create", 10, 60_000);
+  const limited = await guardRate(req, "goals-create", 10, 60_000);
   if (limited) return limited;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);

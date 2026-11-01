@@ -17,7 +17,7 @@ const schema = z.object({ paused: z.boolean() });
 export async function POST(req: NextRequest) {
   const csrf = assertSameOrigin(req);
   if (csrf) return csrf;
-  const limited = guardRate(req, "agent-pause", 20, 60_000);
+  const limited = await guardRate(req, "agent-pause", 20, 60_000);
   if (limited) return limited;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);

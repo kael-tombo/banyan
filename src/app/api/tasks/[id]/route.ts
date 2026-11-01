@@ -21,7 +21,7 @@ const schema = z.discriminatedUnion("action", [
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const csrf = assertSameOrigin(req);
   if (csrf) return csrf;
-  const limited = guardRate(req, "task-control", 30, 60_000);
+  const limited = await guardRate(req, "task-control", 30, 60_000);
   if (limited) return limited;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);

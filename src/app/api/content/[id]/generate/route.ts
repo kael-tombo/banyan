@@ -22,7 +22,7 @@ async function load(id: string, workspaceId: string) {
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const csrf = assertSameOrigin(req);
   if (csrf) return csrf;
-  const limited = guardRate(req, "ai-generate", 20, 60_000);
+  const limited = await guardRate(req, "ai-generate", 20, 60_000);
   if (limited) return limited;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);

@@ -57,9 +57,9 @@ export async function requireWorkspace(): Promise<ApiContext | null> {
 
 export type ParseResult<T> = { ok: true; data: T } | { ok: false; status: number; message: string };
 
-export function guardRate(req: NextRequest, bucket: string, limit: number, windowMs: number): NextResponse | null {
+export async function guardRate(req: NextRequest, bucket: string, limit: number, windowMs: number): Promise<NextResponse | null> {
   const key = `${bucket}:${clientIp(req)}`;
-  const res = rateLimit(key, limit, windowMs);
+  const res = await rateLimit(key, limit, windowMs);
   if (!res.ok) {
     return NextResponse.json(
       { error: "Too many requests. Please try again shortly." },
