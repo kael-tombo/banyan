@@ -40,9 +40,9 @@ async function runQueueWorker(): Promise<void> {
           return runAnalysis(analysisId);
         }
         case JOB.autopilotStrategy: {
-          const { workspaceId } = jobPayload[JOB.autopilotStrategy].parse(job.data);
-          const { runAutopilotStrategy } = await import("@/lib/agents/autopilot");
-          return runAutopilotStrategy(workspaceId);
+          const { workspaceId, goalId } = jobPayload[JOB.autopilotStrategy].parse(job.data);
+          const { runAutopilotStrategy, runCycleStrategy } = await import("@/lib/agents/autopilot");
+          return goalId ? runCycleStrategy(workspaceId, goalId) : runAutopilotStrategy(workspaceId);
         }
         case JOB.autopilotDrafts: {
           const { workspaceId, strategyId } = jobPayload[JOB.autopilotDrafts].parse(job.data);

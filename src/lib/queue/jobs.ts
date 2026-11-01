@@ -29,7 +29,7 @@ export const jobPayload = {
   [JOB.publicationAttempt]: z.object({ publicationId: z.string().min(1) }),
   [JOB.maintenanceSweep]: z.object({}).strict(),
   [JOB.productAnalyze]: z.object({ analysisId: z.string().min(1) }),
-  [JOB.autopilotStrategy]: z.object({ workspaceId: z.string().min(1) }),
+  [JOB.autopilotStrategy]: z.object({ workspaceId: z.string().min(1), goalId: z.string().min(1).optional() }),
   [JOB.autopilotDrafts]: z.object({ workspaceId: z.string().min(1), strategyId: z.string().min(1) }),
 } satisfies Record<JobName, z.ZodTypeAny>;
 

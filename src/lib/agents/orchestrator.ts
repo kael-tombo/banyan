@@ -355,6 +355,8 @@ export async function refreshGoalProgress(workspaceId: string): Promise<void> {
   const goals = await prisma.goal.findMany({ where: { workspaceId, status: { in: ["planning", "awaiting_approval", "active"] } }, select: { id: true } });
   for (const g of goals) {
     const tasks = await prisma.agentTask.findMany({ where: { goalId: g.id }, select: { status: true } });
+    // A strategy-backed cycle has no tasks; its progress comes from its campaign (lifecycle-service).
+    if (tasks.length === 0) continue;
     const progress = progressPercent(tasks);
     await prisma.goal.update({ where: { id: g.id }, data: { progress } }).catch(() => {});
     if (workflowComplete(tasks)) {

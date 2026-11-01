@@ -6,6 +6,7 @@ import { recordActivity } from "@/lib/activity";
 import { approvalState } from "@/lib/product/profile-review";
 import { startGoalWorkflow } from "@/lib/agents/orchestrator";
 import { nextCycleFrom } from "@/lib/next-cycle";
+import { triggerAutopilot } from "@/lib/agents/autopilot";
 
 /**
  * Accept a cycle's recommendation and start the next cycle with that change.
@@ -50,7 +51,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     summary: `${ctx.user.name} started the next cycle of "${prev.objective}", changing one thing: ${rec.title}.`,
     meta: { goalId: goal.id, previousGoalId: prev.id, recommendationId: rec.id },
   });
-  await startGoalWorkflow(goal.id, ctx.workspace.id);
+  // One pipeline (docs/DECISION_ONE_CYCLE_PIPELINE.md): a cycle that ran on a strategy continues on one —
+  // the strategist drafts the next strategy with the change, for approval. Older goal-run cycles keep their workflow.
+  const strategyBacked = (await prisma.campaign.count({ where: { goalId: prev.id, strategyId: { not: null } } })) > 0;
+  if (strategyBacked) await triggerAutopilot({ kind: "cycle_strategy", workspaceId: ctx.workspace.id, goalId: goal.id });
+  else await startGoalWorkflow(goal.id, ctx.workspace.id);
 
-  return json({ goal: { id: goal.id, objective: goal.objective, deadline: goal.deadline } }, 201);
+  return json({ goal: { id: goal.id, objective: goal.objective, deadline: goal.deadline }, path: strategyBacked ? "strategy" : "workflow" }, 201);
 }

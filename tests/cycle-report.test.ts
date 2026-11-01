@@ -127,3 +127,12 @@ describe("cycle report", () => {
     expect(r.notAttributable.some((s) => s.includes("Draft"))).toBe(false);
   });
 });
+
+describe("strategy KPI names", () => {
+  it("reads tracked_visits as visits and publications from what shipped", () => {
+    const visits = buildCycleReport(base({ goal: { ...base().goal, successMetric: "tracked_visits", metricTarget: 50 } }));
+    expect(visits.objective).toMatchObject({ actual: 52, status: "met" });
+    const pubs = buildCycleReport(base({ goal: { ...base().goal, successMetric: "publications", metricTarget: 3 } }));
+    expect(pubs.objective).toMatchObject({ actual: 2, status: "in_progress", basis: "2 published (confirmed by the platform or recorded by you)" });
+  });
+});

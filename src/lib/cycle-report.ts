@@ -103,7 +103,8 @@ const DAY = 24 * 60 * 60 * 1000;
 const CHANNEL_NAMES: Record<string, string> = { x: "X", linkedin: "LinkedIn", shortvideo: "Short-form video" };
 export const channelName = (c: string) => CHANNEL_NAMES[c] ?? c;
 
-const VISIT_METRICS = ["visits", "visit", "clicks", "link_clicks", "traffic"];
+const VISIT_METRICS = ["visits", "visit", "tracked_visits", "clicks", "link_clicks", "traffic"];
+const PUBLICATION_METRICS = ["publications", "posts", "posts_published"];
 const SIGNUP_METRICS = ["signups", "signup", "sign_ups", "registrations"];
 
 function normalise(metric: string): string {
@@ -181,6 +182,9 @@ export function buildCycleReport(input: ReportInput): CycleReport {
       actual = (visits ?? 0) + (manual ?? 0);
       basis = [visits !== null && `${visits} tracked-link visits`, manual !== null && `${manual} recorded by hand`].filter(Boolean).join(" + ");
     }
+  } else if (PUBLICATION_METRICS.includes(metric)) {
+    actual = shipped.filter((s) => s.state === "provider" || s.state === "manual").length;
+    basis = `${actual} published (confirmed by the platform or recorded by you)`;
   } else {
     const manual = recordedTotal([metric]);
     if (manual !== null) {

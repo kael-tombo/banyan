@@ -48,3 +48,24 @@ building blocks exist.
 - The "Finish setup" banner no longer competes on the dashboard or on the two intake pages.
 
 **Decision owner:** the founder. Until decided, both pipelines keep working.
+
+## Progress
+
+**Step 1 — done 2026-11-01: the launch path produces cycles.**
+
+- When a strategy's campaign is created, a cycle goal opens with the strategy's objective, primary KPI and target, its
+  channels, and a 14-day window (`src/lib/cycle/strategy-cycle.ts`). It never runs the orchestrator. Existing strategy
+  campaigns get their cycle the next time they are touched.
+- Its progress is the published share of its drafts. The orchestrator no longer resets task-less goals to 0%.
+- Its cockpit shows the strategy as the plan, and its report works unchanged. The report recognises the strategy KPI
+  names (`tracked_visits`, `publications`).
+- "Suggest the next move" proposes one change from the report's recorded numbers (`src/lib/cycle-recommend.ts`,
+  with the analyst's confidence thresholds). One recommendation per cycle.
+- "Start the next cycle" on a strategy-backed cycle opens the next cycle and has the strategist draft the next
+  strategy carrying the change, for approval. Older goal-run cycles keep their workflow.
+- Checked end to end against the dev server and database: cycle opened, KPI and channels carried, progress 50%,
+  next move proposed (a second request refused), next cycle opened, strategy v2 drafted with the change, and zero
+  orchestrator tasks.
+
+**Next steps:** make the cycle intake (`/app/cycles/new`) feed the product profile and strategy instead of starting
+the orchestrator (step 3/4 above), then retire the duplicate entry points.

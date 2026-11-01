@@ -5,6 +5,7 @@ import {
   decide, deriveWorkState, generationBlocked, isLifecycle, legacyStatus, shouldDerive,
   LIFECYCLE_LABEL, type Lifecycle, type LifecycleAction,
 } from "./lifecycle";
+import { ensureCycleForStrategy, strategyCycleProgress } from "@/lib/cycle/strategy-cycle";
 
 /**
  * Campaign lifecycle persistence — US-046. Rules live in lifecycle.ts.
@@ -67,8 +68,9 @@ export async function syncCampaignLifecycle(campaignId: string | null | undefine
     const c = await prisma.campaign.findUnique({ where: { id: campaignId } });
     if (!c) return null;
     const now = current(c);
-    if (!shouldDerive(now)) return now;
     const items = await prisma.contentItem.findMany({ where: { campaignId }, select: { status: true } });
+    await syncStrategyCycleProgress(c, items.map((i) => i.status));
+    if (!shouldDerive(now)) return now;
     const derived = deriveWorkState(items.map((i) => i.status));
     if (!derived || derived === now) return now;
     const moved = await move(c, derived, {}, "Updated from the state of its content.", "system");
@@ -91,7 +93,28 @@ export async function assertCampaignAllowsGeneration(workspaceId: string, campai
  * The campaign that distributes an approved strategy, created on first use.
  * Created approved: the strategy approval is the campaign approval.
  */
+/**
+ * A strategy-backed cycle has no agent tasks, so its progress is the published share of its drafts
+ * (the orchestrator's task-based progress leaves such goals alone).
+ */
+async function syncStrategyCycleProgress(c: Campaign, statuses: string[]): Promise<void> {
+  if (!c.goalId || !c.strategyId) return;
+  const tasks = await prisma.agentTask.count({ where: { goalId: c.goalId } });
+  if (tasks > 0) return;
+  await prisma.goal.updateMany({ where: { id: c.goalId }, data: { progress: strategyCycleProgress(statuses) } });
+}
+
+/** The campaign that distributes a strategy, inside its cycle (docs/DECISION_ONE_CYCLE_PIPELINE.md). */
 export async function campaignForStrategy(workspaceId: string, strategy: { id: string; version: number; objective: string; body: string }): Promise<Campaign> {
+  const campaign = await campaignRowForStrategy(workspaceId, strategy);
+  if (campaign.goalId) return campaign;
+  const s = await prisma.strategy.findUnique({ where: { id: strategy.id } });
+  if (!s) return campaign;
+  const goalId = await ensureCycleForStrategy(workspaceId, s, campaign);
+  return { ...campaign, goalId };
+}
+
+async function campaignRowForStrategy(workspaceId: string, strategy: { id: string; version: number; objective: string; body: string }): Promise<Campaign> {
   const existing = await prisma.campaign.findUnique({ where: { strategyId: strategy.id } });
   if (existing) return existing;
   const body = JSON.parse(strategy.body) as { channels?: { channel: string; formats: string[] }[]; messaging_angles?: { angle: string }[]; kpis?: { metric: string }[] };

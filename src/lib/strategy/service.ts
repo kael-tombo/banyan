@@ -58,7 +58,11 @@ export async function createStrategy(opts: { workspaceId: string; userId: string
 
   const facts = profileFacts(profile);
   if (facts.length === 0) throw new StrategyError("no_facts", "The product profile is empty. Describe the product before generating a strategy.", 422);
-  const objective = goal ? `${goal.objective}${goal.successMetric ? ` (success metric: ${goal.successMetric.replace(/_/g, " ")})` : ""}` : objectiveFromProfile(profile);
+  // A next cycle carries exactly one change from the last cycle's report (src/lib/next-cycle.ts); the strategist must apply it.
+  const change = goal?.constraints.split(";").map((c) => c.trim()).find((c) => /^change from last cycle:/i.test(c));
+  const objective = goal
+    ? `${goal.objective}${goal.successMetric ? ` (success metric: ${goal.successMetric.replace(/_/g, " ")})` : ""}${change ? `. Apply one ${change.replace(/^change from last cycle:/i, "change from the last cycle:")}; keep everything else as before.` : ""}`
+    : objectiveFromProfile(profile);
 
   let lastCallId: string | null = null;
   const complete: StrategyCompleter = async ({ system, user, maxTokens, temperature, prompt, attempt }) => {

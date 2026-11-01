@@ -58,6 +58,31 @@ async function finish(taskId: string, ok: boolean, summary: string, refs: Record
   });
 }
 
+/**
+ * The strategist drafts the strategy for a next cycle (src/lib/next-cycle.ts): one run per cycle goal.
+ * The strategy waits for the founder's approval like any other; approving it writes the drafts.
+ */
+export async function runCycleStrategy(workspaceId: string, goalId: string): Promise<{ ran: boolean; reason: string }> {
+  if (await agentsPaused(workspaceId)) return { ran: false, reason: "agents paused" };
+  const goal = await prisma.goal.findFirst({ where: { id: goalId, workspaceId }, select: { objective: true } });
+  if (!goal) return { ran: false, reason: "goal not found" };
+  const taskId = await claim(workspaceId, `cycle-strategy-${goalId}`, {
+    type: AUTOPILOT_TYPES.strategy,
+    agentRole: "strategist",
+    title: `Draft the strategy for the next cycle: ${goal.objective}`.slice(0, 200),
+    inputs: { goalId },
+  });
+  if (!taskId) return { ran: false, reason: "already running or done" };
+  try {
+    const s = await createStrategy({ workspaceId, userId: null, goalId });
+    await finish(taskId, true, `Strategy v${s.version} drafted for the next cycle (${s.method === "model" ? "model" : "template"}); waiting on your review.`, { strategyId: s.id, goalId });
+    return { ran: true, reason: "drafted" };
+  } catch (err) {
+    await finish(taskId, false, err instanceof Error ? err.message : "Strategy drafting failed.");
+    return { ran: false, reason: "failed" };
+  }
+}
+
 /** The strategist drafts a strategy for the current approved profile version. */
 export async function runAutopilotStrategy(workspaceId: string): Promise<{ ran: boolean; reason: string }> {
   if (await agentsPaused(workspaceId)) return { ran: false, reason: "agents paused" };
@@ -117,16 +142,24 @@ export async function runAutopilotDrafts(workspaceId: string, strategyId: string
  * Start a run without making the founder wait: on the queue when there is
  * one, otherwise in this process after the response. Never throws.
  */
-export async function triggerAutopilot(run: { kind: "strategy"; workspaceId: string } | { kind: "drafts"; workspaceId: string; strategyId: string }): Promise<void> {
+export async function triggerAutopilot(
+  run: { kind: "strategy"; workspaceId: string } | { kind: "cycle_strategy"; workspaceId: string; goalId: string } | { kind: "drafts"; workspaceId: string; strategyId: string }
+): Promise<void> {
   try {
     if (queueConfigured()) {
       if (run.kind === "strategy") await enqueue(JOB.autopilotStrategy, { workspaceId: run.workspaceId }, { attempts: 1, removeOnComplete: { count: 1000 } });
+      else if (run.kind === "cycle_strategy") await enqueue(JOB.autopilotStrategy, { workspaceId: run.workspaceId, goalId: run.goalId }, { attempts: 1, removeOnComplete: { count: 1000 } });
       else await enqueue(JOB.autopilotDrafts, { workspaceId: run.workspaceId, strategyId: run.strategyId }, { attempts: 1, removeOnComplete: { count: 1000 } });
       return;
     }
   } catch {
     /* queue down: run in process below */
   }
-  const job = run.kind === "strategy" ? runAutopilotStrategy(run.workspaceId) : runAutopilotDrafts(run.workspaceId, run.strategyId);
+  const job =
+    run.kind === "strategy"
+      ? runAutopilotStrategy(run.workspaceId)
+      : run.kind === "cycle_strategy"
+        ? runCycleStrategy(run.workspaceId, run.goalId)
+        : runAutopilotDrafts(run.workspaceId, run.strategyId);
   void job.catch(() => {});
 }
