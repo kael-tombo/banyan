@@ -17,7 +17,8 @@
     "setup": "npm run db:deploy && npm run db:seed",
     "build:worker": "esbuild worker/index.ts --bundle --platform=node --target=node22 --format=cjs --packages=external --tsconfig=tsconfig.json --outfile=dist/worker.js",
     "worker:prod": "node dist/worker.js",
-    "smoke:socialflow": "tsx --env-file-if-exists=.env scripts/smoke-socialflow.ts"
+    "smoke:socialflow": "tsx --env-file-if-exists=.env scripts/smoke-socialflow.ts",
+    "report:activation": "tsx --env-file-if-exists=.env scripts/report-activation.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

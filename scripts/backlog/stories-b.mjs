@@ -270,7 +270,7 @@ export const storiesB = [
 
   // ───────────────────────── ANALYTICS ─────────────────────────
   {
-    id: "US-057", epic: "Analytics and learning", code: "ANALYTICS", priority: "P0", status: "Backlog", sprint: 4,
+    id: "US-057", epic: "Analytics and learning", code: "ANALYTICS", priority: "P0", status: "Review", sprint: 4,
     title: "Record the activation funnel",
     as: "product owner", want: "funnel events for each MVP milestone", so: "I can measure activation and time to value",
     context: "TD-13. The brief's business metrics need explicit events.",
@@ -282,7 +282,7 @@ export const storiesB = [
     tests: { happy: "events recorded", validation: "duplicate milestone ignored", authorization: "n/a", external: "n/a", retry: "idempotent" },
   },
   {
-    id: "US-058", epic: "Analytics and learning", code: "ANALYTICS", priority: "P1", status: "Backlog", sprint: 5,
+    id: "US-058", epic: "Analytics and learning", code: "ANALYTICS", priority: "P1", status: "Review", sprint: 5,
     title: "Report activation and time to first publication",
     as: "product owner", want: "activation rate and time from URL to first publication, split by path", so: "I know whether the MVP works",
     context: "Primary metrics: % of new users publishing their first approved content through SocialFlow.ai; time from URL to first publication.",

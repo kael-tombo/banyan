@@ -6,6 +6,22 @@ Banyan measures its users' campaigns, but not itself. Nothing records when a fou
 strategy, approves the first asset or gets the first publication — so the MVP acceptance thresholds cannot be
 checked.
 
+## Status — 2026-11-01: built (derived, not logged)
+
+`npm run report:activation` (`--json`, `--include-self`) prints the funnel and each workspace's §11 checks. It
+differs from the plan below in one deliberate way: there is **no new event table**. Each milestone is read from the
+row that already records it (first analysis, profile and strategy approval, first approved asset, first publication
+split by provider vs. manual, first tracked visit, first attributed signup, first cycle past its deadline). That
+means no migration, nothing to drift, and existing workspaces are covered from day one. It is scored in the pure
+`src/lib/activation.ts` (7 tests).
+
+Limits:
+
+- **Founder active time is not measured.** Nothing records it, so the report says "not measured" rather than
+  guessing.
+- **Profile approval uses the latest approval.** That can overstate time-to-value, never understate it.
+- **No admin page.** Banyan has no operator role, so the report is a command-line script.
+
 ## Evidence
 
 - MVP_GAP_ANALYSIS.md "Business metrics": onboarding completion, time to first publication, publish success

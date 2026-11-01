@@ -5,7 +5,7 @@
     "stories": 77,
     "done": 35,
     "ready": 3,
-    "backlog": 29,
+    "backlog": 27,
     "blocked": 3
   },
   "criticalPath": [
@@ -3082,7 +3082,7 @@
       "epic": "Analytics and learning",
       "code": "ANALYTICS",
       "priority": "P0",
-      "status": "Backlog",
+      "status": "Review",
       "sprint": 4,
       "wave": 1,
       "story": {
@@ -3133,7 +3133,7 @@
       "epic": "Analytics and learning",
       "code": "ANALYTICS",
       "priority": "P1",
-      "status": "Backlog",
+      "status": "Review",
       "sprint": 5,
       "wave": 2,
       "story": {
