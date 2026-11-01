@@ -293,17 +293,24 @@ export default async function DashboardPage() {
   const countableTaskCount = goalTasks.filter((t) => t.status !== "cancelled").length;
   const today = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
+  // Day zero: no product and no cycle yet. Show one way in (the launch path) and what the founder will decide,
+  // not a wall of zeros and five competing buttons.
+  const dayZero = !profile && goals.length === 0;
+
   return (
     <>
       {/* ————— Head ————— */}
       <div className="mb-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-4">
         <div className="min-w-0">
           <p className="text-[13px] text-muted">{today}</p>
-          <h1 className="mt-1 font-serif text-[30px] leading-[1.15] text-forest-deep">Command center</h1>
+          <h1 className="mt-1 font-serif text-[30px] leading-[1.15] text-forest-deep">{dayZero ? "Start here" : "Command center"}</h1>
           <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-charcoal-soft">
-            What to do next, the goal in motion and what the evidence says. Every figure comes from recorded events.
+            {dayZero
+              ? "Give Banyan your product page. It takes it from there to approved posts and measured results; you make the calls."
+              : "What to do next, the goal in motion and what the evidence says. Every figure comes from recorded events."}
           </p>
         </div>
+        {!dayZero && (
         <div className="flex flex-wrap items-center gap-2">
           <LinkButton href="/app/experiments" variant="secondary">
             <FlaskConical size={16} aria-hidden="true" /> New experiment
@@ -312,9 +319,34 @@ export default async function DashboardPage() {
             <RefreshCw size={16} aria-hidden="true" /> Start a cycle
           </LinkButton>
         </div>
+        )}
       </div>
 
       <LaunchPath steps={journey} />
+
+      {dayZero ? (
+        <Card className="mt-4">
+          <h2 className="font-serif text-[20px] leading-tight text-forest-deep">What you decide, and what Banyan does</h2>
+          <ol className="mt-4 grid gap-4 sm:grid-cols-3">
+            {[
+              { you: "Approve what Banyan understood", banyan: "It reads your public product pages and drafts the profile: offer, audience, proof." },
+              { you: "Approve one strategy", banyan: "It proposes channels, angles, cadence and the metric to judge them by." },
+              { you: "Approve each post", banyan: "It writes channel-native drafts, then tracks visits and signups from what goes out." },
+            ].map((step, i) => (
+              <li key={step.you} className="rounded-xl border border-bark/10 bg-ivory/40 p-3">
+                <p className="num text-[12px] text-muted">{i + 1}</p>
+                <p className="mt-1 text-sm font-medium text-charcoal">{step.you}</p>
+                <p className="mt-1 text-[13px] leading-5 text-charcoal-soft">{step.banyan}</p>
+              </li>
+            ))}
+          </ol>
+          <p className="mt-4 text-[13px] text-charcoal-soft">
+            Nothing is published without your approval. Prefer to start from one page and a goal?{" "}
+            <Link href="/app/cycles/new" className="text-forest underline-offset-4 hover:underline">Use the cycle intake</Link>.
+          </p>
+        </Card>
+      ) : (
+      <>
 
       {/* ————— 1. Next moves + the goal ————— */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
@@ -690,6 +722,8 @@ export default async function DashboardPage() {
           </ul>
         )}
       </Card>
+      </>
+      )}
     </>
   );
 }

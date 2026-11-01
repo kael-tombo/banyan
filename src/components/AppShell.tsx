@@ -105,6 +105,8 @@ export function AppShell({
   children,
 }: AppShellProps) {
   const pathname = usePathname();
+  // The setup prompt competes with pages that already lead the way: the dashboard's launch path and the two intakes.
+  const onSetupPage = pathname === "/app" || pathname?.startsWith("/app/cycles/new") || pathname?.startsWith("/app/product");
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -334,7 +336,7 @@ export function AppShell({
           </div>
         </header>
 
-        {!onboardingComplete && (
+        {!onboardingComplete && !onSetupPage && (
           <div className="mx-auto w-full max-w-[1440px] px-4 pt-6 sm:px-6 lg:px-8">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-bark/10 bg-white px-4 py-3">
               <Sprout size={16} className="shrink-0 text-muted" aria-hidden="true" />
