@@ -31,12 +31,14 @@ export type JourneyInput = {
   campaign: { id: string; counts: CampaignCounts } | null;
   results: { visits: number; signups: number };
   mode: "socialflow" | "export";
+  /** An autopilot run in progress: the agent is doing the step right now. */
+  working?: "strategy" | "drafts" | null;
 };
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 export function computeJourney(input: JourneyInput): JourneyStep[] {
-  const { profile, strategy, campaign, results, mode } = input;
+  const { profile, strategy, campaign, results, mode, working } = input;
   const c = campaign?.counts;
   const campaignHref = campaign ? `/app/campaigns/${campaign.id}` : "/app/campaigns";
 
@@ -63,6 +65,8 @@ export function computeJourney(input: JourneyInput): JourneyStep[] {
         ? { line: `Strategy v${strategy.approvedVersion} approved`, waitingOnYou: false }
         : strategy.proposedVersion
           ? { line: `Banyan drafted strategy v${strategy.proposedVersion}: channels, cadence and KPIs. Review it.`, waitingOnYou: true, action: { label: "Review strategy", href: "/app/strategy" } }
+          : working === "strategy"
+            ? { line: "Banyan's strategist is drafting it from your approved profile now.", waitingOnYou: false, action: { label: "Watch", href: "/app/strategy" } }
           : { line: "Banyan drafts channels, formats, angles and KPIs from your approved profile.", waitingOnYou: true, action: { label: "Generate strategy", href: "/app/strategy" } }),
     },
     {
@@ -72,6 +76,8 @@ export function computeJourney(input: JourneyInput): JourneyStep[] {
         ? { line: `${plural(c!.total, "post")} written and reviewed`, waitingOnYou: false }
         : c && c.review > 0
           ? { line: `Banyan wrote ${plural(c.total, "draft")}. ${c.review} ${c.review === 1 ? "waits" : "wait"} on your review.`, waitingOnYou: true, action: { label: "Review drafts", href: "/app/approvals" } }
+          : working === "drafts"
+            ? { line: "Banyan's creator is writing the drafts from your approved strategy now.", waitingOnYou: false }
           : { line: "Banyan writes one draft per channel and format in the approved strategy.", waitingOnYou: true, action: { label: "Write drafts", href: "/app/strategy" } }),
     },
     {

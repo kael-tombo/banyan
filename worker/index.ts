@@ -39,6 +39,16 @@ async function runQueueWorker(): Promise<void> {
           const { runAnalysis } = await import("@/lib/product/analysis-runner");
           return runAnalysis(analysisId);
         }
+        case JOB.autopilotStrategy: {
+          const { workspaceId } = jobPayload[JOB.autopilotStrategy].parse(job.data);
+          const { runAutopilotStrategy } = await import("@/lib/agents/autopilot");
+          return runAutopilotStrategy(workspaceId);
+        }
+        case JOB.autopilotDrafts: {
+          const { workspaceId, strategyId } = jobPayload[JOB.autopilotDrafts].parse(job.data);
+          const { runAutopilotDrafts } = await import("@/lib/agents/autopilot");
+          return runAutopilotDrafts(workspaceId, strategyId);
+        }
         default:
           throw new Error(`Unknown job "${job.name}"`);
       }

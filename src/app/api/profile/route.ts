@@ -116,6 +116,34 @@ export async function PATCH(req: NextRequest) {
     const edited = ["name", "description", "valueProp", "problem", "audience"].filter((f) => f in (parsed.data as object));
     Object.assign(update, { fieldSources: markUserFields(before.fieldSources, edited), ...editBump(before) });
   }
+  if (!before) {
+    // No profile yet: create it from the founder's own words. updateMany used
+    // to update nothing here and still answer ok, silently dropping the save.
+    if (voiceOnly) return apiError("Describe your product before setting a brand voice.", 409);
+    const d = parsed.data as z.infer<typeof schema>;
+    const written = ["name", "description", "valueProp", "problem", ...(d.audience ? ["audience"] : [])];
+    await prisma.productProfile.create({
+      data: {
+        workspaceId: ctx.workspace.id,
+        name: d.name,
+        description: d.description,
+        website: d.website ?? "",
+        stage: d.stage,
+        problem: d.problem,
+        valueProp: d.valueProp,
+        ...(d.audience ? { audience: d.audience } : {}),
+        ...(d.goal ? { goal: d.goal } : {}),
+        ...(d.goalTarget !== undefined ? { goalTarget: d.goalTarget } : {}),
+        ...(d.goalMetric !== undefined ? { goalMetric: d.goalMetric } : {}),
+        ...(d.timezone ? { timezone: d.timezone } : {}),
+        ...(d.channels ? { channels: JSON.stringify(d.channels) } : {}),
+        ...(d.brandVoice ? { brandVoice: JSON.stringify(d.brandVoice) } : {}),
+        fieldSources: markUserFields("{}", written),
+      },
+    });
+    await recordActivity({ workspaceId: ctx.workspace.id, type: "profile", summary: "Product profile created in the founder's own words." });
+    return json({ ok: true, created: true });
+  }
   await prisma.productProfile.updateMany({ where: { workspaceId: ctx.workspace.id }, data: update });
   await recordActivity({ workspaceId: ctx.workspace.id, type: "campaign", summary: "Product profile updated." });
   return json({ ok: true });

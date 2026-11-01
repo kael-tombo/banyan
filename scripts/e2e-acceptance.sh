@@ -219,6 +219,9 @@ check "$PERSIST" "$GOAL_ID" "goal and its data persist across sessions"
 # --- 8. Tenant isolation -------------------------------------------------------
 req POST /api/auth/signup "$JAR3" "{\"name\":\"E2E Other\",\"email\":\"$U2\",\"password\":\"e2e-password-2\"}"
                                        check "$STATUS" 201 "second user signs up"
+# JAR3 walks the manual flow step by step; autopilot is covered separately below.
+req POST /api/agent-activity/pause "$JAR3" '{"paused":true}'
+                                       check "$STATUS" 200 "second user pauses agents to drive each step by hand"
 req GET "/api/product/analyze/$ANALYSIS_ID" "$JAR3"
                                        check "$STATUS" 404 "cross-workspace analysis access denied (404)"
 
@@ -424,6 +427,42 @@ check "$STATUS" 410 "finishing a provider sign-up needs the sealed pending cooki
 req DELETE /api/auth/oauth/accounts/anything "$JARO"
 check "$STATUS" 401 "disconnecting a provider requires a session"
 rm -f "$JARO" /tmp/e2e-empty-jar.txt
+
+# --- Autopilot: the agents act on the founder's decisions ------------------------
+JAR4=/tmp/e2e-jar4.txt; rm -f "$JAR4"
+U4="e2e-c-$STAMP@test.banyan.local"
+req POST /api/auth/signup "$JAR4" "{\"name\":\"E2E Autopilot\",\"email\":\"$U4\",\"password\":\"e2e-password-4\"}"
+                                       check "$STATUS" 201 "autopilot founder signs up"
+req PATCH /api/profile "$JAR4" '{"name":"Ledgerline","description":"Invoicing for freelancers that works offline.","stage":"building","problem":"Freelancers lose days of cash flow when they cannot invoice without signal.","valueProp":"Send invoices from anywhere, even offline.","website":"https://example.com"}'
+req POST /api/product/profile/approve "$JAR4" '{}'
+                                       check "$STATUS" 200 "founder approves the profile"
+AUTO_S=""
+for i in $(seq 1 20); do
+  req GET /api/strategies "$JAR4"
+  AUTO_S=$(printf '%s' "$BODY" | jget '.strategy.id')
+  [ -n "$AUTO_S" ] && break; sleep 1
+done
+[ -n "$AUTO_S" ] && ok "the strategist drafts a strategy without being asked" || bad "the strategist drafts a strategy without being asked" "$BODY"
+contains "$BODY" '"status":"proposed"' "the drafted strategy waits on the founder"
+req GET /app/activity "$JAR4"
+contains "$BODY" "Draft the distribution strategy" "the strategist run is recorded as agent work"
+req POST /api/product/profile/approve "$JAR4" '{}'
+req GET /api/strategies "$JAR4"
+NVER=$(printf '%s' "$BODY" | jget '.versions.length')
+check "$NVER" 1 "approving again does not draft a second strategy"
+req POST "/api/strategies/$AUTO_S/approve" "$JAR4" '{}'
+                                       check "$STATUS" 200 "founder approves the strategy"
+AUTO_N=""
+for i in $(seq 1 30); do
+  req GET /api/content "$JAR4"
+  AUTO_N=$(printf '%s' "$BODY" | jget '.items.length')
+  [ -n "$AUTO_N" ] && [ "$AUTO_N" -ge 1 ] 2>/dev/null && break; sleep 1
+done
+[ -n "$AUTO_N" ] && [ "$AUTO_N" -ge 1 ] 2>/dev/null && ok "the creator writes drafts without being asked ($AUTO_N)" || bad "the creator writes drafts without being asked" "items=$AUTO_N"
+contains "$BODY" '"status":"ready_for_review"' "autopilot drafts wait for review"
+req GET /app "$JAR4"
+contains "$BODY" "wait on your review" "the launch path says what is waiting on the founder"
+rm -f "$JAR4"
 
 req POST /api/auth/logout "$JAR1";     check "$STATUS" 200 "logout works"
 req GET /api/goals "$JAR1";            check "$STATUS" 401 "session invalidated after logout"

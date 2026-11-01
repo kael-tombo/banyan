@@ -56,6 +56,22 @@ describe("launch path", () => {
   });
 });
 
+describe("autopilot on the launch path", () => {
+  const approved = { ...base, profile: { exists: true, approvedVersion: 1, needsApproval: false, fromWebsite: false } };
+  it("says the strategist is drafting instead of asking the founder", () => {
+    const s = computeJourney({ ...approved, working: "strategy" })[1];
+    expect(s).toMatchObject({ state: "current", waitingOnYou: false, line: expect.stringMatching(/strategist is drafting/), action: { label: "Watch" } });
+  });
+  it("says the creator is writing drafts", () => {
+    const s = computeJourney({ ...approved, strategy: { proposedVersion: null, approvedVersion: 1 }, working: "drafts" })[2];
+    expect(s).toMatchObject({ state: "current", waitingOnYou: false, line: expect.stringMatching(/creator is writing/) });
+    expect(s.action).toBeUndefined();
+  });
+  it("a proposed strategy still waits on the founder, even with a run recorded", () => {
+    expect(computeJourney({ ...approved, strategy: { proposedVersion: 2, approvedVersion: null }, working: "strategy" })[1].waitingOnYou).toBe(true);
+  });
+});
+
 describe("campaign progress", () => {
   it("counts posts by where they are", () => {
     expect(campaignCounts(["draft", "ready_for_review", "rejected", "approved", "scheduled", "publishing", "published", "failed", "archived"])).toEqual({

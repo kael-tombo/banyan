@@ -1,3 +1,4 @@
+import { triggerAutopilot } from "@/lib/agents/autopilot";
 import { NextRequest } from "next/server";
 import { apiError, assertSameOrigin, json, requireWorkspace } from "@/lib/api-utils";
 import { requireRole } from "@/lib/permissions";
@@ -13,7 +14,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (forbidden) return apiError(forbidden, 403);
   const { id } = await params;
   try {
-    return json({ strategy: await strategyView(await approveStrategy(ctx.workspace.id, id, ctx.user.id)) });
+    const approved = await approveStrategy(ctx.workspace.id, id, ctx.user.id);
+    // Autopilot: the creator starts writing drafts from the approved strategy.
+    await triggerAutopilot({ kind: "drafts", workspaceId: ctx.workspace.id, strategyId: approved.id });
+    return json({ strategy: await strategyView(approved) });
   } catch (err) {
     if (err instanceof StrategyError) return json({ error: err.message, code: err.code }, err.status);
     throw err;

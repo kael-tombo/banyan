@@ -1,3 +1,4 @@
+import { triggerAutopilot } from "@/lib/agents/autopilot";
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, json, requireWorkspace } from "@/lib/api-utils";
 import { requireRole } from "@/lib/permissions";
@@ -25,5 +26,7 @@ export async function POST(req: NextRequest) {
     data: { approvedAt: new Date(), approvedById: ctx.user.id },
   });
   await recordActivity({ workspaceId: ctx.workspace.id, type: "profile", summary: `Product profile version ${approved.version} approved.`, meta: { version: approved.version } });
+  // Autopilot: the strategist starts on the strategy as soon as the founder decides.
+  await triggerAutopilot({ kind: "strategy", workspaceId: ctx.workspace.id });
   return json({ version: approved.version, approval: approvalState(approved) });
 }

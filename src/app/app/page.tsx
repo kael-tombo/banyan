@@ -272,6 +272,7 @@ export default async function DashboardPage() {
     ? await prisma.campaign.findUnique({ where: { strategyId: approvedStrat.id }, select: { id: true, items: { select: { status: true } } } })
     : null;
   const profileApproval = approvalState(profile);
+  const autopilotRun = await prisma.agentTask.findFirst({ where: { workspaceId: wid, type: { in: ["autopilot_strategy", "autopilot_drafts"] }, status: "running" }, select: { type: true } });
   const journey = computeJourney({
     profile: {
       exists: Boolean(profile),
@@ -283,6 +284,7 @@ export default async function DashboardPage() {
     campaign: stratCampaign ? { id: stratCampaign.id, counts: campaignCounts(stratCampaign.items.map((x) => x.status)) } : null,
     results: { visits: countNow("visit"), signups: countNow("signup") },
     mode: enabledProviderIds().includes("socialflow") ? "socialflow" : "export",
+    working: autopilotRun ? (autopilotRun.type === "autopilot_strategy" ? "strategy" : "drafts") : null,
   });
 
   // ————— The command bar's live numbers —————

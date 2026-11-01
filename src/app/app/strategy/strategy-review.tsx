@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, CheckCircle2, ChevronDown, PenLine, RefreshCw, X } from "lucide-react";
@@ -41,12 +41,15 @@ export function StrategyReview({
   changes,
   profile,
   canApprove,
+  agentWork = null,
 }: {
   initial: StrategyView | null;
   versions: Version[];
   changes: string[];
   profile: { exists: boolean; needsApproval: boolean };
   canApprove: boolean;
+  /** An autopilot run: the strategist drafting, or the creator writing drafts. */
+  agentWork?: { kind: "strategy" | "drafts"; running: boolean; title: string; error: string | null } | null;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -94,6 +97,26 @@ export function StrategyReview({
 
   const generate = () => call("generate", "/api/strategies", "POST", {});
 
+  // While an agent works, check back every few seconds so its result appears.
+  useEffect(() => {
+    if (!agentWork?.running) return;
+    const t = window.setInterval(() => router.refresh(), 3000);
+    return () => window.clearInterval(t);
+  }, [agentWork?.running, router]);
+
+  const agentNote = agentWork ? (
+    <p role="status" className={`mt-4 flex items-start gap-2 rounded-lg px-3 py-2.5 text-[13px] leading-5 ${agentWork.running ? "bg-canvas text-charcoal" : "border border-clay/25 bg-clay/[0.05] text-charcoal"}`}>
+      <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${agentWork.running ? "bg-forest" : "bg-clay"}`} aria-hidden="true" />
+      <span>
+        {agentWork.running
+          ? agentWork.kind === "strategy"
+            ? "Banyan's strategist is drafting your strategy from the approved profile. It appears here when it is ready."
+            : "Banyan's creator is writing drafts from this strategy. They land in Approvals for your review."
+          : `The last agent run did not finish: ${agentWork.error ?? "unknown error"}. You can run it yourself below.`}
+      </span>
+    </p>
+  ) : null;
+
   // ————— Empty / gated states —————
   if (!s) {
     const blocked = !profile.exists || profile.needsApproval;
@@ -107,9 +130,10 @@ export function StrategyReview({
               ? "Your product profile has fields drafted from your website. Approve it first, so the strategy starts from facts you agreed with."
               : "Channels, formats, messaging angles, cadence and KPIs, each grounded in your approved product profile. Nothing is written until you approve it."}
         </p>
+        {agentNote}
         <ErrorNote>{error}</ErrorNote>
         <div className="mt-4">
-          {blocked ? (
+          {agentWork?.running ? null : blocked ? (
             <Link href="/app/product" className="text-sm font-medium text-forest underline-offset-4 hover:underline">Open product profile</Link>
           ) : (
             <Button onClick={generate} disabled={!!busy}>{busy ? "Drafting the strategy…" : "Generate strategy"}</Button>
@@ -176,12 +200,13 @@ export function StrategyReview({
           </p>
         )}
         {s.status === "rejected" && s.rejectedReason && <p className="mt-4 text-[13px] text-charcoal-soft">Rejected: {s.rejectedReason}</p>}
+        {agentWork?.kind === "drafts" && agentNote}
         {s.status === "approved" && s.approvedAt && (
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-canvas px-4 py-3">
             <p className="flex items-center gap-1.5 text-[13px] text-forest">
               <CheckCircle2 size={14} aria-hidden="true" /> Approved {new Date(s.approvedAt).toLocaleDateString()}. Drafts are written from this version.
             </p>
-            {canApprove && (
+            {canApprove && !(agentWork?.kind === "drafts" && agentWork.running) && (
               <Button size="sm" onClick={() => writeDrafts(s.id)} disabled={!!busy}>
                 <PenLine size={14} aria-hidden="true" /> {busy === "drafts" ? "Writing drafts…" : "Write drafts from this strategy"}
               </Button>

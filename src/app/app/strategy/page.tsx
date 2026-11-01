@@ -75,6 +75,15 @@ export default async function GrowthStrategyPage() {
   const previous = current ? strategies.find((x) => x.version < current.version) : null;
   const strategyChanges = current && previous ? diffStrategies(JSON.parse(previous.body) as StrategyBody, JSON.parse(current.body) as StrategyBody) : [];
   const profileGate = { exists: Boolean(ctx.profile), needsApproval: approvalState(ctx.profile).needsApproval };
+  const agentRun = await prisma.agentTask.findFirst({
+    where: { workspaceId: wid, type: { in: ["autopilot_strategy", "autopilot_drafts"] }, status: { in: ["running", "failed"] } },
+    orderBy: { updatedAt: "desc" },
+    select: { type: true, status: true, title: true, lastError: true, updatedAt: true },
+  });
+  // A failed run is shown only while it is recent; an old failure is noise.
+  const agentWork = agentRun && (agentRun.status === "running" || Date.now() - agentRun.updatedAt.getTime() < 15 * 60_000)
+    ? { kind: agentRun.type === "autopilot_strategy" ? ("strategy" as const) : ("drafts" as const), running: agentRun.status === "running", title: agentRun.title, error: agentRun.lastError }
+    : null;
 
   const activeGoal = goals.find((g) => g.status === "active") ?? goals[0] ?? null;
   const plan = activeGoal?.plan ?? null;
@@ -122,6 +131,7 @@ export default async function GrowthStrategyPage() {
         changes={strategyChanges}
         profile={profileGate}
         canApprove={canApprove(ctx.membership.role)}
+        agentWork={agentWork}
       />
 
       {/* ————— Goal & constraints ————— */}
