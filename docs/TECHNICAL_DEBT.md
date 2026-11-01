@@ -21,3 +21,4 @@ hurts reliability or operations · **Low** cleanup.
 | TD-14 | Hydration warning `<html style>` in the Ship Studio preview | Low | Comes from the preview harness injecting a style attribute, not from app code; does not occur in a plain browser run | Monitor |
 | TD-15 | `Dockerfile` uses Node 20; local dev uses Node 22 | Low | Runtime drift between dev and image | US-002 |
 | TD-16 | `.next` dev artefacts and `node_modules` live inside a OneDrive-synced folder | Low | Sync churn and disk pressure on the dev machine | Document in README (US-004) |
+| TD-17 | `ModelCall.workspaceId` has no `onDelete: Cascade` | Medium | Deleting a workspace fails with a foreign-key error once it has any model usage (found 2026-11-01 while cleaning up a test workspace); blocks account deletion | Add cascade (or archive usage rows) with US-015 |

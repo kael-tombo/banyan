@@ -6,6 +6,7 @@ import { requireWorkspaceServer } from "@/lib/workspace";
 import { Badge, Card, LinkButton, PageHeader } from "@/components/ui";
 import { isManualChannel } from "@/lib/formats";
 import { buildCycleReport, channelName, type ShippedState } from "@/lib/cycle-report";
+import { NextCycleButton } from "./next-cycle-button";
 
 export const metadata: Metadata = { title: "Cycle report" };
 export const dynamic = "force-dynamic";
@@ -227,9 +228,11 @@ export default async function CycleReportPage({ params }: { params: Promise<{ go
               <p className="mt-2 text-xs text-clay">This recommendation cites no recorded evidence.</p>
             )}
             <div className="mt-3">
-              <LinkButton href="/app/cycles/new" size="sm">
-                Start the next cycle
-              </LinkButton>
+              {rec && rec.status !== "acted_upon" ? (
+                <NextCycleButton recommendationId={rec.id} change={rec.title} />
+              ) : (
+                <p className="text-xs text-charcoal-soft">The next cycle has already been started from this recommendation.</p>
+              )}
             </div>
           </div>
         ) : (
