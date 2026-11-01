@@ -140,6 +140,9 @@ describe("template strategy", () => {
     expect(t.channels[0].cites.every((id) => facts.some((f) => f.id === id))).toBe(true);
     expect(t.kpis.every((k) => k.target === null)).toBe(true);
     expect(finalizeStrategy({ ...t, assumptions: t.assumptions }, input).ok).toBe(true);
+    // Profile text is quoted, never spliced into a sentence, and keeps its own words intact.
+    expect(t.messaging_angles[0].angle).toBe("Lead with the problem: “Freelancers lose days of cash flow when they cannot invoice without signal”");
+    expect(t.messaging_angles[1].angle).toBe("Show what changes: “Send invoices from anywhere”");
   });
 });
 

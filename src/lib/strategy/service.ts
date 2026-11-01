@@ -7,6 +7,7 @@ import { approvalState } from "@/lib/product/profile-review";
 import { recordSchemaResult, routeComplete } from "@/lib/model/router";
 import { generateStrategy, type ChannelCapability, type ProfileFact, type StrategyBody, type StrategyCompleter } from "./generate";
 import { objectiveFromProfile, preferredChannels, profileFacts } from "./facts";
+import { reviewDecision, validateEditedBody } from "./review";
 
 /**
  * Strategy persistence and gating — US-042. The generation rules live in
@@ -155,4 +156,87 @@ export async function strategyView(s: Strategy): Promise<StrategyView> {
     rejectedReason: s.rejectedReason,
     createdAt: s.createdAt.toISOString(),
   };
+}
+
+// ————— Review (US-043) —————
+
+async function loadOwned(workspaceId: string, id: string): Promise<Strategy> {
+  const s = await prisma.strategy.findFirst({ where: { id, workspaceId } });
+  if (!s) throw new StrategyError("not_found", "Strategy not found.", 404);
+  return s;
+}
+
+/** The approved strategy content generation works from, or null. */
+export async function approvedStrategy(workspaceId: string): Promise<Strategy | null> {
+  return prisma.strategy.findFirst({ where: { workspaceId, status: "approved" }, orderBy: { version: "desc" } });
+}
+
+export async function approveStrategy(workspaceId: string, id: string, userId: string): Promise<Strategy> {
+  const s = await loadOwned(workspaceId, id);
+  const view = await strategyView(s);
+  const decision = reviewDecision(s.status, "approve", { stale: view.stale });
+  if (!decision.ok) throw new StrategyError("invalid_state", decision.reason, 409);
+  if (decision.idempotent) return s;
+  // Conditional update: two approvals racing cannot both win.
+  const approved = await prisma.$transaction(async (tx) => {
+    const res = await tx.strategy.updateMany({ where: { id, workspaceId, status: "proposed" }, data: { status: "approved", approvedAt: new Date(), approvedById: userId } });
+    if (res.count === 0) throw new StrategyError("invalid_state", "This strategy changed while you were approving it. Reload and try again.", 409);
+    await tx.strategy.updateMany({ where: { workspaceId, status: "approved", id: { not: id } }, data: { status: "superseded" } });
+    return tx.strategy.findUniqueOrThrow({ where: { id } });
+  });
+  await recordActivity({ workspaceId, type: "strategy", actorType: "user", summary: `Strategy v${approved.version} approved.`, meta: { strategyId: id } });
+  return approved;
+}
+
+export async function rejectStrategy(workspaceId: string, id: string, reason: string): Promise<Strategy> {
+  const s = await loadOwned(workspaceId, id);
+  const decision = reviewDecision(s.status, "reject");
+  if (!decision.ok) throw new StrategyError("invalid_state", decision.reason, 409);
+  if (decision.idempotent) return s;
+  const res = await prisma.strategy.updateMany({ where: { id, workspaceId, status: "proposed" }, data: { status: "rejected", rejectedReason: reason } });
+  if (res.count === 0) throw new StrategyError("invalid_state", "This strategy changed while you were rejecting it. Reload and try again.", 409);
+  await recordActivity({ workspaceId, type: "strategy", actorType: "user", summary: `Strategy v${s.version} rejected: ${reason.slice(0, 140)}`, meta: { strategyId: id } });
+  return prisma.strategy.findUniqueOrThrow({ where: { id } });
+}
+
+/**
+ * Save edits from the founder as the next version. The source version is
+ * left exactly as it was; the edit must pass the same rules as model output
+ * and cite the same fact snapshot.
+ */
+export async function editStrategy(workspaceId: string, id: string, userId: string, rawBody: unknown): Promise<Strategy> {
+  const source = await loadOwned(workspaceId, id);
+  const profile = await prisma.productProfile.findUnique({ where: { workspaceId } });
+  const facts = JSON.parse(source.facts || "[]") as ProfileFact[];
+  const checked = validateEditedBody(rawBody, {
+    facts,
+    objective: source.objective,
+    preferredChannels: preferredChannels(profile?.channels),
+    capabilities: channelCapabilities(),
+  });
+  if (!checked.ok) throw new StrategyError("invalid_state", `The edit breaks a strategy rule: ${checked.problems.join("; ")}`, 422);
+
+  const created = await prisma.$transaction(async (tx) => {
+    const last = await tx.strategy.findFirst({ where: { workspaceId }, orderBy: { version: "desc" }, select: { version: true } });
+    await tx.strategy.updateMany({ where: { workspaceId, status: "proposed" }, data: { status: "superseded" } });
+    return tx.strategy.create({
+      data: {
+        workspaceId,
+        goalId: source.goalId,
+        version: (last?.version ?? 0) + 1,
+        body: JSON.stringify(checked.body),
+        method: "edited",
+        fallbackReason: null,
+        facts: source.facts,
+        objective: source.objective,
+        profileVersion: source.profileVersion,
+        promptName: source.promptName,
+        promptVersion: source.promptVersion,
+        modelCallId: source.modelCallId,
+        createdById: userId,
+      },
+    });
+  });
+  await recordActivity({ workspaceId, type: "strategy", actorType: "user", summary: `Strategy v${created.version} saved from edits to v${source.version}.`, meta: { strategyId: created.id, from: id } });
+  return created;
 }

@@ -257,6 +257,41 @@ req GET "/api/strategies/$SID" "$JAR3"
 contains "$BODY" '"status":"superseded"' "previous proposal superseded, not deleted"
 req GET "/api/strategies/$SID" "$JAR1"
                                        check "$STATUS" 404 "another workspace cannot read the strategy"
+
+# US-043: review, approve, reject, edit.
+req GET /api/strategies "$JAR3"
+S2=$(printf '%s' "$BODY" | jget '.strategy.id')
+req POST "/api/strategies/$S2/reject" "$JAR3" '{"reason":""}'
+                                       check "$STATUS" 400 "rejecting needs a reason"
+req POST "/api/strategies/$S2/approve" "$JAR3" '{}'
+                                       check "$STATUS" 200 "proposed strategy approved"
+contains "$BODY" '"status":"approved"' "strategy is approved"
+req POST "/api/strategies/$S2/approve" "$JAR3" '{}'
+                                       check "$STATUS" 200 "approving twice is idempotent"
+req POST "/api/strategies/$S2/reject" "$JAR3" '{"reason":"Changed my mind"}'
+                                       check "$STATUS" 409 "an approved strategy cannot be rejected"
+req GET "/api/strategies/$S2" "$JAR3"
+EDIT=$(printf '%s' "$BODY" | node -e '
+let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const b=JSON.parse(s).strategy.body;
+const draft={channels:b.channels.map(({channel,priority,rationale,formats,cites})=>({channel,priority,rationale,formats,cites})),messaging_angles:b.messaging_angles,objectives:b.objectives,frequency:b.frequency.map(f=>({...f,posts_per_week:5})),kpis:b.kpis.map(({metric,why})=>({metric,target:20,why})),assumptions:b.assumptions};
+process.stdout.write(JSON.stringify({body:draft}))})')
+req PATCH "/api/strategies/$S2" "$JAR3" "$EDIT"
+                                       check "$STATUS" 201 "edits saved as a new version"
+contains "$BODY" '"method":"edited"' "edited version is marked as edited"
+contains "$BODY" '"status":"proposed"' "edited version needs approval"
+S3=$(printf '%s' "$BODY" | jget '.strategy.id')
+req GET "/api/strategies/$S2" "$JAR3"
+contains "$BODY" '"status":"approved"' "the approved version is untouched by the edit"
+BADEDIT=$(printf '%s' "$EDIT" | sed 's/"cites":\["[^]]*\]/"cites":["F999"]/')
+req PATCH "/api/strategies/$S2" "$JAR3" "$BADEDIT"
+                                       check "$STATUS" 422 "an edit citing a fact that does not exist is refused"
+req POST /api/product/profile/approve "$JAR3" '{}'
+req PATCH /api/profile "$JAR3" '{"name":"Example","description":"A plain example page used for tests, now edited.","stage":"building","problem":"Founders need a stable public page to test with.","valueProp":"Always there, never changes.","website":"https://example.com"}'
+req POST "/api/strategies/$S3/approve" "$JAR3" '{}'
+                                       check "$STATUS" 409 "a strategy from an older profile version cannot be approved"
+contains "$BODY" 'Regenerate' "the refusal says to regenerate"
+req POST "/api/strategies/$S3/approve" "$JAR1" '{}'
+                                       check "$STATUS" 404 "another workspace cannot approve the strategy"
 req GET "/api/goals/$GOAL_ID" "$JAR3"
 check "$STATUS" 404 "cross-workspace goal access denied (404)"
 req GET "/api/content/$CONTENT_ID" "$JAR3"

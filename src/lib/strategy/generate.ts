@@ -52,7 +52,8 @@ export type StrategyInput = {
   tone?: string;
 };
 
-const modelSchema = z.object({
+/** The shape a model (or an edit) must produce before the rule checks. */
+export const strategyDraftSchema = z.object({
   channels: z
     .array(
       z.object({
@@ -121,7 +122,7 @@ export function allowedChannels(input: Pick<StrategyInput, "preferredChannels" |
  * Check the model's draft against the rules the schema cannot express, and
  * attach verified capabilities. Returns the problems found, or the body.
  */
-export function finalizeStrategy(draft: z.infer<typeof modelSchema>, input: StrategyInput): { ok: true; body: StrategyBody } | { ok: false; problems: string[] } {
+export function finalizeStrategy(draft: z.infer<typeof strategyDraftSchema>, input: StrategyInput): { ok: true; body: StrategyBody } | { ok: false; problems: string[] } {
   const problems: string[] = [];
   const allowed = allowedChannels(input);
   const factIds = new Set(input.facts.map((f) => f.id));
@@ -172,6 +173,9 @@ function dedupeKpis<T extends { metric: KpiMetric }>(kpis: T[]): T[] {
 
 const fact = (input: StrategyInput, ...labels: string[]) => input.facts.find((f) => labels.includes(f.label));
 
+/** Quote profile text instead of splicing it into a sentence it was not written for. */
+const quote = (text: string) => `“${text.trim().replace(/[.\s]+$/, "").slice(0, 120)}”`;
+
 /** A strategy built only from the facts, for when no model output is usable. */
 export function templateStrategy(input: StrategyInput): StrategyBody {
   const channels = allowedChannels(input).filter((c) => c !== "shortvideo").slice(0, 2);
@@ -189,7 +193,7 @@ export function templateStrategy(input: StrategyInput): StrategyBody {
         priority: i + 1,
         rationale:
           channel === "linkedin"
-            ? `Professional, text-first audience where a problem-first story about ${problem?.text.slice(0, 80) || "the problem"} can be told in full.`
+            ? "Professional, text-first audience where a problem-first story can be told in full, with room for the reasoning behind it."
             : channel === "x"
               ? "Fast iteration: short posts and threads let each messaging angle be tested within days."
               : `${CHANNEL_META[channel].label} reaches the audience in the format it already uses.`,
@@ -200,8 +204,9 @@ export function templateStrategy(input: StrategyInput): StrategyBody {
       };
     }),
     messaging_angles: [
-      { angle: `The cost of ${problem?.text.slice(0, 100) || "the problem"}, told from the founder's side` },
-      { angle: `What changes with ${value?.text.slice(0, 100) || "the product"}` },
+      ...(problem ? [{ angle: `Lead with the problem: ${quote(problem.text)}` }] : []),
+      ...(value ? [{ angle: `Show what changes: ${quote(value.text)}` }] : []),
+      ...(!problem && !value ? [{ angle: "Lead with the problem the product solves, in the words customers use" }] : []),
     ],
     objectives: [input.objective || "Reach the first people who have this problem and learn which message brings them in"],
     frequency: picked.map((channel) => ({ channel, posts_per_week: channel === "x" ? 3 : 2 })),
@@ -235,7 +240,7 @@ export async function generateStrategy(input: StrategyInput, complete?: Strategy
       }
       let valid = false;
       try {
-        const parsed = modelSchema.safeParse(extractJSON(res.text));
+        const parsed = strategyDraftSchema.safeParse(extractJSON(res.text));
         if (!parsed.success) {
           reason = `Model output did not match the strategy schema (${parsed.error.issues[0]?.path.join(".") || "root"}).`;
         } else {

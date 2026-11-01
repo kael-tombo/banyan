@@ -7,6 +7,13 @@ import {
   ListChecks, Sparkles, TriangleAlert,
 } from "lucide-react";
 
+import { strategyView } from "@/lib/strategy/service";
+import { diffStrategies } from "@/lib/strategy/review";
+import type { StrategyBody } from "@/lib/strategy/generate";
+import { approvalState } from "@/lib/product/profile-review";
+import { canApprove } from "@/lib/permissions";
+import { StrategyReview } from "./strategy-review";
+
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Growth strategy" };
 
@@ -61,6 +68,14 @@ export default async function GrowthStrategyPage() {
     prisma.experiment.findMany({ where: { workspaceId: wid }, select: { status: true, createdAt: true } }),
   ]);
 
+  // ————— Distribution strategy (US-042/043) —————
+  const strategies = await prisma.strategy.findMany({ where: { workspaceId: wid }, orderBy: { version: "desc" }, take: 12 });
+  const current = strategies.find((x) => x.status === "proposed") ?? strategies.find((x) => x.status === "approved") ?? strategies[0] ?? null;
+  const currentView = current ? await strategyView(current) : null;
+  const previous = current ? strategies.find((x) => x.version < current.version) : null;
+  const strategyChanges = current && previous ? diffStrategies(JSON.parse(previous.body) as StrategyBody, JSON.parse(current.body) as StrategyBody) : [];
+  const profileGate = { exists: Boolean(ctx.profile), needsApproval: approvalState(ctx.profile).needsApproval };
+
   const activeGoal = goals.find((g) => g.status === "active") ?? goals[0] ?? null;
   const plan = activeGoal?.plan ?? null;
   const planMeta = plan ? (JSON.parse(plan.generatedMeta || "{}") as { label?: string; isFallback?: boolean }) : null;
@@ -99,6 +114,14 @@ export default async function GrowthStrategyPage() {
             <LinkButton href="/app/goals" variant="secondary">Create a goal</LinkButton>
           )
         }
+      />
+
+      <StrategyReview
+        initial={currentView}
+        versions={strategies.map((x) => ({ id: x.id, version: x.version, status: x.status, method: x.method, createdAt: x.createdAt.toISOString() }))}
+        changes={strategyChanges}
+        profile={profileGate}
+        canApprove={canApprove(ctx.membership.role)}
       />
 
       {/* ————— Goal & constraints ————— */}

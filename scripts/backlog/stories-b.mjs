@@ -43,7 +43,8 @@ export const storiesB = [
     tests: { happy: "mock model → valid strategy", validation: "schema violation → fallback", authorization: "n/a", external: "model timeout → fallback", retry: "one retry" },
   },
   {
-    id: "US-043", epic: "AI distribution strategy", code: "AI", priority: "P0", status: "Backlog", sprint: 3,
+    id: "US-043", epic: "AI distribution strategy", code: "AI", priority: "P0", status: "Review",
+    evidence: "2026-11-01: /api/strategies/[id] approve (owners/members, idempotent, conditional update, refused when stale), reject (reason required), PATCH saves edits as the next version under the same rules and fact snapshot, regenerate via POST /api/strategies; review screen on /app/strategy with cited facts, publishing mode, stale warning, version list and a sentence diff (readable without colour). tests/strategy-review.test.ts 8 cases; E2E: reason required (400), approve 200 twice, approved cannot be rejected (409), edit → v+1 proposed with approved untouched, bad citation 422, stale approve 409, cross-workspace 404. Remaining: content generation reads the approved strategy and is gated on it (lands with the content stories)", sprint: 3,
     title: "Review, edit, approve, reject or regenerate a strategy",
     as: "founder", want: "full control over the strategy before any content is written", so: "nothing is produced on a plan I did not agree to",
     context: "Goal plan approval exists (E2E). It must operate on the structured strategy and keep versions.",
@@ -68,7 +69,7 @@ export const storiesB = [
   },
   {
     id: "US-045", epic: "AI distribution strategy", code: "AI", priority: "P1", status: "Review", sprint: 3,
-    evidence: "2026-11-01: prompt registry (src/lib/ai/prompts, one file per name.vN; changing a shipped version throws); ModelCall gains promptName, promptVersion, attempt, schemaValid (migration prompt_versions); router rejects unregistered prompts and returns modelCallId; product analysis records attempt and schema result per call (tests/prompts.test.ts, 7 cases); usage page shows outcomes by prompt version. Remaining: the strategy detail view that shows the version (US-042/043)",
+    evidence: "2026-11-01: prompt registry (src/lib/ai/prompts, one file per name.vN; changing a shipped version throws); ModelCall gains promptName, promptVersion, attempt, schemaValid (migration prompt_versions); router rejects unregistered prompts and returns modelCallId; product analysis records attempt and schema result per call (tests/prompts.test.ts, 7 cases); usage page shows outcomes by prompt version. Strategy screen shows the prompt and model for model-drafted versions and the template reason otherwise. Remaining: see it with a live model provider (none configured in this environment)",
     title: "Version prompts and account for every model call",
     as: "operator", want: "every model call logged with prompt version, tokens, cost, latency and outcome", so: "quality and spend are traceable",
     context: "ModelCall and daily quota exist; prompt versions do not.",
