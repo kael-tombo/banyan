@@ -430,7 +430,7 @@ export const storiesA = [
     tests: { happy: "verified capability shown", validation: "over-length post blocked before approval", authorization: "n/a", external: "n/a", retry: "n/a" },
   },
   {
-    id: "US-034", epic: "SocialFlow.ai integration", code: "SF", priority: "P0", status: "Ready", sprint: 2,
+    id: "US-034", epic: "SocialFlow.ai integration", code: "SF", priority: "P0", status: "Done", sprint: 2,
     title: "Export mode as the live distribution path",
     as: "founder", want: "to export an approved post as a ready-to-publish package and record where it went live", so: "I can distribute today while SocialFlow.ai has no API",
     context: "Handoff package and manual publication recording exist (E2E). They become the default path.",
@@ -440,6 +440,7 @@ export const storiesA = [
     deps: { stories: ["US-027"], optional: [], external: [], infra: [], api: [] },
     impl: { frontend: "Export panel, campaign batch export", backend: "/api/content/[id]/handoff (extend), /api/campaigns/[id]/export", database: "Publication.manual", integration: "None", jobs: "None" },
     tests: { happy: "export → record URL", validation: "non-URL rejected", authorization: "unapproved content cannot be exported as final", external: "n/a", retry: "recording the same URL twice is idempotent" },
+    evidence: "2026-11-01: POST /api/content/[id]/export and /api/campaigns/[id]/export (JSON or ?format=md download); each post gets one tracked link, reused; editor offers Copy package and Download .md. E2E (Docker): approved post exported with its /t/ link, same live URL recorded twice → 200 both, published post export → 409. Manual: campaign export of 1 approved post (1 skipped), Markdown attachment headers, foreign origin → 403. tests/export-mode.test.ts (5)",
   },
   {
     id: "US-035", epic: "SocialFlow.ai integration", code: "SF", priority: "P1", status: "Blocked", sprint: 4,

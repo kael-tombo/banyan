@@ -13,7 +13,7 @@ says how. Story definitions: [USER_STORIES.md](USER_STORIES.md). Status source o
 | 2 — Infrastructure | **In progress**: US-001–US-007 Done; US-008, US-009 next | Compose stack verified 2026-11-01 (E2E 42/42 in Docker) |
 | 3 — Authentication and onboarding | Not started | |
 | 4 — Product intelligence | Not started | |
-| 5 — SocialFlow.ai integration | **In progress**: US-027–US-030 Done, US-031 in Review; US-034 next; live integration **blocked** | [SOCIALFLOW_INTEGRATION_AUDIT.md](SOCIALFLOW_INTEGRATION_AUDIT.md) |
+| 5 — SocialFlow.ai integration | **In progress**: US-027–US-030 and US-034 Done, US-031 in Review; live integration **blocked** | [SOCIALFLOW_INTEGRATION_AUDIT.md](SOCIALFLOW_INTEGRATION_AUDIT.md) |
 | 6 — Strategy and content | Not started | |
 | 7 — Campaign execution | Not started | |
 | 8 — Credits and analytics | Not started | |
@@ -49,6 +49,7 @@ says how. Story definitions: [USER_STORIES.md](USER_STORIES.md). Status source o
 | US-029 No Postiz claims | Done | landing, walkthrough, cycle record, privacy, onboarding, nav, agents, formats, README, docs/API.md | Publishing page rendered in Docker | — | Every surface describes SocialFlow.ai (not yet available) and export mode |
 | US-030 SocialFlow contract | Done | `src/lib/distribution/socialflow/contract.ts` | `tests/socialflow-contract.test.ts` (28) | SocialFlow.ai API does not exist | Proposal for the SocialFlow team, labelled unverified; every success and failure path exercised against a schema-built mock |
 | US-031 SocialFlow adapter | **Review** | `src/lib/distribution/socialflow/{client,adapter}.ts`, `providers.ts`, `safe-fetch.ts` (DELETE) | contract tests | Live use blocked on SocialFlow.ai | Disabled unless verified. Needs the worker + database path against the mock (US-074) before Done |
+| US-034 Export mode | Done | `src/lib/distribution/export.ts`, export routes (content, campaign), editor, `publish.ts` (idempotent manual recording) | `tests/export-mode.test.ts` (5), E2E 47/47 | — | Export carries the post's tracked link; re-recording the same URL is idempotent (also under concurrency, via a unique key); found and fixed: the approval check ran before the idempotency check |
 
 ## Blockers
 

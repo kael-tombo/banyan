@@ -51,6 +51,7 @@ export function ContentEditor({
   const [scheduleAt, setScheduleAt] = useState("");
   const [manualUrl, setManualUrl] = useState("");
   const [handoffNote, setHandoffNote] = useState<string | null>(null);
+  const [trackedLink, setTrackedLink] = useState<string | null>(null);
   const [tone, setTone] = useState("");
   const [adaptTexts, setAdaptTexts] = useState<Record<string, string>>(adaptations);
   const [adaptDirty, setAdaptDirty] = useState(false);
@@ -137,18 +138,30 @@ export function ContentEditor({
     setManualUrl("");
   }
 
-  async function copyHandoff() {
-    setBusy("handoff"); setError(null); setHandoffNote(null);
+  /** Export mode (US-034): copy the ready-to-publish package, or download it. */
+  async function exportPost(as: "copy" | "download") {
+    setBusy("export"); setError(null); setHandoffNote(null);
     try {
-      const res = await fetch(`/api/content/${item.id}/handoff`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not build the handoff.");
-      await navigator.clipboard.writeText(data.text);
-      setHandoffNote(
-        data.approved
-          ? "Handoff copied. Execute it in SocialFlow.ai (or natively), then record the live URL below."
-          : `Handoff copied as a PREVIEW — this item is "${data.itemStatus}", not approved. Approval is required before publishing anywhere.`
-      );
+      const res = await fetch(`/api/content/${item.id}/export${as === "download" ? "?format=md" : ""}`, { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Could not export this post.");
+      }
+      if (as === "download") {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `banyan-${item.channel}-${item.id}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setHandoffNote("Downloaded. Publish it yourself, then record the live URL below.");
+      } else {
+        const data = await res.json();
+        setTrackedLink(data.package?.trackedLink ?? null);
+        await navigator.clipboard.writeText(data.text);
+        setHandoffNote("Copied. Publish it yourself, then record the live URL below.");
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -455,16 +468,23 @@ export function ContentEditor({
             {["draft", "ready_for_review", "rejected"].includes(item.status) && (
               <p className="text-xs text-charcoal-soft">Publishing controls unlock once the item is approved.</p>
             )}
-            <details>
-              <summary className="cursor-pointer text-xs font-medium text-charcoal">SocialFlow.ai handoff (manual execution)</summary>
-              <div className="mt-2 flex flex-col gap-2">
-                <p className="text-xs text-charcoal-soft">
-                  SocialFlow.ai has no verifiable API yet (socialflow.ai is a parked domain, checked October 2026) — Banyan does not fake one. This copies a channel-formatted package: execute it in SocialFlow.ai or any native tool, then record the live URL below. That recording is what marks the content published.
-                </p>
-                <Button size="sm" variant="secondary" onClick={copyHandoff} disabled={!!busy}>Copy handoff for SocialFlow.ai</Button>
-                {handoffNote && <p className="text-xs text-charcoal-soft">{handoffNote}</p>}
-              </div>
-            </details>
+            {["approved", "scheduled"].includes(item.status) && (
+              <details open>
+                <summary className="cursor-pointer text-xs font-medium text-charcoal">Export and publish it yourself</summary>
+                <div className="mt-2 flex flex-col gap-2">
+                  <p className="text-xs text-charcoal-soft">
+                    Automated publishing through SocialFlow.ai is not available yet. Export this post with its tracked link,
+                    publish it in any tool, then record the live URL below. That recording is what marks it published.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="secondary" onClick={() => exportPost("copy")} disabled={!!busy}>Copy package</Button>
+                    <Button size="sm" variant="secondary" onClick={() => exportPost("download")} disabled={!!busy}>Download .md</Button>
+                  </div>
+                  {trackedLink && <p className="break-all font-mono text-xs text-charcoal-soft">Tracked link: {trackedLink}</p>}
+                  {handoffNote && <p className="text-xs text-charcoal-soft">{handoffNote}</p>}
+                </div>
+              </details>
+            )}
             <details>
               <summary className="cursor-pointer text-xs font-medium text-charcoal">Record a manual publication</summary>
               <form onSubmit={recordManual} className="mt-2 flex flex-col gap-2">

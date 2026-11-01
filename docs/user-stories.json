@@ -3,8 +3,8 @@
   "source": "scripts/backlog/stories-*.mjs",
   "totals": {
     "stories": 77,
-    "done": 19,
-    "ready": 7,
+    "done": 20,
+    "ready": 6,
     "backlog": 45,
     "blocked": 5
   },
@@ -1836,9 +1836,9 @@
       "epic": "SocialFlow.ai integration",
       "code": "SF",
       "priority": "P0",
-      "status": "Ready",
+      "status": "Done",
       "sprint": 2,
-      "wave": 1,
+      "wave": 0,
       "story": {
         "as": "founder",
         "want": "to export an approved post as a ready-to-publish package and record where it went live",
@@ -1881,7 +1881,7 @@
         "external": "n/a",
         "retry": "recording the same URL twice is idempotent"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: POST /api/content/[id]/export and /api/campaigns/[id]/export (JSON or ?format=md download); each post gets one tracked link, reused; editor offers Copy package and Download .md. E2E (Docker): approved post exported with its /t/ link, same live URL recorded twice → 200 both, published post export → 409. Manual: campaign export of 1 approved post (1 skipped), Markdown attachment headers, foreign origin → 403. tests/export-mode.test.ts (5)",
       "blocker": null
     },
     {

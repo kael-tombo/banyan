@@ -98,7 +98,7 @@ export function parseVideoExtras(raw: string | null | undefined): Record<string,
 export function buildSocialFlowHandoff(input: HandoffInput): SocialFlowHandoff {
   const checklist = [
     "1. Confirm the item is approved in Banyan (this package is generated from the approved copy).",
-    "2. Paste the content below into SocialFlow.ai (or publish natively with any tool).",
+    "2. Publish the content below yourself, natively or with any tool (SocialFlow.ai once its integration is available).",
     "3. Attach/create any media it references — Banyan does not deliver media files.",
     ...(input.scheduledFor
       ? ["4. Schedule it for the suggested time shown below."]

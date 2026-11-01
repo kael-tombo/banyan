@@ -146,8 +146,17 @@ esac
 req POST /api/connections "$JAR1" '{"channel":"x","adapter":"postiz","credentials":{"apiKey":"k"}}'
                                        check "$STATUS" 400 "removed provider (postiz) cannot be connected"
 
+# US-034 export mode: an approved post exports with its own tracked link.
+req POST "/api/content/$CONTENT_ID/export" "$JAR1" '{}'
+                                       check "$STATUS" 200 "approved post exported (export mode)"
+contains "$BODY" "/t/" "export package carries the post's tracked link"
+
 req POST "/api/content/$CONTENT_ID/publish" "$JAR1" '{"mode":"manual","liveUrl":"https://example.com/banyan-manual-post"}'
                                        check "$STATUS" 200 "manual publication recorded with real URL"
+req POST "/api/content/$CONTENT_ID/publish" "$JAR1" '{"mode":"manual","liveUrl":"https://example.com/banyan-manual-post"}'
+                                       check "$STATUS" 200 "recording the same live URL again is idempotent"
+req POST "/api/content/$CONTENT_ID/export" "$JAR1" '{}'
+                                       check "$STATUS" 409 "published post cannot be exported as a new final package"
 
 # --- 6. Experiments + evidence-aware learning ---------------------------------
 req POST /api/experiments "$JAR1" '{"title":"X thread hook A/B","hypothesis":"Problem-first hooks get more profile clicks than feature-first hooks for founder audiences","channel":"x","variable":"hook order: problem-first vs feature-first","successMetric":"profile clicks per thread"}'

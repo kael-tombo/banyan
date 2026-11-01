@@ -211,9 +211,7 @@ export async function executePublication(publicationId: string): Promise<{ ok: b
 export async function recordManualPublication(input: { contentItemId: string; workspaceId: string; url: string }): Promise<{ ok: boolean; message: string }> {
   const item = await prisma.contentItem.findUnique({ where: { id: input.contentItemId }, include: { publications: true } });
   if (!item || item.workspaceId !== input.workspaceId) return { ok: false, message: "Content not found." };
-  if (!isExportableContent(item)) return { ok: false, message: "Content must be approved before a manual publication can be recorded." };
   const existing = item.publications.find((p) => p.status === "published");
-  if (existing) return { ok: false, message: "This content is already published." };
 
   let validated: URL;
   try {
@@ -223,18 +221,35 @@ export async function recordManualPublication(input: { contentItemId: string; wo
     return { ok: false, message: "Provide the live post URL (https://...)." };
   }
 
-  await prisma.publication.create({
-    data: {
-      contentItemId: item.id,
-      provider: "manual",
-      status: "published",
-      externalUrl: validated.toString(),
-      providerResponse: JSON.stringify({ recordedManually: true, url: validated.toString() }),
-      publishedAt: new Date(),
-      manual: true,
-      idempotencyKey: `${item.id}:manual:${Date.now()}`,
-    },
-  });
+  // Idempotent (US-034): recording the same live URL again is a no-op success;
+  // a different URL for already-published content is refused.
+  if (existing) {
+    return existing.externalUrl === validated.toString()
+      ? { ok: true, message: "Manual publication already recorded." }
+      : { ok: false, message: "This content is already published." };
+  }
+  if (!isExportableContent(item)) return { ok: false, message: "Content must be approved before a manual publication can be recorded." };
+
+  try {
+    await prisma.publication.create({
+      data: {
+        contentItemId: item.id,
+        provider: "manual",
+        status: "published",
+        externalUrl: validated.toString(),
+        providerResponse: JSON.stringify({ recordedManually: true, url: validated.toString() }),
+        publishedAt: new Date(),
+        manual: true,
+        // One manual publication per item: the unique key makes a concurrent
+        // second recording fail in the database instead of creating a duplicate.
+        idempotencyKey: `${item.id}:manual`,
+      },
+    });
+  } catch (err) {
+    // A concurrent recording won the unique idempotency key: same outcome.
+    if ((err as { code?: string }).code === "P2002") return { ok: true, message: "Manual publication already recorded." };
+    throw err;
+  }
   await prisma.contentItem.update({ where: { id: item.id }, data: { status: "published", publishedAt: new Date() } });
   await recordActivity({ workspaceId: input.workspaceId, type: "publication_success", summary: `Manual publication recorded for "${item.title}" at ${validated.host} (user-confirmed).`, meta: { contentItemId: item.id, manual: true } });
   return { ok: true, message: "Manual publication recorded." };
