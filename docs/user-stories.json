@@ -3,9 +3,9 @@
   "source": "scripts/backlog/stories-*.mjs",
   "totals": {
     "stories": 77,
-    "done": 20,
+    "done": 21,
     "ready": 6,
-    "backlog": 45,
+    "backlog": 44,
     "blocked": 5
   },
   "criticalPath": [
@@ -476,9 +476,9 @@
       "epic": "Security, reliability and operations",
       "code": "OPS",
       "priority": "P1",
-      "status": "Backlog",
+      "status": "Done",
       "sprint": 2,
-      "wave": 1,
+      "wave": 0,
       "story": {
         "as": "operator",
         "want": "a health endpoint that reports each dependency",
@@ -521,7 +521,7 @@
         "external": "each dependency down → 503 naming it",
         "retry": "recovers when dependency returns"
       },
-      "evidence": null,
+      "evidence": "2026-11-01 against the Compose stack: /api/health reports redis {configured, reachable, latencyMs, queue {waiting, delayed, failed}}; Redis stopped → 503 with redis.error, ok=false; Redis restarted → 200. Redis URLs are redacted from errors. The dead-letter count surfaced one sweep that failed during the deliberate Postgres outage test, with its reason kept",
       "blocker": null
     },
     {

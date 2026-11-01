@@ -10,7 +10,7 @@ says how. Story definitions: [USER_STORIES.md](USER_STORIES.md). Status source o
 | --- | --- | --- |
 | 0 — Repository audit | **Done** | [PROJECT_AUDIT.md](PROJECT_AUDIT.md); baseline 354/354 unit, 42/42 E2E, typecheck clean, build green (2026-11-01) |
 | 1 — Backlog | **Done** | 77 stories, dependency graph, roadmap, acceptance criteria, sprint plan; generator validation passes |
-| 2 — Infrastructure | **In progress**: US-001–US-007 Done; US-008, US-009 next | Compose stack verified 2026-11-01 (E2E 42/42 in Docker) |
+| 2 — Infrastructure | **In progress**: US-001–US-007 and US-009 Done; US-008 next | Compose stack verified 2026-11-01 (E2E 42/42 in Docker) |
 | 3 — Authentication and onboarding | Not started | |
 | 4 — Product intelligence | Not started | |
 | 5 — SocialFlow.ai integration | **In progress**: US-027–US-030 and US-034 Done, US-031 in Review; live integration **blocked** | [SOCIALFLOW_INTEGRATION_AUDIT.md](SOCIALFLOW_INTEGRATION_AUDIT.md) |
@@ -44,6 +44,7 @@ says how. Story definitions: [USER_STORIES.md](USER_STORIES.md). Status source o
 | US-005 Job queue | Done | `src/lib/queue/*` | `tests/queue-and-claim.test.ts` (19) | — | Delayed jobs held in Redis; processed after worker restart |
 | US-006 Queue worker | Done | `worker/index.ts`, `src/lib/maintenance.ts`, `src/lib/publishing/{claim,publish}.ts`, tick route | claim unit tests | — | Scheduled post attempted 229 ms after due from the queue; atomic claim prevents double delivery; sweep shared with the tick endpoint |
 | US-007 Shared rate limiting | Done | `src/lib/ratelimit.ts`, `src/lib/api-utils.ts`, 16 routes + health | `tests/ratelimit.test.ts` (5) | — | Limit survives a web restart (429 on attempt 11); Lua script makes check-and-record atomic; Redis outage degrades to per-process limiting |
+| US-009 Readiness checks | Done | `src/app/api/health/route.ts` | live up/down/back check | — | Redis and queue backlog reported; 503 names Redis when it is down |
 | US-027 Distribution interface | Done | `src/lib/distribution/{types,providers}.ts`, `publish.ts` | unit 375/375 | — | Provider-neutral interface with normalised errors; registry empty until SocialFlow.ai is verified |
 | US-028 Postiz removed | Done | deleted `postiz.ts`, `LivingTree.tsx`, `branches.ts`; connections API; migration `20261101120000_remove_postiz`; capability registry; Publishing UI | E2E 43/43 (new: postiz connection refused) | — | Old rows kept as `removed`. The E2E SSRF check moved from the deleted connection probe to product intake, the remaining user-URL fetch |
 | US-029 No Postiz claims | Done | landing, walkthrough, cycle record, privacy, onboarding, nav, agents, formats, README, docs/API.md | Publishing page rendered in Docker | — | Every surface describes SocialFlow.ai (not yet available) and export mode |

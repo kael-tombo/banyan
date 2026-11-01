@@ -7,7 +7,7 @@ Docker Desktop 4 / Compose v2 on Windows; results are recorded in [DEVELOPMENT_P
 
 | Service | Image | Role | Host port | Health |
 | --- | --- | --- | --- | --- |
-| `web` | `banyan-app:local` | Next.js UI + API (`next start`) | `${WEB_PORT:-3000}` | `GET /api/health` (database reachable, env valid) |
+| `web` | `banyan-app:local` | Next.js UI + API (`next start`) | `${WEB_PORT:-3000}` | `GET /api/health` (env valid, database reachable, Redis reachable when configured; reports queue backlog) |
 | `worker` | `banyan-app:local` | BullMQ consumer: publication attempts + maintenance sweep (`node dist/worker.js`) | none | process running; restarted on exit |
 | `migrate` | `banyan-app:local` | One-shot `prisma migrate deploy`; web and worker wait for it to succeed | none | exits 0 |
 | `postgres` | `postgres:16-alpine` | Source of truth | none (internal only) | `pg_isready` |

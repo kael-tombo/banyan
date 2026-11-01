@@ -26,6 +26,13 @@ type HealthReport = {
     userCount?: number;
     error?: string;
   };
+  redis: {
+    configured: boolean;
+    reachable: boolean;
+    latencyMs: number | null;
+    queue?: { waiting: number; delayed: number; failed: number };
+    error?: string;
+  };
 };
 
 /**
@@ -64,6 +71,7 @@ export async function GET(req: NextRequest) {
       nodeEnv: process.env.NODE_ENV ?? null,
     },
     db: { reachable: false, schemaPresent: false, demoUserPresent: false, latencyMs: null as number | null },
+    redis: { configured: Boolean(process.env.REDIS_URL), reachable: false, latencyMs: null },
   };
 
   // Full env validation — catches APP_SECRET format and the production
@@ -103,7 +111,28 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const healthy = report.env.validated === true && report.db.reachable === true;
+  // Redis (US-009): required only when configured. The job queue lives there,
+  // so an unreachable Redis makes the deployment unhealthy and is named.
+  if (report.redis.configured) {
+    const started = Date.now();
+    try {
+      const { getQueue } = await import("@/lib/queue/jobs");
+      const queue = await getQueue();
+      // Reading the queue counts is a Redis round trip, so it doubles as the probe.
+      const counts = (await Promise.race([
+        queue.getJobCounts("waiting", "delayed", "failed"),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Redis did not answer within 1.5 s")), 1_500)),
+      ])) as Record<string, number>;
+      report.redis.reachable = true;
+      report.redis.latencyMs = Date.now() - started;
+      report.redis.queue = { waiting: counts.waiting ?? 0, delayed: counts.delayed ?? 0, failed: counts.failed ?? 0 };
+    } catch (err) {
+      report.redis.error = (err instanceof Error ? err.message : String(err)).replace(/rediss?:\/\/\S*/gi, "redis://[redacted]");
+    }
+  }
+
+  const healthy =
+    report.env.validated === true && report.db.reachable === true && (!report.redis.configured || report.redis.reachable);
   return NextResponse.json(
     { ok: healthy, ...report },
     { status: healthy ? 200 : 503 }

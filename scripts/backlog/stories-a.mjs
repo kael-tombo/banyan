@@ -115,7 +115,7 @@ export const storiesA = [
     tests: { happy: "each profile starts", validation: "n/a", authorization: "n/a", external: "n/a", retry: "n/a" },
   },
   {
-    id: "US-009", epic: "Security, reliability and operations", code: "OPS", priority: "P1", status: "Backlog", sprint: 2,
+    id: "US-009", epic: "Security, reliability and operations", code: "OPS", priority: "P1", status: "Done", sprint: 2,
     title: "Readiness checks for database and Redis",
     as: "operator", want: "a health endpoint that reports each dependency", so: "I know which part is failing",
     context: "GET /api/health exists but does not report dependency status.",
@@ -125,6 +125,7 @@ export const storiesA = [
     deps: { stories: ["US-005"], optional: [], external: [], infra: ["Redis", "Postgres"], api: [] },
     impl: { frontend: "None", backend: "src/app/api/health/route.ts", database: "SELECT 1", integration: "None", jobs: "Queue depth read" },
     tests: { happy: "all up → 200", validation: "n/a", authorization: "n/a", external: "each dependency down → 503 naming it", retry: "recovers when dependency returns" },
+    evidence: "2026-11-01 against the Compose stack: /api/health reports redis {configured, reachable, latencyMs, queue {waiting, delayed, failed}}; Redis stopped → 503 with redis.error, ok=false; Redis restarted → 200. Redis URLs are redacted from errors. The dead-letter count surfaced one sweep that failed during the deliberate Postgres outage test, with its reason kept",
   },
 
   // ───────────────────────── AUTH — Authentication ─────────────────────────
