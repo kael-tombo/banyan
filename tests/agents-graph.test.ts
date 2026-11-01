@@ -155,10 +155,10 @@ describe("orchestration graph — progress and completion", () => {
 
   it("summarizes blockers with their recorded reasons", () => {
     const blockers = workflowBlockers([
-      { id: "1", status: "blocked", lastError: "No connection configured → connect Postiz", type: "publish" },
+      { id: "1", status: "blocked", lastError: "No connection configured → use export mode", type: "publish" },
       { id: "2", status: "completed", type: "research" },
     ]);
-    expect(blockers).toEqual([{ id: "1", type: "publish", reason: "No connection configured → connect Postiz" }]);
+    expect(blockers).toEqual([{ id: "1", type: "publish", reason: "No connection configured → use export mode" }]);
   });
 });
 

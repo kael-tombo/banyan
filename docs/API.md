@@ -96,8 +96,8 @@ Rate limits below are per IP, in-process (single node).
 | Method & path | Body | Notes |
 | --- | --- | --- |
 | `GET /api/connections` | — | Lists connections with **`hasKey` only** — API keys never leave the server. |
-| `POST /api/connections` | `{adapter: "postiz", channel, label, baseUrl, apiKey, integrationIds}` | `write`. Config is AES-256-GCM encrypted at rest; `baseUrl` is validated by a live `validateConnection` call **through the SSRF-safe fetch** (private/internal hosts rejected). |
-| `POST /api/connections/[id]` | — | Re-tests the connection (provider call, updates `verified`/`error`). |
+| `POST /api/connections` | `{adapter, channel, label, credentials}` | `write`. `adapter` must be an **enabled** provider from `src/lib/distribution/providers.ts`; none is enabled until SocialFlow.ai is verified, so today this returns **400** with the export-mode explanation. Credentials are AES-256-GCM encrypted at rest and validated by the provider. |
+| `POST /api/connections/[id]` | — | Re-tests the connection through its provider. Returns 400 for a `removed` connection or a provider that is not enabled. |
 | `DELETE /api/connections/[id]` | — | Removes the connection. |
 | `GET /api/usage` | — | `ModelCall` ledger for the workspace: calls, tokens, estimated cost, fallback share, quota state. |
 

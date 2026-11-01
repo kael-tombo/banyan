@@ -112,7 +112,7 @@ export default function LandingPage() {
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-8 gap-y-2 px-4 text-center text-[13px] text-charcoal-soft">
             <span className="flex items-center gap-2">
               <CheckCircle2 size={16} className="text-forest" aria-hidden="true" />
-              X and LinkedIn publish through Postiz
+              You publish approved posts; Banyan records where they went live
             </span>
             <span className="flex items-center gap-2">
               <PenLine size={16} className="text-muted" aria-hidden="true" />

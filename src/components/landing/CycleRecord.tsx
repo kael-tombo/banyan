@@ -8,7 +8,7 @@ import { PlatformMark, type Platform } from "@/components/landing/landscape/plat
  * Three cycles for the same fictional product as the walkthrough, read top
  * to bottom: each one ends with a verdict and a lesson, and the lesson is
  * carried into the next. Cycle 2 shows the two honest outcomes the product
- * actually records (a blocked publication, a "not enough data" verdict), and
+ * actually records (a post that was never published, a "not enough data" verdict), and
  * cycle 3 is drafted and waiting on a human, so its window has not opened.
  * No performance numbers are shown, because none would be real.
  */
@@ -58,7 +58,7 @@ const CYCLES: Cycle[] = [
       body: "The window closed with too few signups to compare angles, so the cycle says exactly that instead of guessing.",
       tone: "thin",
     },
-    carried: "Reconnect X, and give the next test 21 days",
+    carried: "Publish on X as well, and give the next test 21 days",
   },
   {
     n: 3,
@@ -81,7 +81,7 @@ const CYCLES: Cycle[] = [
 function OutputChip({ output }: { output: Output }) {
   const state: Record<Output["state"], { text: string; cls: string; icon?: ReactNode }> = {
     published: { text: "Published", cls: "text-forest", icon: <Check size={12} aria-hidden="true" /> },
-    blocked: { text: "Blocked · connection expired", cls: "text-clay", icon: <Lock size={12} aria-hidden="true" /> },
+    blocked: { text: "Not published · no live URL recorded", cls: "text-clay", icon: <Lock size={12} aria-hidden="true" /> },
     handoff: { text: "Manual handoff", cls: "text-charcoal-soft" },
     waiting: { text: "Waiting on you", cls: "text-fig-deep" },
   };

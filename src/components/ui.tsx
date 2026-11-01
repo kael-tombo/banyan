@@ -257,6 +257,7 @@ export function StatusBadge({ status }: { status: string }) {
     error: "clay",
     verified: "forest",
     configured: "warm",
+    removed: "charcoal",
   };
   return <Badge variant={variantMap[status] ?? "warm"}>{status.replace(/_/g, " ")}</Badge>;
 }

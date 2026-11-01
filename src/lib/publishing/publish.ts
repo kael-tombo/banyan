@@ -1,30 +1,14 @@
 import { prisma } from "@/lib/db";
 import { isExportableContent } from "@/lib/state-machines";
-import { decryptSecret } from "@/lib/crypto";
-import { ConnectionConfig, PublishingAdapter } from "@/lib/publishing/types";
-import { postizAdapter } from "@/lib/publishing/postiz";
+import { providerFor, credentialsFromConnection, EXPORT_MODE_MESSAGE } from "@/lib/distribution/providers";
 import { shouldRetryPublication, nextRetryDelayMs } from "@/lib/publishing/retry";
 import { recordActivity } from "@/lib/activity";
 import { randomSlug } from "@/lib/crypto";
 import { claimDecision } from "@/lib/publishing/claim";
 import { enqueuePublicationAttempt } from "@/lib/queue/jobs";
 
-export const adapters: Record<string, PublishingAdapter> = {
-  postiz: postizAdapter,
-};
-
-export function adapterFor(provider: string): PublishingAdapter | null {
-  return adapters[provider] ?? null;
-}
-
-export function configFromConnection(connection: { configEncrypted: string }): ConnectionConfig {
-  const parsed = JSON.parse(decryptSecret(connection.configEncrypted) || "{}") as Partial<ConnectionConfig>;
-  return {
-    baseUrl: parsed.baseUrl ?? "",
-    apiKey: parsed.apiKey ?? "",
-    integrationIds: parsed.integrationIds ?? {},
-  };
-}
+/** Connection statuses that can never be used to publish. */
+export const UNUSABLE_CONNECTION_STATUSES = ["error", "removed"];
 
 /**
  * Publish or schedule approved content.
@@ -67,7 +51,7 @@ export async function attemptPublication(input: {
 
   const connection = input.connectionId
     ? await prisma.channelConnection.findFirst({ where: { id: input.connectionId, workspaceId: input.workspaceId } })
-    : await prisma.channelConnection.findFirst({ where: { workspaceId: input.workspaceId, channel: item.channel, status: { not: "error" } } });
+    : await prisma.channelConnection.findFirst({ where: { workspaceId: input.workspaceId, channel: item.channel, status: { notIn: UNUSABLE_CONNECTION_STATUSES } } });
 
   const idempotencyKey = `${item.id}:${input.mode}:${input.scheduledFor ? Math.floor(input.scheduledFor.getTime() / 60_000) * 60_000 : "now"}`;
   const publication = await prisma.publication.create({
@@ -137,9 +121,11 @@ export async function executePublication(publicationId: string): Promise<{ ok: b
   }
   await recordActivity({ workspaceId: item.workspaceId, type: "publication_attempt", actorType: "system", summary: `Publishing attempt for "${item.title}" via ${publication.provider}.` });
 
-  if (!publication.connection) {
-    const message =
-      "No configured publishing connection for this channel. Configure a Postiz connection in Publishing, or record a manual publication with the live post URL once you have published it yourself.";
+  const provider = publication.connection && !UNUSABLE_CONNECTION_STATUSES.includes(publication.connection.status)
+    ? providerFor(publication.connection.adapter)
+    : null;
+  if (!publication.connection || !provider) {
+    const message = EXPORT_MODE_MESSAGE;
     await prisma.publication.update({
       where: { id: publication.id },
       data: { status: "blocked", lastError: message },
@@ -149,19 +135,12 @@ export async function executePublication(publicationId: string): Promise<{ ok: b
     return { ok: false, status: "blocked", message };
   }
 
-  const adapter = adapterFor(publication.connection.adapter);
-  if (!adapter) {
-    await prisma.publication.update({ where: { id: publication.id }, data: { status: "failed", lastError: `Unknown adapter "${publication.connection.adapter}".` } });
-    await prisma.contentItem.update({ where: { id: item.id }, data: { status: "failed" } });
-    return { ok: false, status: "failed", message: `Unknown adapter "${publication.connection.adapter}".` };
-  }
-
-  const cfg = configFromConnection(publication.connection);
-  const result = await adapter.publish({
-    cfg,
+  const result = await provider.publish({
+    ctx: { workspaceId: item.workspaceId, credentials: credentialsFromConnection(publication.connection) },
     channel: item.channel,
     text: item.body,
     title: item.title,
+    idempotencyKey: publication.idempotencyKey,
     scheduledFor: publication.scheduledFor,
   });
 

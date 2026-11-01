@@ -17,14 +17,14 @@ export const CHANNEL_META: Record<Channel, ChannelMeta> = {
     key: "x",
     label: "X",
     description: "Single posts, threads, discussion starters, and product updates.",
-    capability: "Content generation and review are available. Publishing requires a Postiz connection.",
+    capability: "Content generation and review are available. Publishing runs in export mode until SocialFlow.ai is available.",
     requiresIntegration: true,
   },
   linkedin: {
     key: "linkedin",
     label: "LinkedIn",
     description: "Professional insights, founder stories, product-building updates, problem/solution, and announcements.",
-    capability: "Content generation and review are available. Publishing requires a Postiz connection.",
+    capability: "Content generation and review are available. Publishing runs in export mode until SocialFlow.ai is available.",
     requiresIntegration: true,
   },
   shortvideo: {

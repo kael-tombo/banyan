@@ -28,8 +28,8 @@ const GOALS = [
   ["leads", "Generate qualified leads"], ["activation", "Improve activation"], ["conversions", "Increase conversions"],
 ];
 const CHANNEL_OPTIONS = [
-  ["x", "X — posts and threads published via Postiz once connected"],
-  ["linkedin", "LinkedIn — posts published via Postiz once connected"],
+  ["x", "X — posts and threads"],
+  ["linkedin", "LinkedIn — posts"],
   ["shortvideo", "Short-form video — scripting only; production is manual"],
 ];
 
@@ -320,7 +320,7 @@ function ChannelsStep({ state, setState }: { state: StepState; setState: (fn: (s
   }
   return (
     <fieldset className="flex flex-col gap-4">
-      <StepIntro step="4" title="Where do you want to show up?" body="Selecting a channel is not connecting it. Publishing still requires configuring a Postiz connection." icon={<MegaphoneIcon />} />
+      <StepIntro step="4" title="Where do you want to show up?" body="Selecting a channel is not connecting it. Until SocialFlow.ai is available, you publish approved posts yourself and record the live URL." icon={<MegaphoneIcon />} />
       <div className="flex flex-col gap-2">
         {CHANNEL_OPTIONS.map(([key, label]) => (
           <label key={key} className={`flex cursor-pointer items-start gap-3 rounded-md border px-3 py-2.5 text-sm ${state.channels.includes(key) ? "border-forest/40 bg-forest/5" : "border-bark/15 bg-white"}`}>

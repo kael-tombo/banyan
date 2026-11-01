@@ -3,8 +3,8 @@
   "source": "scripts/backlog/stories-*.mjs",
   "totals": {
     "stories": 77,
-    "done": 15,
-    "ready": 12,
+    "done": 18,
+    "ready": 9,
     "backlog": 45,
     "blocked": 5
   },
@@ -1456,9 +1456,9 @@
       "epic": "SocialFlow.ai integration",
       "code": "SF",
       "priority": "P0",
-      "status": "Ready",
+      "status": "Done",
       "sprint": 1,
-      "wave": 1,
+      "wave": 0,
       "story": {
         "as": "the platform",
         "want": "every distribution operation to go through one DistributionProvider interface",
@@ -1497,7 +1497,7 @@
         "external": "error mapping table tested",
         "retry": "n/a"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: src/lib/distribution/types.ts (DistributionProvider: connectAccount, listAccounts, getCapabilities, publish, schedule, getStatus, getAnalytics; unsupported() helper; classifyHttpFailure normalisation) and providers.ts registry; publish.ts runs on it; 375/375 unit, E2E 43/43 in Docker",
       "blocker": null
     },
     {
@@ -1506,9 +1506,9 @@
       "epic": "SocialFlow.ai integration",
       "code": "SF",
       "priority": "P0",
-      "status": "Ready",
+      "status": "Done",
       "sprint": 1,
-      "wave": 2,
+      "wave": 0,
       "story": {
         "as": "product owner",
         "want": "no Postiz code, configuration or connection path in Banyan",
@@ -1552,7 +1552,7 @@
         "external": "n/a",
         "retry": "n/a"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: postiz.ts deleted; connections API accepts only enabled providers (E2E 'removed provider (postiz) cannot be connected' → 400); migration 20261101120000_remove_postiz marks postiz rows removed and defaults adapter to socialflow (applied in Docker); removed rows shown without Re-test; `grep -ri postiz src tests` → only the 'must not be re-added' comment",
       "blocker": null
     },
     {
@@ -1561,9 +1561,9 @@
       "epic": "SocialFlow.ai integration",
       "code": "SF",
       "priority": "P0",
-      "status": "Ready",
+      "status": "Done",
       "sprint": 1,
-      "wave": 3,
+      "wave": 0,
       "story": {
         "as": "visitor",
         "want": "the site to describe only distribution paths that exist",
@@ -1604,7 +1604,7 @@
         "external": "n/a",
         "retry": "n/a"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: landing strip, walkthrough publishing stage, cycle record, privacy page, onboarding, nav, agent messages, formats, README and docs/API.md describe SocialFlow.ai (not yet available) + export mode; Publishing page rendered signed-in in Docker with 0 Postiz mentions",
       "blocker": null
     },
     {
@@ -1615,7 +1615,7 @@
       "priority": "P0",
       "status": "Ready",
       "sprint": 2,
-      "wave": 2,
+      "wave": 1,
       "story": {
         "as": "engineer",
         "want": "the SocialFlow.ai operations Banyan needs written as a typed contract with mocked tests",
@@ -1667,7 +1667,7 @@
       "priority": "P0",
       "status": "Ready",
       "sprint": 2,
-      "wave": 3,
+      "wave": 2,
       "story": {
         "as": "the platform",
         "want": "a SocialFlowAdapter implementing DistributionProvider against the contract",
@@ -1728,7 +1728,7 @@
       "priority": "P1",
       "status": "Blocked",
       "sprint": 4,
-      "wave": 4,
+      "wave": 3,
       "story": {
         "as": "founder",
         "want": "to connect my X and LinkedIn accounts through SocialFlow.ai",
@@ -1784,7 +1784,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 2,
-      "wave": 2,
+      "wave": 1,
       "story": {
         "as": "founder",
         "want": "Banyan to offer only the publishing options that actually work for my account",
@@ -1838,7 +1838,7 @@
       "priority": "P0",
       "status": "Ready",
       "sprint": 2,
-      "wave": 2,
+      "wave": 1,
       "story": {
         "as": "founder",
         "want": "to export an approved post as a ready-to-publish package and record where it went live",
@@ -1892,7 +1892,7 @@
       "priority": "P1",
       "status": "Blocked",
       "sprint": 4,
-      "wave": 4,
+      "wave": 3,
       "story": {
         "as": "founder",
         "want": "Banyan to show the real status of posts SocialFlow.ai published",
@@ -1949,7 +1949,7 @@
       "priority": "P2",
       "status": "Blocked",
       "sprint": 5,
-      "wave": 5,
+      "wave": 4,
       "story": {
         "as": "the platform",
         "want": "to accept status pushes from SocialFlow.ai",
@@ -2004,7 +2004,7 @@
       "priority": "P0",
       "status": "Blocked",
       "sprint": 4,
-      "wave": 4,
+      "wave": 3,
       "story": {
         "as": "operator",
         "want": "`npm run smoke:socialflow` to prove the real integration end to end",
@@ -2062,7 +2062,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 3,
-      "wave": 3,
+      "wave": 2,
       "story": {
         "as": "new user",
         "want": "an onboarding stage that shows SocialFlow.ai's status and lets me continue in export mode",
@@ -3240,7 +3240,7 @@
       "priority": "P2",
       "status": "Blocked",
       "sprint": 5,
-      "wave": 4,
+      "wave": 3,
       "story": {
         "as": "founder",
         "want": "impressions and engagement from SocialFlow.ai next to my first-party clicks",
@@ -3709,7 +3709,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 2,
+      "wave": 1,
       "story": {
         "as": "founder",
         "want": "every failed external operation to show what failed and how to retry",
@@ -3767,9 +3767,9 @@
         "want": "unused components deleted",
         "so": "the codebase is smaller and easier to review"
       },
-      "businessContext": "TD-10.",
+      "businessContext": "TD-10. LivingTree and branches were already deleted with the Postiz removal (US-028).",
       "functionalRequirements": [
-        "Delete LivingTree, VascularTree, WorkflowFlow, branches, Sparkline and orphaned CSS",
+        "Delete VascularTree, WorkflowFlow, Sparkline and orphaned CSS (.lt-* LivingTree rules included)",
         "Keep or delete the vascular geometry test accordingly"
       ],
       "nonFunctionalRequirements": [
@@ -4134,7 +4134,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 6,
-      "wave": 4,
+      "wave": 1,
       "story": {
         "as": "visitor",
         "want": "the landing page to say what Banyan does today",

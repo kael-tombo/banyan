@@ -3,7 +3,7 @@ import { encryptSecret, decryptSecret, maskSecret, randomSlug } from "@/lib/cryp
 
 describe("secret encryption (AES-256-GCM)", () => {
   it("round-trips a credential payload without leaking plaintext", () => {
-    const payload = JSON.stringify({ baseUrl: "https://postiz.example.com", apiKey: "sk-live-123456" });
+    const payload = JSON.stringify({ baseUrl: "https://provider.example.com", apiKey: "sk-live-123456" });
     const encrypted = encryptSecret(payload);
     expect(encrypted).not.toContain("sk-live-123456");
     expect(decryptSecret(encrypted)).toBe(payload);

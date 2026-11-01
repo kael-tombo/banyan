@@ -30,7 +30,7 @@ export default function PrivacyPage() {
 
           <h2 className="serif text-xl font-semibold text-forest-deep">Third-party services</h2>
           <ul className="list-disc space-y-2 pl-5">
-            <li><strong>Publishing connections</strong> — when you configure a Postiz connection, your API key is stored encrypted (AES-256-GCM) and sent only to the Postiz instance you specify, to publish posts you approve.</li>
+            <li><strong>Distribution</strong> — Banyan distributes through SocialFlow.ai. That integration is not active yet: no account is connected and no content leaves Banyan automatically. When it is enabled, its credentials will be stored encrypted (AES-256-GCM) and used only to publish posts you approve. Until then you publish approved posts yourself and record the live URL.</li>
             <li><strong>AI providers</strong> — content generation may call a model provider if you configure one. Without configuration, no external AI calls are made and a clearly-labeled template fallback is used.</li>
           </ul>
 

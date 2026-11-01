@@ -235,7 +235,7 @@ export default async function ConnectionsPage() {
             </div>
             {connections.length === 0 ? (
               <p className="mt-3 text-sm text-charcoal-soft">
-                No provider connections yet. Publishing runs through Postiz (verified against its public API), or you can record manual publications with the live URL — the honest fallback that is always available.
+                No provider connections. Banyan distributes through SocialFlow.ai, which has no API Banyan can verify yet, so publishing runs in export mode: export the approved post, publish it yourself, and record the live URL.
               </p>
             ) : (
               <ul className="mt-3 divide-y divide-bark/10">

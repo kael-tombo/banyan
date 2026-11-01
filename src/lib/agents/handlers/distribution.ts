@@ -379,7 +379,7 @@ export async function handlePublish(ctx: HandlerContext): Promise<HandlerResult>
       outcome: "blocked",
       reason: `${blocked.length}/${attempts.length} publication(s) blocked: ${first.detail}`,
       actionable:
-        "Connect a Postiz integration in Publishing (the browser never sees your credentials) or publish natively yourself and record the live URL as a manual publication. The workflow state is preserved; retry this task once configured.",
+        "Automated publishing is not available yet (SocialFlow.ai has no verifiable API). Export the approved post, publish it yourself, and record the live URL as a manual publication. The workflow state is preserved.",
       output: {
         summary: `Publishing blocked: ${published.length}/${attempts.length} confirmed, ${blocked.length} blocked.`,
         refs: { publicationId: (published[0]?.publicationId ?? first.publicationId) ?? "" },

@@ -129,7 +129,7 @@ export function templatePlanDraft(
     missingInfo: [
       "Baseline for the success metric (current value, source, date) — needed to state progress honestly.",
       goal.deadline ? null : "A deadline, so pacing and urgency are real rather than implied.",
-      "Which publishing integration is available (Postiz connection, or manual publication recording).",
+      "Which publishing path is available (SocialFlow.ai once verified, or export mode with manual publication recording).",
     ].filter((s): s is string => !!s),
     risks: [
       "Without an approved plan no consequential action runs — the workflow waits.",

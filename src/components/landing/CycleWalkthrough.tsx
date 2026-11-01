@@ -216,14 +216,14 @@ const STAGES: Stage[] = [
     title: "Coordinated publishing",
     short: "Publishing",
     owner: "Publisher Agent",
-    summary: "Approved posts publish through your Postiz connection and the provider's response is recorded. Video is a handoff you record.",
-    produces: "Confirmed publications, or an honest block",
+    summary: "Today you publish each approved post yourself from its export package and record the live URL. When SocialFlow.ai's API is available, approved posts will publish through it automatically.",
+    produces: "Recorded publications with their live URLs",
     artifact: (
       <Panel>
         {[
-          { platform: "x" as const, name: "X thread", detail: "Through Postiz · provider confirmed", tag: <Tag tone="forest"><Check size={12} aria-hidden="true" /> Published</Tag> },
-          { platform: "linkedin" as const, name: "LinkedIn post", detail: "Through Postiz · provider confirmed", tag: <Tag tone="forest"><Check size={12} aria-hidden="true" /> Published</Tag> },
-          { platform: "youtube" as const, name: "Short-video script", detail: "Exported for you to record", tag: <Tag>Manual handoff</Tag> },
+          { platform: "x" as const, name: "X thread", detail: "Exported · published by you · live URL recorded", tag: <Tag tone="forest"><Check size={12} aria-hidden="true" /> Published</Tag> },
+          { platform: "linkedin" as const, name: "LinkedIn post", detail: "Exported · published by you · live URL recorded", tag: <Tag tone="forest"><Check size={12} aria-hidden="true" /> Published</Tag> },
+          { platform: "youtube" as const, name: "Short-video script", detail: "Exported for you to record", tag: <Tag>Waiting on you</Tag> },
         ].map((p) => (
           <div key={p.name} className="flex items-center gap-3 border-t border-[#EEF0F2] px-4 py-4 first:border-t-0">
             <PlatformMark platform={p.platform} size={20} />
@@ -235,7 +235,7 @@ const STAGES: Stage[] = [
           </div>
         ))}
         <p className="border-t border-[#EEF0F2] bg-[#F7F8F8] px-4 py-3 text-[13px] text-charcoal-soft">
-          No connection? The post is recorded as <span className="font-mono text-clay">blocked</span>, with the setup step attached.
+          Automated publishing through SocialFlow.ai is not available yet. Nothing is marked published until a live URL is recorded.
         </p>
       </Panel>
     ),

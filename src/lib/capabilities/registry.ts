@@ -1,44 +1,13 @@
-import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
 import { fastlaneAdapter } from "@/lib/capabilities/fastlane";
 import type { CapabilityAdapter, CapabilityDescriptor, CapabilityHealth } from "@/lib/capabilities/types";
+import { enabledProviderIds } from "@/lib/distribution/providers";
 
 /**
  * Capability registry — the single place where external capabilities are
  * described and discovered. Workflows and the UI ask the registry what is
  * actually usable; adapters answer honestly, per workspace.
  */
-
-class PostizCapability implements CapabilityAdapter {
-  readonly id = "postiz";
-  readonly kind = "publishing" as const;
-  readonly label = "Postiz (publishing to X and LinkedIn)";
-
-  capabilities(): string[] {
-    return ["publish.x", "publish.linkedin", "publish.schedule", "publish.immediate"];
-  }
-
-  describe(): CapabilityDescriptor {
-    return {
-      id: this.id,
-      kind: this.kind,
-      label: this.label,
-      capabilities: this.capabilities(),
-      status: "available",
-      detail:
-        "Publishing runs through a Postiz connection configured per workspace in Publishing. Without a connection, publications are recorded as blocked with setup guidance — never faked.",
-      docsUrl: "https://postiz.com/docs",
-      untested: false,
-    };
-  }
-
-  async health(workspaceId: string): Promise<CapabilityHealth> {
-    const count = await prisma.channelConnection.count({ where: { workspaceId, status: { not: "error" } } });
-    return count > 0
-      ? { ok: true, detail: `${count} configured channel connection(s).` }
-      : { ok: false, detail: "No Postiz connection configured for this workspace yet. Add one in Publishing, or record manual publications with the live URL." };
-  }
-}
 
 class ManagedModelCapability implements CapabilityAdapter {
   readonly id = "managed-model";
@@ -105,32 +74,36 @@ class SocialFlowCapability implements CapabilityAdapter {
   readonly label = "SocialFlow.ai (distribution execution)";
 
   capabilities(): string[] {
-    return ["publish.socialflow.handoff"];
+    return ["publish.x", "publish.linkedin", "publish.schedule", "publish.immediate", "publish.socialflow.handoff"];
+  }
+
+  private live(): boolean {
+    return enabledProviderIds().includes(this.id);
   }
 
   describe(): CapabilityDescriptor {
+    const live = this.live();
     return {
       id: this.id,
       kind: this.kind,
       label: this.label,
       capabilities: this.capabilities(),
-      status: "unavailable",
-      detail:
-        "No verified API exists for SocialFlow.ai (socialflow.ai is a parked domain as of October 28 2026 — no developer documentation, auth model, or endpoints). Banyan does not fabricate integrations: the supported path today is the manual handoff — Banyan formats approved content into a copy-ready package, you publish/schedule it in SocialFlow.ai (or any tool), and record the live URL as a user-confirmed manual publication. The adapter slot, required capability list and activation checklist are ready in docs/SOCIALFLOW_INTEGRATION.md for when a real API appears.",
-      untested: false,
+      status: live ? "available" : "unavailable",
+      detail: live
+        ? "SocialFlow.ai publishing is enabled and verified on this deployment."
+        : "SocialFlow.ai has no API Banyan can verify: its own repository is a browser-only planning release whose backend cannot be built, and socialflow.ai is a parked domain (audited 2026-11-01). Automated publishing is therefore unavailable. The live path is export mode (the manual handoff): Banyan prepares the approved post, you publish it, and the live URL is recorded as a manual publication. See docs/SOCIALFLOW_INTEGRATION_AUDIT.md.",
+      untested: !live,
     };
   }
 
   async health(): Promise<CapabilityHealth> {
-    return {
-      ok: false,
-      detail: "No verifiable SocialFlow.ai API (parked domain, checked 2026-10-28). Use the manual handoff + manual publication recording.",
-    };
+    return this.live()
+      ? { ok: true, detail: "SocialFlow.ai provider enabled and verified." }
+      : { ok: false, detail: "No verifiable SocialFlow.ai API (audited 2026-11-01). Use export mode and record the live URL." };
   }
 }
 
 const ADAPTERS: CapabilityAdapter[] = [
-  new PostizCapability(),
   new ManagedModelCapability(),
   new WebResearchCapability(),
   new SocialFlowCapability(),

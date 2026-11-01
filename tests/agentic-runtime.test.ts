@@ -108,9 +108,12 @@ describe("capability registry honesty", () => {
     expect(d.detail).toMatch(/no external research provider is verified/i);
   });
 
-  it("resolves the publishing capability to Postiz", () => {
+  it("resolves the publishing capability to SocialFlow.ai, honestly unavailable until verified (ADR-003)", () => {
     const publishing = capabilityFor("publish.x");
-    expect(publishing?.id).toBe("postiz");
+    expect(publishing?.id).toBe("socialflow");
+    const d = publishing!.describe();
+    expect(d.status).toBe("unavailable");
+    expect(d.detail).toMatch(/no API Banyan can verify/i);
   });
 
   it("health() without credentials honestly reports the blocker", async () => {

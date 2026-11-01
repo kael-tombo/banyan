@@ -5,6 +5,7 @@ import { requireWorkspaceServer } from "@/lib/workspace";
 import { PageHeader, Card, Badge, StatusBadge } from "@/components/ui";
 import { CHANNEL_META, CHANNELS, isChannel } from "@/lib/formats";
 import { ConnectionManager } from "./connections";
+import { enabledProviderIds } from "@/lib/distribution/providers";
 
 export const metadata: Metadata = { title: "Publishing" };
 
@@ -31,10 +32,11 @@ export default async function PublishingPage() {
     <>
       <PageHeader
         title="Publishing"
-        description="Connect a real provider to publish X and LinkedIn. Content only publishes after human approval, and a publication is recorded as confirmed only when the provider confirms it."
+        description="Where approved content goes live. Nothing publishes without your approval, and a publication counts as confirmed only when SocialFlow.ai confirms it or you record the live URL."
       />
 
       <ConnectionManager
+        providersAvailable={enabledProviderIds().length > 0}
         initial={connections.map((c) => ({
           id: c.id,
           channel: c.channel,
@@ -72,23 +74,25 @@ export default async function PublishingPage() {
         <ul className="space-y-2 text-sm">
           <li className="flex flex-wrap items-center justify-between gap-2">
             <span>
-              <span className="block font-medium text-charcoal">Postiz</span>
-              <span className="block text-charcoal-soft">Verified against the Postiz public API (list integrations, create posts, schedule). Self-hosted or cloud.</span>
+              <span className="block font-medium text-charcoal">SocialFlow.ai</span>
+              <span className="block text-charcoal-soft">
+                Banyan&apos;s distribution provider. It has no API Banyan can verify yet: its repository is a browser-only
+                planning release and socialflow.ai is a parked domain (audited November 2026). Banyan does not fake an
+                integration, so automated publishing is off until SocialFlow.ai ships the operations listed in{" "}
+                <code>docs/SOCIALFLOW_INTEGRATION_AUDIT.md</code>.
+              </span>
             </span>
-            <Badge variant="forest">available now</Badge>
+            <Badge variant="warm">not available yet</Badge>
           </li>
           <li className="flex flex-wrap items-center justify-between gap-2">
             <span>
-              <span className="block font-medium text-charcoal">SocialFlow.ai</span>
+              <span className="block font-medium text-charcoal">Export mode</span>
               <span className="block text-charcoal-soft">
-                No verifiable API exists yet — socialflow.ai is a parked domain (checked October 2026), with no developer
-                documentation, auth model, or endpoints. Banyan does not fabricate integrations. Until a real API appears,
-                use the <strong>SocialFlow.ai handoff</strong> on any content item: copy the formatted package, execute it
-                in SocialFlow.ai, then record the live URL as a manual publication. The adapter slot, required capability
-                list and activation checklist are ready in <code>docs/SOCIALFLOW_INTEGRATION.md</code>.
+                Export any approved post as a ready-to-publish package, publish it yourself in any tool, then record the live
+                URL. It is stored as a manual publication, never as a provider confirmation.
               </span>
             </span>
-            <Badge variant="warm">manual handoff only</Badge>
+            <Badge variant="moss">available</Badge>
           </li>
           <li className="flex flex-wrap items-center justify-between gap-2">
             <span>

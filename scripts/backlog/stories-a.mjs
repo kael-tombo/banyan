@@ -340,7 +340,7 @@ export const storiesA = [
 
   // ───────────────────────── SF — SocialFlow.ai and distribution ─────────────────────────
   {
-    id: "US-027", epic: "SocialFlow.ai integration", code: "SF", priority: "P0", status: "Ready", sprint: 1,
+    id: "US-027", epic: "SocialFlow.ai integration", code: "SF", priority: "P0", status: "Done", sprint: 1,
     title: "One provider-neutral distribution interface",
     as: "the platform", want: "every distribution operation to go through one DistributionProvider interface", so: "SocialFlow.ai or export mode can be swapped without touching strategy or content code",
     context: "PublishingAdapter exists with publish and status. The brief's interface adds account listing, capabilities, schedule and analytics.",
@@ -350,9 +350,10 @@ export const storiesA = [
     deps: { stories: [], optional: [], external: [], infra: [], api: [] },
     impl: { frontend: "None", backend: "src/lib/distribution/types.ts; adapt publish.ts", database: "None", integration: "Export provider implements it first", jobs: "None" },
     tests: { happy: "export provider satisfies the interface", validation: "n/a", authorization: "n/a", external: "error mapping table tested", retry: "n/a" },
+    evidence: "2026-11-01: src/lib/distribution/types.ts (DistributionProvider: connectAccount, listAccounts, getCapabilities, publish, schedule, getStatus, getAnalytics; unsupported() helper; classifyHttpFailure normalisation) and providers.ts registry; publish.ts runs on it; 375/375 unit, E2E 43/43 in Docker",
   },
   {
-    id: "US-028", epic: "SocialFlow.ai integration", code: "SF", priority: "P0", status: "Ready", sprint: 1,
+    id: "US-028", epic: "SocialFlow.ai integration", code: "SF", priority: "P0", status: "Done", sprint: 1,
     title: "Remove the Postiz integration",
     as: "product owner", want: "no Postiz code, configuration or connection path in Banyan", so: "the product follows the architecture decision and has one distribution provider",
     context: "Brief forbids Postiz (ADR-003). Postiz adapter, connection API enum, connection UI and capability entry exist.",
@@ -362,9 +363,10 @@ export const storiesA = [
     deps: { stories: ["US-027"], optional: [], external: [], infra: [], api: [] },
     impl: { frontend: "Remove Postiz connection UI", backend: "Remove adapter and enum value", database: "Migration marks postiz connections disabled", integration: "None", jobs: "None" },
     tests: { happy: "publish flow works via export", validation: "creating a postiz connection returns 400", authorization: "n/a", external: "n/a", retry: "n/a" },
+    evidence: "2026-11-01: postiz.ts deleted; connections API accepts only enabled providers (E2E 'removed provider (postiz) cannot be connected' → 400); migration 20261101120000_remove_postiz marks postiz rows removed and defaults adapter to socialflow (applied in Docker); removed rows shown without Re-test; `grep -ri postiz src tests` → only the 'must not be re-added' comment",
   },
   {
-    id: "US-029", epic: "SocialFlow.ai integration", code: "SF", priority: "P0", status: "Ready", sprint: 1,
+    id: "US-029", epic: "SocialFlow.ai integration", code: "SF", priority: "P0", status: "Done", sprint: 1,
     title: "Remove Postiz claims from the product and the landing page",
     as: "visitor", want: "the site to describe only distribution paths that exist", so: "I am not promised something the product does not do",
     context: "The landing page, onboarding, privacy page and app nav mention Postiz.",
@@ -374,6 +376,7 @@ export const storiesA = [
     deps: { stories: ["US-028"], optional: [], external: [], infra: [], api: [] },
     impl: { frontend: "Landing, onboarding, privacy, nav copy", backend: "None", database: "None", integration: "None", jobs: "None" },
     tests: { happy: "copy review", validation: "grep shows no Postiz claim", authorization: "n/a", external: "n/a", retry: "n/a" },
+    evidence: "2026-11-01: landing strip, walkthrough publishing stage, cycle record, privacy page, onboarding, nav, agent messages, formats, README and docs/API.md describe SocialFlow.ai (not yet available) + export mode; Publishing page rendered signed-in in Docker with 0 Postiz mentions",
   },
   {
     id: "US-030", epic: "SocialFlow.ai integration", code: "SF", priority: "P0", status: "Ready", sprint: 2,

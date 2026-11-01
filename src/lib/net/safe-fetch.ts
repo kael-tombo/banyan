@@ -3,7 +3,7 @@ import net from "node:net";
 
 /**
  * Safe outbound fetch for URLs that originate from user input (today: the
- * Postiz connection baseUrl; tomorrow: any scraping feature). This is the
+ * distribution provider base URL; product URL intake). This is the
  * single choke point for the SSRF class of bugs:
  *
  *   - protocol allow-list: http/https only

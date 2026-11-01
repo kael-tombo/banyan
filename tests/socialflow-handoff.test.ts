@@ -95,6 +95,8 @@ describe("SocialFlow.ai capability registry honesty", () => {
     expect(d.status).toBe("unavailable");
     expect(d.detail).toContain("parked domain");
     expect(d.detail).toContain("manual handoff");
-    expect(d.capabilities).toEqual(["publish.socialflow.handoff"]);
+    // Since ADR-003 SocialFlow.ai owns the publishing capabilities; they stay
+    // unavailable (asserted above) until the adapter is verified.
+    expect(d.capabilities).toEqual(expect.arrayContaining(["publish.socialflow.handoff", "publish.x", "publish.linkedin"]));
   });
 });

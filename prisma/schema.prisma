@@ -218,12 +218,13 @@ model ChannelConnection {
   workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   // The channel this connection publishes to: x | linkedin | shortvideo
   channel         String
-  // Publishing adapter provider: postiz | manual
-  adapter         String    @default("postiz")
+  // Distribution provider id from src/lib/distribution/providers.ts (socialflow).
+  // Rows with "postiz" are historical: Postiz was removed (ADR-003) and they are status=removed.
+  adapter         String    @default("socialflow")
   label           String
-  // AES-256-GCM encrypted JSON config { baseUrl, apiKey, integrationIds }
+  // AES-256-GCM encrypted JSON of provider-specific credentials
   configEncrypted String
-  // configured | verified | error
+  // configured | verified | error | removed (kept for audit, never used to publish)
   status          String    @default("configured")
   lastCheckedAt   DateTime?
   lastError       String?

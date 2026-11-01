@@ -57,7 +57,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "System",
     items: [
-      { href: "/app/connections", label: "Connections", icon: Link2, keywords: "integrations postiz credentials" },
+      { href: "/app/connections", label: "Connections", icon: Link2, keywords: "integrations socialflow credentials" },
       { href: "/app/activity", label: "Agent activity", icon: Bot, keywords: "tasks runs audit log agents" },
       { href: "/app/usage", label: "Model usage", icon: Receipt, keywords: "cost tokens billing" },
     ],
@@ -91,7 +91,7 @@ export const QUICK_ACTIONS: QuickAction[] = [
   { href: "/app/campaigns/new", label: "New campaign", icon: Megaphone, hint: "Plan a coordinated push", keywords: "create launch" },
   { href: "/app/approvals", label: "Review approvals", icon: CheckCircle2, hint: "What is waiting on you", keywords: "queue gate decisions" },
   { href: "/app/experiments", label: "Start an experiment", icon: FlaskConical, hint: "One variable at a time", keywords: "test hypothesis" },
-  { href: "/app/connections", label: "Connect a channel", icon: Link2, hint: "Verify publishing access", keywords: "integrate postiz" },
+  { href: "/app/connections", label: "Connect a channel", icon: Link2, hint: "Verify publishing access", keywords: "integrate socialflow" },
 ];
 
 /** The destination that owns the current URL (longest matching route). */

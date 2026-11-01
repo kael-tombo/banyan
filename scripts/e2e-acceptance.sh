@@ -142,6 +142,10 @@ case "$BODY" in
   *) bad "publish without connection blocked honestly" "body=${BODY:0:300}";;
 esac
 
+# US-028: Postiz is removed; no connection can be created for it (or any provider until SocialFlow.ai is verified).
+req POST /api/connections "$JAR1" '{"channel":"x","adapter":"postiz","credentials":{"apiKey":"k"}}'
+                                       check "$STATUS" 400 "removed provider (postiz) cannot be connected"
+
 req POST "/api/content/$CONTENT_ID/publish" "$JAR1" '{"mode":"manual","liveUrl":"https://example.com/banyan-manual-post"}'
                                        check "$STATUS" 200 "manual publication recorded with real URL"
 
@@ -182,10 +186,12 @@ out=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/goals" -H "origi
                                        check "$out" 413 "oversized request body rejected (413)"
 req POST /api/goals "$JAR1" '{broken json'; check "$STATUS" 400 "malformed JSON rejected (400)"
 
-req POST /api/connections "$JAR1" '{"channel":"x","adapter":"postiz","label":"ssrf-probe","baseUrl":"http://169.254.169.254/latest/meta-data","apiKey":"probe-key-123","integrationIds":{}}'
+# SSRF: product URL intake is the outbound fetch of a user-supplied URL (the
+# connection probe it replaces went away with Postiz). Cloud metadata and
+# private addresses must be refused before any request is made.
+req POST /api/product/intake "$JAR1" '{"url":"http://169.254.169.254/latest/meta-data"}'
 contains "$BODY" "Blocked" "SSRF attempt against cloud metadata blocked"
-CONN_ID=$(printf '%s' "$BODY" | jget '.connection.id')
-if [ -n "$CONN_ID" ]; then req DELETE "/api/connections/$CONN_ID" "$JAR1"; check "$STATUS" 200 "SSRF probe connection cleaned up"; fi
+check "$STATUS" 400 "SSRF attempt rejected with 400"
 
 req POST /api/auth/logout "$JAR1";     check "$STATUS" 200 "logout works"
 req GET /api/goals "$JAR1";            check "$STATUS" 401 "session invalidated after logout"

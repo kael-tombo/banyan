@@ -48,9 +48,9 @@ These rules are enforced in the code, not just documented:
 | AI | Model router over OpenAI-compatible endpoints + usage ledger + quotas |
 | Background jobs | BullMQ on Redis (`worker/`), HTTP tick fallback without Redis |
 | Infrastructure | Docker Compose: web, worker, migrate, postgres, redis |
-| Publishing | Postiz adapter (HTTP) behind a provider-neutral interface |
+| Distribution | Provider-neutral `DistributionProvider`; SocialFlow.ai (not yet verifiable) + export mode |
 | Capabilities | Provider-independent registry (publishing, creative, research, analytics) |
-| Tests | Vitest (373 unit tests) + 42-check live E2E acceptance script |
+| Tests | Vitest (375 unit tests) + 43-check live E2E acceptance script |
 
 ## Quick start (Docker — recommended)
 
@@ -163,9 +163,9 @@ The core loop is goal-driven and persists every step:
    one message, one audience, a declared success metric.
 4. **Content** — channel/format-specific drafts land in the review queue.
 5. **Approval gate** — a recorded human decision closes the gate.
-6. **Publish** — via a configured Postiz integration, or recorded manually
-   with the live URL. Without a connection the task is honestly **blocked**
-   with setup guidance and the workflow state is preserved.
+6. **Publish** — through SocialFlow.ai once its API is verified; today in
+   export mode: you publish the approved post and record the live URL. The
+   automated step is honestly **blocked** and the workflow state is preserved.
 7. **Measure → Evaluate → Recommend** — real observed outcomes only
    (publications, tracked clicks, first-party events), an experiment verdict
    with limitations, and a next action that cites its evidence.
@@ -194,8 +194,10 @@ A modular monolith plus one background worker — no premature microservices.
     evaluated Fastlane adapter.
   - `ai/` — provider interface, OpenAI-compatible adapter, labelled fallback,
     structured-output validation, plan and content generation.
-  - `publishing/` — provider-neutral `PublishingAdapter` interface, the Postiz
-    adapter, and the publication lifecycle (`publish.ts`).
+  - `distribution/` — the provider-neutral `DistributionProvider` interface and
+    the provider registry (empty until SocialFlow.ai is verified).
+  - `publishing/` — the publication lifecycle (`publish.ts`): atomic claim,
+    approval re-check, bounded retry, manual recording, export package.
   - `analytics/` — tracked-link creation and click/attribution recording.
   - `state-machines.ts` — explicit campaign/content/goal/task transitions and
     the export guard.
@@ -242,7 +244,7 @@ API: `auth/{login,logout,signup}`, `profile`, `profile/facts` (+`[id]`),
 3. **Campaign** — one message, one audience, a declared success metric.
 4. **Content** — channel/format-specific drafts, versioned; generation never overwrites edits.
 5. **Approval** — a human approves a specific revision; publishing is refused without it.
-6. **Publish** — via a connected Postiz integration, or recorded manually with a real URL.
+6. **Publish** — through SocialFlow.ai once verified; today you publish the export and record the real URL.
 7. **Measure** — tracked links record first-party visits; signups are attributed only when the visitor cookie is present.
 8. **Learn** — experiments draft conclusions from recorded data (and say "not enough data" otherwise). Concluded interpretations become prompt context for the next plan, strategy and draft, so the loop compounds instead of resetting.
 
@@ -266,22 +268,20 @@ Explicit intake fields win over model extraction: the selected metric, target,
 deadline and channels are stored on the goal, and the strategy handler refuses
 to silently drop a channel the founder chose.
 
-## Publishing integration
+## Distribution
 
-The only implemented provider is **Postiz**, through a provider-neutral interface
-(`src/lib/publishing/types.ts`). It publishes to X and LinkedIn; short-form video
-is script-only by design. Channel connections are added in `/app/publishing` and
-verified by calling the provider. Without credentials the whole workflow still
-works up to publication, which is recorded as `blocked`.
+Banyan distributes through **SocialFlow.ai**, behind the provider-neutral
+`DistributionProvider` interface (`src/lib/distribution/types.ts`). SocialFlow.ai
+has no API Banyan can verify yet — its repository is a browser-only planning
+release and socialflow.ai is a parked domain — so the provider registry is empty
+and no automated publishing happens. Evidence, the contract Banyan needs and the
+handoff for the SocialFlow.ai team: [docs/SOCIALFLOW_INTEGRATION_AUDIT.md](docs/SOCIALFLOW_INTEGRATION_AUDIT.md).
 
-Connector status in `/app/publishing`: **Postiz — available now**; **SocialFlow.ai
-— no verifiable API exists (socialflow.ai is a parked domain, checked October
-2026), so no client was built; the SocialFlow.ai *handoff* on each content item
-exports a channel-formatted, copy-ready package for manual execution, and the
-live URL is recorded as a user-confirmed manual publication — activation
-checklist in [`docs/SOCIALFLOW_INTEGRATION.md`](docs/SOCIALFLOW_INTEGRATION.md)**;
-**manual recording — always available** (publish natively yourself, record the
-live URL as a user-confirmed manual publication).
+**Export mode** is the live path: every approved post has an export package
+(channel-formatted copy, video script, checklist). You publish it yourself and
+record the live URL, which is stored as a manual publication — never as a
+provider confirmation. Postiz was removed ([ADR-003](docs/ARCHITECTURE_DECISIONS.md));
+old Postiz connections are kept for the record with status `removed`.
 
 ## Brand
 
@@ -324,8 +324,8 @@ journey (42 checks) against a live server. See [`docs/TESTING.md`](docs/TESTING.
   (e.g. per-task cron scheduling or human-in-the-loop multi-day pauses),
   parallel multi-campaign waves per goal, and inter-workspace agent
   delegation.
-- Publishing has not been exercised against real Postiz credentials here;
-  without a connection the publish step is honestly blocked.
+- Automated publishing is unavailable until SocialFlow.ai ships a verifiable
+  API; the publish step is honestly blocked and export mode is the live path.
 - The Fastlane capability adapter is implemented against Fastlane's documented
   API but is **unverified** until exercised with real credentials
   (`FASTLANE_API_KEY`). Brand analysis is not part of Fastlane's API and is
