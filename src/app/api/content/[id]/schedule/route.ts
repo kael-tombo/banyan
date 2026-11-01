@@ -38,7 +38,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       data: { status: "approved", scheduledFor: null },
     });
     await syncCampaignLifecycle(updated.campaignId);
-    return json({ item: updated, cancelled: true, atProvider: cancelled.atProvider });
+    return json({
+      item: updated,
+      cancelled: true,
+      atProvider: cancelled.atProvider,
+      message: cancelled.atProvider ? "Cancelled here and in SocialFlow.ai. Nothing was published." : "Schedule cancelled. Nothing was sent.",
+    });
   }
 
   if (!parsed.data.scheduledFor) return apiError("scheduledFor is required.", 400);

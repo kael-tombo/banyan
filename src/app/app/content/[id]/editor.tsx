@@ -518,7 +518,13 @@ export function ContentEditor({
             )}
             {item.status === "scheduled" && (
               <div className="flex flex-col gap-2">
-                <p className="text-xs text-charcoal-soft">Scheduled for {item.scheduledFor ? new Date(item.scheduledFor).toLocaleString() : "?"}. The publishing worker attempts delivery then; until then its state is pending.</p>
+                {publications.some((p) => p.status === "scheduled" && p.externalId) ? (
+                  <p className="text-xs text-charcoal-soft">
+                    SocialFlow.ai has this post but has not confirmed it is live. Banyan checks again {item.scheduledFor ? `at ${new Date(item.scheduledFor).toLocaleString()}` : "shortly"} and marks it published only when SocialFlow.ai confirms. Cancelling also cancels it in SocialFlow.ai.
+                  </p>
+                ) : (
+                  <p className="text-xs text-charcoal-soft">Scheduled for {item.scheduledFor ? new Date(item.scheduledFor).toLocaleString() : "?"}. The publishing worker attempts delivery then; until then its state is pending.</p>
+                )}
                 <Button size="sm" variant="secondary" onClick={cancelSchedule} disabled={!!busy}>Cancel schedule</Button>
               </div>
             )}
