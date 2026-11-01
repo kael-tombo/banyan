@@ -1,45 +1,50 @@
-# Banyan — single-node production image (PostgreSQL).
-# Build:  docker build -t banyan .
-# Run:    docker run -p 3000:3000 --env-file .env banyan
-#         (.env must contain DATABASE_URL pointing at a reachable Postgres —
-#          e.g. hosted Prisma Postgres — plus APP_SECRET and WORKER_SECRET)
-# Worker: docker run --env-file .env banyan npm run worker
-# Migrations run automatically on container start (prisma migrate deploy;
-# the prisma CLI ships in dependencies so it is available after pruning).
+# Banyan — production image (US-002).
+#
+# One image, three roles (see docker-compose.yml):
+#   web     next start                       (UI + API)
+#   worker  node dist/worker.js              (BullMQ consumer + maintenance sweep)
+#   migrate npx prisma migrate deploy        (one-shot, before web and worker)
+#
+# Standalone use: docker build -t banyan . && docker run --env-file .env -p 3000:3000 banyan
 
-FROM node:20-alpine AS base
-# Prisma engines on musl need openssl; sharp-style native bits need libc compat.
+FROM node:22-alpine AS base
+# Prisma engines on musl need openssl; libc6-compat for native modules.
 RUN apk add --no-cache openssl libc6-compat
 WORKDIR /app
+ENV NEXT_TELEMETRY_DISABLED=1
 
-# ---- deps ----
+# ---- deps: full install for the build ----
 FROM base AS deps
 COPY package.json package-lock.json ./
-RUN npm ci
+# legacy-peer-deps is pinned off so the result never depends on the builder's npm config.
+RUN npm ci --legacy-peer-deps=false
 
-# ---- build ----
+# ---- build: Next.js app + bundled worker ----
 FROM deps AS build
 COPY . .
-# Build-time placeholders: the build machine is not the runtime host.
-# env.ts exempts the WORKER_SECRET runtime guard during next build;
-# scripts/migrate-if-configured.ts skips migrate deploy for file: URLs.
+# Build-time placeholders only. env.ts exempts runtime-only secrets during
+# `next build`; migrate-if-configured skips migrations for file: URLs.
 ENV DATABASE_URL=file:./build-placeholder.db \
-    APP_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef \
-    NEXT_TELEMETRY_DISABLED=1
-RUN npx prisma generate && npm run build && npm prune --omit=dev
+    APP_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+RUN npx prisma generate \
+ && npm run build \
+ && npm run build:worker \
+ && npm prune --omit=dev --legacy-peer-deps=false
 
-# ---- runtime ----
+# ---- runtime: non-root, production dependencies only ----
 FROM base AS runtime
 ENV NODE_ENV=production \
-    NEXT_TELEMETRY_DISABLED=1
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/.next ./.next
-COPY --from=build /app/public ./public
-COPY --from=build /app/package.json ./package.json
-COPY --from=build /app/next.config.ts ./next.config.ts
-COPY --from=build /app/prisma ./prisma
-COPY --from=build /app/src ./src
-COPY --from=build /app/worker ./worker
-COPY --from=build /app/tsconfig.json ./tsconfig.json
+    PORT=3000 \
+    HOSTNAME=0.0.0.0
+COPY --from=build --chown=node:node /app/node_modules ./node_modules
+COPY --from=build --chown=node:node /app/.next ./.next
+COPY --from=build --chown=node:node /app/public ./public
+COPY --from=build --chown=node:node /app/dist ./dist
+COPY --from=build --chown=node:node /app/prisma ./prisma
+COPY --from=build --chown=node:node /app/package.json /app/next.config.ts ./
+USER node
 EXPOSE 3000
-CMD ["sh", "-c", "npx prisma migrate deploy && npm start"]
+HEALTHCHECK --interval=15s --timeout=5s --start-period=40s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:3000/api/health >/dev/null 2>&1 || exit 1
+# Run next directly (no npm/npx wrapper) so SIGTERM reaches Node for a graceful shutdown.
+CMD ["node_modules/.bin/next", "start"]

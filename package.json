@@ -14,7 +14,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "setup": "npm run db:deploy && npm run db:seed"
+    "setup": "npm run db:deploy && npm run db:seed",
+    "build:worker": "esbuild worker/index.ts --bundle --platform=node --target=node22 --format=cjs --packages=external --tsconfig=tsconfig.json --outfile=dist/worker.js",
+    "worker:prod": "node dist/worker.js"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -37,6 +39,7 @@
     "@types/node": "^24.0.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
+    "esbuild": "^0.28.2",
     "tailwindcss": "^4.1.11",
     "tsx": "^4.19.2",
     "typescript": "^5.8.3",

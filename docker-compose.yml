@@ -1,0 +1,109 @@
+# Banyan — complete local / single-host stack (US-001, US-003).
+#
+#   docker compose up -d --build     start everything
+#   docker compose ps                status and health
+#   docker compose logs -f           follow logs
+#   BASE_URL=http://localhost:$WEB_PORT bash scripts/e2e-acceptance.sh   (E2E against the stack)
+#   docker compose down              stop; data volumes are kept
+#
+# Services: web (Next.js UI + API), worker (queue consumer), migrate (one-shot),
+# postgres, redis. Only web publishes a host port. Secrets come from .env.
+# The brief's separate "frontend" and "api" run in one Next.js process (ADR-001).
+
+name: banyan
+
+x-app-env: &app-env
+  NODE_ENV: production
+  DATABASE_URL: postgresql://${POSTGRES_USER:-banyan}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-banyan}
+  REDIS_URL: redis://redis:6379/0
+  APP_SECRET: ${APP_SECRET:?set APP_SECRET in .env (64 hex chars)}
+  WORKER_SECRET: ${WORKER_SECRET:?set WORKER_SECRET in .env}
+  NEXT_PUBLIC_APP_URL: ${COMPOSE_APP_URL:-http://localhost:${WEB_PORT:-3000}}
+  AI_PROVIDER: ${AI_PROVIDER:-}
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+  OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+  MODEL_MAX_CALLS_PER_DAY: ${MODEL_MAX_CALLS_PER_DAY:-500}
+  SEED_USER_EMAIL: ${SEED_USER_EMAIL:-founder@banyan.ai}
+  SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-banyan}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-banyan}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    stop_grace_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Append-only file: queued jobs survive a Redis restart.
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build: .
+    image: banyan-app:local
+    command: ["node_modules/.bin/prisma", "migrate", "deploy"]
+    environment: *app-env
+    healthcheck:
+      disable: true
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  web:
+    image: banyan-app:local
+    restart: unless-stopped
+    environment: *app-env
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    stop_grace_period: 20s
+
+  worker:
+    image: banyan-app:local
+    restart: unless-stopped
+    command: ["node", "dist/worker.js"]
+    environment:
+      <<: *app-env
+      WORKER_INTERVAL_MS: ${WORKER_INTERVAL_MS:-60000}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
+    # The worker serves no HTTP; it is healthy while its process runs and
+    # Compose restarts it if it exits.
+    healthcheck:
+      disable: true
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    stop_grace_period: 30s
+
+# Project-scoped names (banyan_pgdata, banyan_redisdata). Never give these a
+# global `name:`: a volume shared with another Postgres container (different
+# image, different uid) gets its ownership rewritten and both servers break.
+volumes:
+  pgdata:
+  redisdata:

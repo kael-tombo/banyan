@@ -46,11 +46,30 @@ These rules are enforced in the code, not just documented:
 | Validation | Zod |
 | Auth | Cookie sessions (DB-backed, HMAC-hashed tokens) + bcryptjs |
 | AI | Model router over OpenAI-compatible endpoints + usage ledger + quotas |
+| Background jobs | BullMQ on Redis (`worker/`), HTTP tick fallback without Redis |
+| Infrastructure | Docker Compose: web, worker, migrate, postgres, redis |
 | Publishing | Postiz adapter (HTTP) behind a provider-neutral interface |
 | Capabilities | Provider-independent registry (publishing, creative, research, analytics) |
-| Tests | Vitest (354 unit tests) + 42-check live E2E acceptance script |
+| Tests | Vitest (373 unit tests) + 42-check live E2E acceptance script |
 
-## Quick start
+## Quick start (Docker — recommended)
+
+```bash
+cp .env.example .env
+# Set APP_SECRET (64 hex chars), WORKER_SECRET and POSTGRES_PASSWORD, e.g.:
+#   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+
+docker compose up -d --build   # web, worker, migrate (one-shot), postgres, redis
+docker compose ps              # all healthy; migrate shows Exited (0)
+docker compose logs -f         # follow logs (Ctrl-C to stop following)
+docker compose down            # stop; database and queue volumes are kept
+```
+
+The app is at `http://localhost:3000` (change it with `WEB_PORT`). Migrations run
+once before web and worker start. Full guide, test profile, backups and
+troubleshooting: [docs/DOCKER_DEPLOYMENT.md](docs/DOCKER_DEPLOYMENT.md).
+
+## Quick start (without Docker)
 
 ```bash
 # 1. Install dependencies
@@ -86,7 +105,11 @@ planned campaign and one planned experiment, and **no results**.
 | `OPENAI_MODEL` | no | Model name (default `gpt-4o-mini`) |
 | `OPENAI_EXTRA_HEADERS` | no | JSON object of extra headers for gated OpenAI-compatible gateways, e.g. `{"X-Z-AI-From":"Z","X-Token":"…"}`. Invalid JSON is ignored |
 | `WORKER_SECRET` | no | Bearer secret protecting `POST /api/worker/tick` |
-| `WORKER_INTERVAL_MS` | no | How often `npm run worker` polls the tick endpoint |
+| `WORKER_INTERVAL_MS` | no | Maintenance sweep interval (queue mode) or tick interval (HTTP fallback); default 60000 |
+| `REDIS_URL` | no (set by Compose) | Enables the BullMQ job queue. Without it the worker polls `/api/worker/tick` |
+| `WORKER_CONCURRENCY` | no | Jobs processed in parallel per worker (default 4) |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Compose only | Credentials for the Compose Postgres; Compose builds `DATABASE_URL` from them |
+| `WEB_PORT` / `COMPOSE_APP_URL` | Compose only | Host port for web; public URL if not `http://localhost:$WEB_PORT` |
 | `WORKER_BASE_URL` | no | Overrides the worker's target base URL (defaults to `NEXT_PUBLIC_APP_URL`) |
 | `MODEL_MAX_CALLS_PER_DAY` | no | Per-workspace daily cap on live model calls (default 500); fallback is never quota-limited |
 | `FASTLANE_API_KEY` | no | Enables the Fastlane capability adapter (short-form creative; unverified until exercised) |
@@ -106,11 +129,14 @@ planned campaign and one planned experiment, and **no results**.
 | `npm run db:deploy` | Apply committed migrations |
 | `npm run db:seed` | Seed the demo workspace |
 | `npm run setup` | `db:deploy` + `db:seed` |
-| `npm run worker` | Run the worker loop (publishes due content AND advances agent workflows) |
+| `npm run worker` | Run the worker in development (queue consumer with `REDIS_URL`, HTTP tick fallback without) |
+| `npm run build:worker` | Bundle the worker to `dist/worker.js` (used by the Docker image) |
+| `node scripts/backlog/render.mjs` | Regenerate the MVP backlog docs from `scripts/backlog/stories-*.mjs` |
 
 ## Deploying
 
-- **Node host / Docker** (long-running): see `docs/RELEASE_RUNBOOK.md` §4.
+- **Docker Compose** (single host, recommended): [docs/DOCKER_DEPLOYMENT.md](docs/DOCKER_DEPLOYMENT.md).
+- **Node host** (long-running): see `docs/RELEASE_RUNBOOK.md` §4.
 - **Vercel + hosted Postgres (durable demo):** point the database URL at a
   hosted PostgreSQL (e.g. Prisma Postgres) — `DATABASE_URL`, or the
   platform-injected aliases `PRISMA_DATABASE_URL` / `POSTGRES_URL` work as-is —

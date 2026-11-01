@@ -1,16 +1,15 @@
 {
-  "generated": "2026-10-31",
+  "generated": "2026-11-01",
   "source": "scripts/backlog/stories-*.mjs",
   "totals": {
     "stories": 77,
-    "done": 8,
-    "ready": 19,
+    "done": 14,
+    "ready": 13,
     "backlog": 45,
     "blocked": 5
   },
   "criticalPath": [
-    "US-001",
-    "US-005",
+    "US-018",
     "US-021",
     "US-022",
     "US-023",
@@ -28,9 +27,9 @@
       "epic": "Infrastructure and application foundation",
       "code": "INF",
       "priority": "P0",
-      "status": "Ready",
+      "status": "Done",
       "sprint": 1,
-      "wave": 1,
+      "wave": 0,
       "story": {
         "as": "developer or operator",
         "want": "to start Banyan with `docker compose up -d --build`",
@@ -80,7 +79,7 @@
         "external": "stop postgres: web health turns unhealthy, recovers when postgres returns",
         "retry": "kill worker: Compose restarts it"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: `docker compose up -d --build` → postgres/redis healthy, migrate Exited (0), web healthy, worker up; postgres and redis publish no host port; missing POSTGRES_PASSWORD/APP_SECRET refused at `compose config`; users 2 → 2 across down/up; web unhealthy when postgres stopped and healthy again on restart; worker restarted by Compose after SIGTERM; E2E 42/42 against the stack",
       "blocker": null
     },
     {
@@ -89,9 +88,9 @@
       "epic": "Infrastructure and application foundation",
       "code": "INF",
       "priority": "P0",
-      "status": "Ready",
+      "status": "Done",
       "sprint": 1,
-      "wave": 1,
+      "wave": 0,
       "story": {
         "as": "operator",
         "want": "a small, non-root production image on the same Node version as development",
@@ -136,7 +135,7 @@
         "external": "health check marks unhealthy when the DB is down",
         "retry": "restart policy brings the container back"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: node:22-alpine multi-stage image, 282 MB; `id -u` in web = 1000; HEALTHCHECK marks web unhealthy with the database down and healthy after; SIGTERM handled (worker.stopping logged, clean exit)",
       "blocker": null
     },
     {
@@ -145,9 +144,9 @@
       "epic": "Infrastructure and application foundation",
       "code": "INF",
       "priority": "P0",
-      "status": "Ready",
+      "status": "Done",
       "sprint": 1,
-      "wave": 2,
+      "wave": 0,
       "story": {
         "as": "operator",
         "want": "migrations to run once, before web and worker start",
@@ -191,7 +190,7 @@
         "external": "postgres unavailable: migrate retries then fails clearly",
         "retry": "re-run is a no-op"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: migrate one-shot ran `prisma migrate deploy` before web/worker (Exited 0); a failing migrate (auth error) kept web and worker in Created with the cause in `docker compose logs migrate`",
       "blocker": null
     },
     {
@@ -200,9 +199,9 @@
       "epic": "Infrastructure and application foundation",
       "code": "INF",
       "priority": "P0",
-      "status": "Ready",
+      "status": "Done",
       "sprint": 1,
-      "wave": 3,
+      "wave": 0,
       "story": {
         "as": "new developer",
         "want": "a README and deployment guide with the exact commands",
@@ -246,7 +245,7 @@
         "external": "n/a",
         "retry": "n/a"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: README Docker quick start, docs/DOCKER_DEPLOYMENT.md and .env.example compose section; every command in them executed during verification",
       "blocker": null
     },
     {
@@ -255,9 +254,9 @@
       "epic": "Infrastructure and application foundation",
       "code": "INF",
       "priority": "P0",
-      "status": "Ready",
+      "status": "Done",
       "sprint": 1,
-      "wave": 2,
+      "wave": 0,
       "story": {
         "as": "the platform",
         "want": "to enqueue background work durably",
@@ -304,7 +303,7 @@
         "external": "Redis down: enqueue fails loudly, request returns 503",
         "retry": "handler throws twice then succeeds; processed once"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: BullMQ queue (src/lib/queue); 19 unit tests (payload validation, deterministic job ids, dead-letter retention, fails loudly without Redis); live: delayed job held in Redis and processed after a worker restart",
       "blocker": null
     },
     {
@@ -313,9 +312,9 @@
       "epic": "Infrastructure and application foundation",
       "code": "INF",
       "priority": "P0",
-      "status": "Ready",
+      "status": "Done",
       "sprint": 1,
-      "wave": 3,
+      "wave": 0,
       "story": {
         "as": "founder",
         "want": "scheduled posts and analyses to run within seconds",
@@ -361,7 +360,7 @@
         "external": "provider 503 → retry with backoff",
         "retry": "worker killed mid-job → job re-delivered, published once"
       },
-      "evidence": null,
+      "evidence": "2026-11-01: post scheduled 20 s ahead attempted by the worker 229 ms after due via publication.attempt (one attempt, honest 'blocked' without a connection); atomic claim prevents double delivery (claim.ts + conditional update); maintenance sweep repeats every 60 s from Redis",
       "blocker": null
     },
     {
@@ -372,7 +371,7 @@
       "priority": "P0",
       "status": "Ready",
       "sprint": 1,
-      "wave": 2,
+      "wave": 1,
       "story": {
         "as": "operator",
         "want": "rate limits shared across processes and restarts",
@@ -427,7 +426,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 2,
-      "wave": 2,
+      "wave": 1,
       "story": {
         "as": "developer",
         "want": "separate dev, test and production configurations",
@@ -479,7 +478,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 2,
-      "wave": 3,
+      "wave": 1,
       "story": {
         "as": "operator",
         "want": "a health endpoint that reports each dependency",
@@ -533,7 +532,7 @@
       "priority": "P0",
       "status": "Ready",
       "sprint": 2,
-      "wave": 3,
+      "wave": 1,
       "story": {
         "as": "the platform",
         "want": "to send transactional email through a configured SMTP provider",
@@ -592,7 +591,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 2,
-      "wave": 4,
+      "wave": 2,
       "story": {
         "as": "new user",
         "want": "to confirm my email address",
@@ -651,7 +650,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 2,
-      "wave": 4,
+      "wave": 2,
       "story": {
         "as": "user who forgot my password",
         "want": "to reset it by email",
@@ -916,7 +915,7 @@
       "priority": "P2",
       "status": "Backlog",
       "sprint": 5,
-      "wave": 5,
+      "wave": 3,
       "story": {
         "as": "founder",
         "want": "to invite a teammate with a role",
@@ -1130,7 +1129,7 @@
       "priority": "P0",
       "status": "Ready",
       "sprint": 3,
-      "wave": 3,
+      "wave": 2,
       "story": {
         "as": "founder",
         "want": "to paste my product URL and have Banyan read it",
@@ -1190,7 +1189,7 @@
       "priority": "P0",
       "status": "Ready",
       "sprint": 3,
-      "wave": 4,
+      "wave": 3,
       "story": {
         "as": "founder",
         "want": "Banyan to extract my value proposition, features, audience and differentiators",
@@ -1250,7 +1249,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 3,
-      "wave": 5,
+      "wave": 4,
       "story": {
         "as": "founder",
         "want": "to correct anything Banyan got wrong before it is used",
@@ -1356,7 +1355,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 3,
-      "wave": 4,
+      "wave": 3,
       "story": {
         "as": "founder",
         "want": "a clear next step when my site cannot be read",
@@ -1668,7 +1667,7 @@
       "priority": "P0",
       "status": "Ready",
       "sprint": 2,
-      "wave": 4,
+      "wave": 3,
       "story": {
         "as": "the platform",
         "want": "a SocialFlowAdapter implementing DistributionProvider against the contract",
@@ -1729,7 +1728,7 @@
       "priority": "P1",
       "status": "Blocked",
       "sprint": 4,
-      "wave": 5,
+      "wave": 4,
       "story": {
         "as": "founder",
         "want": "to connect my X and LinkedIn accounts through SocialFlow.ai",
@@ -1893,7 +1892,7 @@
       "priority": "P1",
       "status": "Blocked",
       "sprint": 4,
-      "wave": 5,
+      "wave": 4,
       "story": {
         "as": "founder",
         "want": "Banyan to show the real status of posts SocialFlow.ai published",
@@ -1950,7 +1949,7 @@
       "priority": "P2",
       "status": "Blocked",
       "sprint": 5,
-      "wave": 6,
+      "wave": 5,
       "story": {
         "as": "the platform",
         "want": "to accept status pushes from SocialFlow.ai",
@@ -2005,7 +2004,7 @@
       "priority": "P0",
       "status": "Blocked",
       "sprint": 4,
-      "wave": 5,
+      "wave": 4,
       "story": {
         "as": "operator",
         "want": "`npm run smoke:socialflow` to prove the real integration end to end",
@@ -2118,7 +2117,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 3,
-      "wave": 6,
+      "wave": 5,
       "story": {
         "as": "founder",
         "want": "to choose objectives, platforms, frequency, formats and audience focus",
@@ -2173,7 +2172,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 8,
+      "wave": 7,
       "story": {
         "as": "new user",
         "want": "to see my first distribution strategy before onboarding ends",
@@ -2231,7 +2230,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 9,
+      "wave": 8,
       "story": {
         "as": "new user",
         "want": "onboarding to end with my first approved post published",
@@ -2288,7 +2287,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 3,
-      "wave": 6,
+      "wave": 5,
       "story": {
         "as": "founder",
         "want": "a strategy with channels, rationale, formats, angles, objectives, cadence and KPIs",
@@ -2349,7 +2348,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 3,
-      "wave": 7,
+      "wave": 6,
       "story": {
         "as": "founder",
         "want": "full control over the strategy before any content is written",
@@ -2403,7 +2402,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 8,
+      "wave": 7,
       "story": {
         "as": "founder",
         "want": "drafts written for each channel in my brand voice",
@@ -2512,7 +2511,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 8,
+      "wave": 7,
       "story": {
         "as": "founder",
         "want": "every campaign to have one clear status from draft to completed",
@@ -2566,7 +2565,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 9,
+      "wave": 8,
       "story": {
         "as": "founder",
         "want": "a campaign page showing its stage, what waits on me and what was published",
@@ -2618,7 +2617,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 5,
-      "wave": 9,
+      "wave": 8,
       "story": {
         "as": "founder",
         "want": "to stop a campaign safely",
@@ -2673,7 +2672,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 9,
+      "wave": 8,
       "story": {
         "as": "founder",
         "want": "to distribute all approved items of a campaign in one action",
@@ -2928,7 +2927,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 6,
+      "wave": 5,
       "story": {
         "as": "founder",
         "want": "drafts checked against my approved profile and brand rules",
@@ -3241,7 +3240,7 @@
       "priority": "P2",
       "status": "Blocked",
       "sprint": 5,
-      "wave": 5,
+      "wave": 4,
       "story": {
         "as": "founder",
         "want": "impressions and engagement from SocialFlow.ai next to my first-party clicks",
@@ -3296,7 +3295,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 5,
-      "wave": 3,
+      "wave": 2,
       "story": {
         "as": "founder",
         "want": "a monthly free allowance plus any granted credits, used oldest-first",
@@ -3656,7 +3655,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 6,
-      "wave": 2,
+      "wave": 1,
       "story": {
         "as": "operator",
         "want": "a tested way to back up and restore Postgres",
@@ -3710,7 +3709,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 4,
-      "wave": 4,
+      "wave": 2,
       "story": {
         "as": "founder",
         "want": "every failed external operation to show what failed and how to retry",
@@ -3859,7 +3858,7 @@
       "priority": "P1",
       "status": "Backlog",
       "sprint": 5,
-      "wave": 9,
+      "wave": 8,
       "story": {
         "as": "founder",
         "want": "a notification when something waits on me or fails",
@@ -3910,7 +3909,7 @@
       "priority": "P2",
       "status": "Backlog",
       "sprint": 6,
-      "wave": 10,
+      "wave": 9,
       "story": {
         "as": "founder",
         "want": "an email when content waits for my approval",
@@ -3964,7 +3963,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 6,
-      "wave": 10,
+      "wave": 9,
       "story": {
         "as": "product owner",
         "want": "the full journey tested automatically against the Compose stack",
@@ -4021,7 +4020,7 @@
       "priority": "P0",
       "status": "Backlog",
       "sprint": 6,
-      "wave": 11,
+      "wave": 10,
       "story": {
         "as": "product owner",
         "want": "automated tests for every mandatory failure scenario",

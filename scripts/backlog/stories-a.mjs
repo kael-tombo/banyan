@@ -12,7 +12,7 @@
 export const storiesA = [
   // ───────────────────────── INF — Infrastructure ─────────────────────────
   {
-    id: "US-001", epic: "Infrastructure and application foundation", code: "INF", priority: "P0", status: "Ready", sprint: 1,
+    id: "US-001", epic: "Infrastructure and application foundation", code: "INF", priority: "P0", status: "Done", sprint: 1,
     title: "Start the whole stack with one Docker Compose command",
     as: "developer or operator", want: "to start Banyan with `docker compose up -d --build`", so: "every environment is reproducible and the MVP can be released from one artefact",
     context: "The repository has a single Dockerfile and no Compose file. The brief's release criteria require the full application to start under Docker Compose.",
@@ -22,9 +22,10 @@ export const storiesA = [
     deps: { stories: [], optional: ["US-002"], external: [], infra: ["Docker Engine 24+", "Docker Compose v2"], api: [] },
     impl: { frontend: "None", backend: "None", database: "Postgres 16 service with named volume `banyan-pgdata`", integration: "None", jobs: "worker service runs the queue consumer (US-006)" },
     tests: { happy: "compose up, all services healthy, GET /api/health returns ok", validation: "missing APP_SECRET in .env makes web exit with a clear message", authorization: "postgres and redis ports not reachable from the host", external: "stop postgres: web health turns unhealthy, recovers when postgres returns", retry: "kill worker: Compose restarts it" },
+    evidence: "2026-11-01: `docker compose up -d --build` → postgres/redis healthy, migrate Exited (0), web healthy, worker up; postgres and redis publish no host port; missing POSTGRES_PASSWORD/APP_SECRET refused at `compose config`; users 2 → 2 across down/up; web unhealthy when postgres stopped and healthy again on restart; worker restarted by Compose after SIGTERM; E2E 42/42 against the stack",
   },
   {
-    id: "US-002", epic: "Infrastructure and application foundation", code: "INF", priority: "P0", status: "Ready", sprint: 1,
+    id: "US-002", epic: "Infrastructure and application foundation", code: "INF", priority: "P0", status: "Done", sprint: 1,
     title: "Harden the production image",
     as: "operator", want: "a small, non-root production image on the same Node version as development", so: "the runtime is secure and behaves like the code that was tested",
     context: "The Dockerfile uses Node 20 while development uses Node 22, runs as root, and has no image health check.",
@@ -34,9 +35,10 @@ export const storiesA = [
     deps: { stories: [], optional: [], external: [], infra: ["Docker Engine"], api: [] },
     impl: { frontend: "None", backend: "None", database: "None", integration: "None", jobs: "Same image runs the worker" },
     tests: { happy: "docker build succeeds; container serves the landing page", validation: "image without env vars exits with the env validation message", authorization: "`docker exec web id -u` is not 0", external: "health check marks unhealthy when the DB is down", retry: "restart policy brings the container back" },
+    evidence: "2026-11-01: node:22-alpine multi-stage image, 282 MB; `id -u` in web = 1000; HEALTHCHECK marks web unhealthy with the database down and healthy after; SIGTERM handled (worker.stopping logged, clean exit)",
   },
   {
-    id: "US-003", epic: "Infrastructure and application foundation", code: "INF", priority: "P0", status: "Ready", sprint: 1,
+    id: "US-003", epic: "Infrastructure and application foundation", code: "INF", priority: "P0", status: "Done", sprint: 1,
     title: "Run database migrations before the app starts",
     as: "operator", want: "migrations to run once, before web and worker start", so: "the schema is always current and two replicas never race to migrate",
     context: "Migrations currently run inside the web container's start command, so every replica tries to migrate.",
@@ -46,9 +48,10 @@ export const storiesA = [
     deps: { stories: ["US-001"], optional: [], external: [], infra: ["Postgres"], api: [] },
     impl: { frontend: "None", backend: "None", database: "Prisma migrate deploy", integration: "None", jobs: "None" },
     tests: { happy: "fresh volume migrates and seeds", validation: "broken migration blocks startup", authorization: "n/a", external: "postgres unavailable: migrate retries then fails clearly", retry: "re-run is a no-op" },
+    evidence: "2026-11-01: migrate one-shot ran `prisma migrate deploy` before web/worker (Exited 0); a failing migrate (auth error) kept web and worker in Created with the cause in `docker compose logs migrate`",
   },
   {
-    id: "US-004", epic: "Infrastructure and application foundation", code: "INF", priority: "P0", status: "Ready", sprint: 1,
+    id: "US-004", epic: "Infrastructure and application foundation", code: "INF", priority: "P0", status: "Done", sprint: 1,
     title: "Document running Banyan with Docker",
     as: "new developer", want: "a README and deployment guide with the exact commands", so: "I can run, test and stop the stack without asking anyone",
     context: "README describes the non-Docker flow only. The brief requires README.md and docs/DOCKER_DEPLOYMENT.md with the documented commands.",
@@ -58,9 +61,10 @@ export const storiesA = [
     deps: { stories: ["US-001", "US-003"], optional: ["US-008"], external: [], infra: [], api: [] },
     impl: { frontend: "None", backend: "None", database: "None", integration: "None", jobs: "None" },
     tests: { happy: "follow README on a clean machine", validation: "n/a", authorization: "n/a", external: "n/a", retry: "n/a" },
+    evidence: "2026-11-01: README Docker quick start, docs/DOCKER_DEPLOYMENT.md and .env.example compose section; every command in them executed during verification",
   },
   {
-    id: "US-005", epic: "Infrastructure and application foundation", code: "INF", priority: "P0", status: "Ready", sprint: 1,
+    id: "US-005", epic: "Infrastructure and application foundation", code: "INF", priority: "P0", status: "Done", sprint: 1,
     title: "Durable job queue on Redis",
     as: "the platform", want: "to enqueue background work durably", so: "slow or external operations never block a request and survive restarts",
     context: "Background work today is triggered by an HTTP tick every 60 s (TD-02). The brief requires Redis-backed background jobs (ADR-002).",
@@ -70,9 +74,10 @@ export const storiesA = [
     deps: { stories: ["US-001"], optional: [], external: [], infra: ["Redis 7"], api: [] },
     impl: { frontend: "None", backend: "src/lib/queue/ (client, enqueue, consumer, dead-letter)", database: "None", integration: "None", jobs: "Defines the queue all other jobs use" },
     tests: { happy: "enqueue → processed", validation: "unknown job type rejected at enqueue", authorization: "n/a", external: "Redis down: enqueue fails loudly, request returns 503", retry: "handler throws twice then succeeds; processed once" },
+    evidence: "2026-11-01: BullMQ queue (src/lib/queue); 19 unit tests (payload validation, deterministic job ids, dead-letter retention, fails loudly without Redis); live: delayed job held in Redis and processed after a worker restart",
   },
   {
-    id: "US-006", epic: "Infrastructure and application foundation", code: "INF", priority: "P0", status: "Ready", sprint: 1,
+    id: "US-006", epic: "Infrastructure and application foundation", code: "INF", priority: "P0", status: "Done", sprint: 1,
     title: "Queue-driven worker for publishing and analysis",
     as: "founder", want: "scheduled posts and analyses to run within seconds", so: "I am not waiting on a 60-second poll",
     context: "The worker polls `/api/worker/tick`. Moving due publications and analysis to the queue removes the latency and makes work visible.",
@@ -82,6 +87,7 @@ export const storiesA = [
     deps: { stories: ["US-005"], optional: [], external: [], infra: ["Redis"], api: [] },
     impl: { frontend: "None", backend: "worker/index.ts becomes a queue consumer; schedule route enqueues", database: "None", integration: "Distribution provider called from the job", jobs: "publication.attempt, publication.sync, product.analyze" },
     tests: { happy: "schedule → job → publication record", validation: "job for unapproved content is refused", authorization: "job carries workspace id; cross-workspace content refused", external: "provider 503 → retry with backoff", retry: "worker killed mid-job → job re-delivered, published once" },
+    evidence: "2026-11-01: post scheduled 20 s ahead attempted by the worker 229 ms after due via publication.attempt (one attempt, honest 'blocked' without a connection); atomic claim prevents double delivery (claim.ts + conditional update); maintenance sweep repeats every 60 s from Redis",
   },
   {
     id: "US-007", epic: "Security, reliability and operations", code: "OPS", priority: "P0", status: "Ready", sprint: 1,
