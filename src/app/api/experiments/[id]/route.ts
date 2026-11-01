@@ -1,3 +1,4 @@
+import { requireRole } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { summarizeObservations } from "@/lib/learning";
@@ -59,6 +60,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (csrf) return csrf;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
+  const forbidden = requireRole(ctx.membership.role, "write");
+  if (forbidden) return apiError(forbidden, 403);
   const { id } = await params;
   const experiment = await prisma.experiment.findFirst({ where: { id, workspaceId: ctx.workspace.id } });
   if (!experiment) return apiError("Experiment not found.", 404);

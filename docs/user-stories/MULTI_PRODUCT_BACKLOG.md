@@ -103,7 +103,7 @@ same-origin (CSRF), validates with zod and is rate-limited where public.
 - **Security** The cookie is a preference, never authorization.
 
 ### BOS-010 — Product-level authorization
-- **Role** Organization owner · **Status** IN_PROGRESS · **Depends on** BOS-003, BOS-009 · **Maps to** extends US-016
+- **Role** Organization owner · **Status** REVIEW · **Depends on** BOS-003, BOS-009 · **Maps to** extends US-016
 - **Story** As an owner, I want a member to access Product A but not Product B, so that freelancers and teams see only their work.
 - **Value** Safe collaboration across businesses.
 - **Functional** product access = product Membership, or org OWNER/ADMIN; product roles PRODUCT_ADMIN, MARKETING_MANAGER, CONTENT_EDITOR, ANALYST, VIEWER map onto today's write/approve/read checks.
@@ -381,7 +381,7 @@ same-origin (CSRF), validates with zod and is rate-limited where public.
 - **Story** As a billing manager, I want to subscribe and top up credits by card. · **Acceptance** Stripe webhooks are idempotent on event id; plans grant monthly credits.
 
 ### BOS-063 — Composable roles
-- **Role** Owner · **Status** IN_PROGRESS · **Depends on** BOS-003, BOS-010
+- **Role** Owner · **Status** REVIEW · **Depends on** BOS-003, BOS-010
 - **Story** As an owner, I want org roles and product roles to combine predictably. · **Acceptance** policy table tests: every (org role × product role × action) cell.
 
 ### BOS-064 — Structured logs with redaction

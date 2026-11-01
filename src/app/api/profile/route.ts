@@ -1,3 +1,4 @@
+import { requireRole } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, json, parseJson, requireWorkspace, readJson } from "@/lib/api-utils";
 import { recordActivity, recordMetricEvent } from "@/lib/activity";
@@ -77,6 +78,8 @@ export async function PATCH(req: NextRequest) {
   if (csrf) return csrf;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
+  const forbidden = requireRole(ctx.membership.role, "write");
+  if (forbidden) return apiError(forbidden, 403);
 
   const rawJson = await readJson(req, z.unknown());
   if (!rawJson.ok) return apiError(rawJson.message, rawJson.status);
@@ -155,6 +158,8 @@ export async function POST(req: NextRequest) {
   if (csrf) return csrf;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
+  const forbidden = requireRole(ctx.membership.role, "write");
+  if (forbidden) return apiError(forbidden, 403);
 
   const parsed = await readJson(
     req,

@@ -113,7 +113,7 @@ describe("backend permissions", () => {
     expect(requireRole("viewer", "write")).toMatch(/does not grant/);
     expect(requireRole("owner", "write")).toBeNull();
     expect(requireRole("viewer", "read")).toBeNull();
-    expect(requireRole("viewer", "approve")).toMatch(/owners and members/);
+    expect(requireRole("viewer", "approve")).toMatch(/product admins and marketing managers/);
   });
 });
 

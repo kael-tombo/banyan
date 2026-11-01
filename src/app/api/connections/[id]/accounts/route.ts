@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (csrf) return csrf;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
-  const forbidden = requireRole(ctx.membership.role, "write");
+  const forbidden = requireRole(ctx.membership.role, "manage");
   if (forbidden) return apiError(forbidden, 403);
   const scope = await loadConnectionScope(ctx.workspace.id, (await params).id);
   if (isScopeError(scope)) return apiError(scope.error, scope.status);

@@ -1,3 +1,4 @@
+import { requireRole } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, json, requireWorkspace } from "@/lib/api-utils";
 import { recordActivity } from "@/lib/activity";
@@ -8,6 +9,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (csrf) return csrf;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
+  const forbidden = requireRole(ctx.membership.role, "write");
+  if (forbidden) return apiError(forbidden, 403);
   const { id } = await params;
   const campaign = await prisma.campaign.findFirst({ where: { id, workspaceId: ctx.workspace.id } });
   if (!campaign) return apiError("Campaign not found.", 404);

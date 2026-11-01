@@ -1,3 +1,4 @@
+import { requireRole } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, json, requireWorkspace } from "@/lib/api-utils";
 import { providerFor, credentialsFromConnection } from "@/lib/distribution/providers";
@@ -9,6 +10,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (csrf) return csrf;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
+  const forbidden = requireRole(ctx.membership.role, "manage");
+  if (forbidden) return apiError(forbidden, 403);
   const { id } = await params;
   const connection = await prisma.channelConnection.findFirst({ where: { id, workspaceId: ctx.workspace.id } });
   if (!connection) return apiError("Connection not found.", 404);
@@ -23,6 +26,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (csrf) return csrf;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
+  const forbidden = requireRole(ctx.membership.role, "control");
+  if (forbidden) return apiError(forbidden, 403);
   const { id } = await params;
   const connection = await prisma.channelConnection.findFirst({ where: { id, workspaceId: ctx.workspace.id } });
   if (!connection) return apiError("Connection not found.", 404);

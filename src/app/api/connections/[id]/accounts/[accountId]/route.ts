@@ -10,7 +10,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (csrf) return csrf;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
-  const forbidden = requireRole(ctx.membership.role, "write");
+  const forbidden = requireRole(ctx.membership.role, "manage");
   if (forbidden) return apiError(forbidden, 403);
   const { id, accountId } = await params;
   const scope = await loadConnectionScope(ctx.workspace.id, id);

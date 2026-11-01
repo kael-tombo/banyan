@@ -1,3 +1,4 @@
+import { requireRole } from "@/lib/permissions";
 import { assertCampaignAllowsGeneration, LifecycleError } from "@/lib/campaign/lifecycle-service";
 import { routedProvider } from "@/lib/model/router";
 import { prisma } from "@/lib/db";
@@ -28,6 +29,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (limited) return limited;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
+  const forbidden = requireRole(ctx.membership.role, "write");
+  if (forbidden) return apiError(forbidden, 403);
 
   const { id } = await params;
   const item = await load(id, ctx.workspace.id);

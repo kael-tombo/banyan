@@ -1,3 +1,4 @@
+import { requireRole } from "@/lib/permissions";
 import { apiError, assertSameOrigin, guardRate, json, requireWorkspace } from "@/lib/api-utils";
 import { exportContentItem } from "@/lib/distribution/export";
 import { NextRequest, NextResponse } from "next/server";
@@ -16,6 +17,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (limited) return limited;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
+  const forbidden = requireRole(ctx.membership.role, "control");
+  if (forbidden) return apiError(forbidden, 403);
   const { id } = await params;
 
   const result = await exportContentItem(ctx.workspace.id, id);
