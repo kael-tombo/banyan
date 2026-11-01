@@ -24,6 +24,7 @@ model User {
   attributedCampaignId  String?
   attributedSource      String?
   sessions              Session[]
+  apiTokens             ApiToken[]
   oauthAccounts         OAuthAccount[]
   memberships           Membership[]
   approvals             ContentItem[] @relation("approvals")
@@ -46,6 +47,25 @@ model OAuthAccount {
 
   @@unique([provider, providerAccountId])
   @@index([userId])
+}
+
+/// Personal access token for Banyan's MCP server (/api/mcp). Read-only by design: approvals and
+/// publishing stay with a person in the app. Only the SHA-256 hash is stored; the token is shown once.
+model ApiToken {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  tokenHash   String    @unique
+  // First characters, to tell tokens apart in the list (never enough to use)
+  prefix      String
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+
+  @@index([workspaceId])
 }
 
 model Session {
@@ -80,6 +100,7 @@ model Workspace {
   createdAt DateTime @default(now())
 
   memberships     Membership[]
+  apiTokens       ApiToken[]
   profile         ProductProfile?
   insights        AudienceInsight[]
   campaigns       Campaign[]

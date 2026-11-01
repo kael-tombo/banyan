@@ -4,7 +4,7 @@ import { SocialFlowProvider } from "@/lib/distribution/socialflow/adapter";
 import type { Transport } from "@/lib/distribution/socialflow/client";
 
 /** A minimal MCP server (JSON-RPC over one POST endpoint) mirroring SocialFlow Lite's tool results. */
-function fakeMcp(opts: { toolStatus?: (name: string, args: Record<string, unknown>) => { status: number; body: unknown; retry_after?: number } } = {}) {
+function fakeMcp(opts: { toolStatus?: (name: string, args: Record<string, unknown>) => { status: number; body: unknown; retry_after?: number } | undefined } = {}) {
   const seen: { method: string; name?: string; args?: Record<string, unknown>; auth?: string }[] = [];
   const posts = new Map<string, { id: string; status: string; url: string }>();
   const reply = (body: unknown, status = 200) => ({ status, headers: new Headers({ "content-type": "application/json" }), text: JSON.stringify(body), truncated: false });
