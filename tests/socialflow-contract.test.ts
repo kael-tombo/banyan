@@ -71,6 +71,10 @@ function mockServer(mode: { current: Mode }) {
       posts.set(key, post);
       return reply(201, post);
     }
+    if (u.pathname.startsWith("/v1/accounts/") && opts.method === "DELETE") {
+      const id = decodeURIComponent(u.pathname.split("/")[3]);
+      return id === "acc-x" ? reply(200, { id, status: "revoked", provider_revoked: true }) : reply(404, { error: { code: "not_found", message: "no such account" } });
+    }
     if (u.pathname.startsWith("/v1/posts/") && u.pathname.endsWith("/analytics")) return reply(404, { error: { code: "not_found", message: "no analytics" } });
     if (u.pathname.startsWith("/v1/posts/")) {
       const id = decodeURIComponent(u.pathname.split("/")[3]);

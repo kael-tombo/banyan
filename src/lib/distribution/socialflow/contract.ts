@@ -83,6 +83,13 @@ export const analyticsResponse = z.object({
   engagements: z.number().int().nonnegative().optional(),
 });
 
+/** C10: the account is revoked on SocialFlow's side; provider_revoked says whether the platform confirmed it too. */
+export const revokeResponse = z.object({
+  id: z.string().min(1),
+  status: z.literal("revoked"),
+  provider_revoked: z.boolean().optional(),
+});
+
 /** Error body for every non-2xx response. */
 export const errorResponse = z.object({
   error: z.object({

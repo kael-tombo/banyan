@@ -5,7 +5,7 @@ import { requireWorkspaceServer } from "@/lib/workspace";
 import { PageHeader, Card, Badge, StatusBadge } from "@/components/ui";
 import { CHANNEL_META, CHANNELS, isChannel } from "@/lib/formats";
 import { ConnectionManager } from "./connections";
-import { enabledProviderIds } from "@/lib/distribution/providers";
+import { enabledProviderIds, providerFor } from "@/lib/distribution/providers";
 
 export const metadata: Metadata = { title: "Publishing" };
 
@@ -36,7 +36,7 @@ export default async function PublishingPage() {
       />
 
       <ConnectionManager
-        providersAvailable={enabledProviderIds().length > 0}
+        providers={enabledProviderIds().map((id) => ({ id, label: providerFor(id)?.label ?? id }))}
         initial={connections.map((c) => ({
           id: c.id,
           channel: c.channel,

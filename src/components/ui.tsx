@@ -256,6 +256,8 @@ export function StatusBadge({ status }: { status: string }) {
     blocked: "clay",
     error: "clay",
     verified: "forest",
+    active: "forest",
+    revoked: "charcoal",
     configured: "warm",
     removed: "charcoal",
   };

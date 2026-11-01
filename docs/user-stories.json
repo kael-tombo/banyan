@@ -4,9 +4,9 @@
   "totals": {
     "stories": 77,
     "done": 35,
-    "ready": 2,
+    "ready": 3,
     "backlog": 29,
-    "blocked": 5
+    "blocked": 3
   },
   "criticalPath": [
     "US-039",
@@ -1721,7 +1721,7 @@
       "epic": "SocialFlow.ai integration",
       "code": "SF",
       "priority": "P1",
-      "status": "Blocked",
+      "status": "Review",
       "sprint": 4,
       "wave": 2,
       "story": {
@@ -1997,7 +1997,7 @@
       "epic": "SocialFlow.ai integration",
       "code": "SF",
       "priority": "P0",
-      "status": "Blocked",
+      "status": "Ready",
       "sprint": 4,
       "wave": 2,
       "story": {

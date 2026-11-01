@@ -89,6 +89,8 @@ export interface DistributionProvider {
   connectAccount(ctx: ProviderContext, platform: string): Promise<Result<{ connectUrl: string }>>;
   listAccounts(ctx: ProviderContext): Promise<Result<DistributionAccount[]>>;
   getCapabilities(ctx: ProviderContext, accountId: string): Promise<Result<AccountCapabilities>>;
+  /** Disconnect an account at the provider; its platform token is destroyed there (Banyan never holds it). */
+  revokeAccount(ctx: ProviderContext, accountId: string): Promise<Result<{ platformConfirmed: boolean }>>;
   publish(req: PublishRequest): Promise<PublishOutcome>;
   schedule(req: PublishRequest & { scheduledFor: Date }): Promise<PublishOutcome>;
   getStatus(ctx: ProviderContext, externalId: string): Promise<Result<{ state: "queued" | "scheduled" | "published" | "failed" | "unknown"; url?: string }>>;

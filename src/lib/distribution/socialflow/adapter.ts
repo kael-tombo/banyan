@@ -8,6 +8,7 @@ import {
   capabilitiesSchema,
   connectResponse,
   postResponse,
+  revokeResponse,
   verifyResponse,
   type SFPost,
 } from "@/lib/distribution/socialflow/contract";
@@ -129,6 +130,11 @@ export class SocialFlowProvider implements DistributionProvider {
     if (!res.ok) return res;
     const c = res.value;
     return { ok: true, value: { publish: c.publish, schedule: c.schedule, analytics: c.analytics, formats: c.formats, maxLength: c.max_length } };
+  }
+
+  async revokeAccount(ctx: ProviderContext, accountId: string): Promise<Result<{ platformConfirmed: boolean }>> {
+    const res = await call(this.cfg(ctx), ROUTES.revoke, revokeResponse, { params: { accountId } });
+    return res.ok ? { ok: true, value: { platformConfirmed: res.value.provider_revoked ?? false } } : res;
   }
 
   private async submit(req: PublishRequest, scheduledAt?: Date): Promise<PublishOutcome> {

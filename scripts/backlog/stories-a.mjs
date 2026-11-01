@@ -413,7 +413,7 @@ export const storiesA = [
     evidence: "2026-11-01: adapter.ts implements DistributionProvider through safeFetch; registered but disabled unless SOCIALFLOW_API_URL and SOCIALFLOW_VERIFIED=true (3 tests); queued posts never counted as published; Publishing shows SocialFlow.ai 'not available yet' with export mode. Remaining for Done: publish through the worker and database path against the mock, covered by US-074",
   },
   {
-    id: "US-032", epic: "SocialFlow.ai integration", code: "SF", priority: "P1", status: "Blocked", sprint: 4,
+    id: "US-032", epic: "SocialFlow.ai integration", code: "SF", priority: "P1", status: "Review", sprint: 4,
     title: "Connect and disconnect social accounts through SocialFlow.ai",
     as: "founder", want: "to connect my X and LinkedIn accounts through SocialFlow.ai", so: "Banyan can publish approved posts for me",
     context: "Blocked: SocialFlow.ai has no account-connection API (audit capability 'Account connection: Missing').",
@@ -477,7 +477,7 @@ export const storiesA = [
     blocker: "SocialFlow.ai has no webhooks (C8).",
   },
   {
-    id: "US-037", epic: "SocialFlow.ai integration", code: "SF", priority: "P0", status: "Blocked", sprint: 4,
+    id: "US-037", epic: "SocialFlow.ai integration", code: "SF", priority: "P0", status: "Ready", sprint: 4,
     title: "Live smoke test that gates enabling SocialFlow.ai",
     as: "operator", want: "`npm run smoke:socialflow` to prove the real integration end to end", so: "SocialFlow.ai is enabled only after a real publication succeeds",
     context: "Blocked until SocialFlow.ai provides a deployable API and a test account.",
