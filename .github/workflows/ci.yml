@@ -1,0 +1,80 @@
+# Banyan CI: every push and pull request.
+# - checks: typecheck, unit tests (incl. the route-guard regression test), production build
+# - database: migrations on a real Postgres, then the multi-product isolation, autonomy and
+#   credit-concurrency checks that need a database
+name: CI
+
+on:
+  push:
+    branches: [main, "mvp/**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APP_SECRET: "0000000000000000000000000000000000000000000000000000000000000000"
+  WORKER_SECRET: ci-worker-secret-not-for-production
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # No database in this job: the build skips migrations (scripts/migrate-if-configured.ts).
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/unused
+      MIGRATE_ON_BUILD: "0"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Typecheck
+        run: npm run -s typecheck
+      - name: Unit tests
+        run: npx vitest run
+      - name: Production build
+        run: npx next build
+
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: banyan
+          POSTGRES_PASSWORD: banyan
+          POSTGRES_DB: banyan
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U banyan"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      DATABASE_URL: postgresql://banyan:banyan@localhost:5432/banyan
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+      - name: Migrations match the schema
+        run: |
+          out=$(npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma 2>&1)
+          echo "$out"
+          echo "$out" | grep -q "No difference detected"
+      - name: Multi-product isolation (BOS-009/010/014/066)
+        run: npx tsx scripts/multi-product-check.ts
+      - name: Supervised autonomy
+        run: npx tsx scripts/autonomy-check.ts
+      - name: Credit concurrency
+        run: npx tsx scripts/credits-concurrency.ts
