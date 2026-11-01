@@ -978,6 +978,18 @@ section[id] {
   50% { transform: translateY(-6px); opacity: calc(var(--dl-rest, 0.6) + 0.3); }
 }
 
+/* Panel: the landscape framed beside the auth form. Sized to its frame, not
+   the viewport, and set back so the approval card in front reads first. */
+.dl[data-variant="panel"] .dl-columns {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  padding-inline: 24px;
+  max-width: none;
+}
+.dl[data-variant="panel"] .dl-col { display: block; opacity: 0.42; }
+.dl[data-variant="panel"] .dl-col[data-index="3"] { display: none; }
+.dl[data-variant="panel"] .dl-col[data-index="1"] { opacity: 0.3; }
+
 @media (prefers-reduced-motion: reduce) {
   /* The landscape stays, composed and still, with its streams staggered. */
   .dl-track { animation: none; transform: translate3d(0, -12%, 0); will-change: auto; }
