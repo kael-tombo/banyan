@@ -39,6 +39,13 @@ x-app-env: &app-env
   OAUTH_FACEBOOK_CLIENT_SECRET: ${OAUTH_FACEBOOK_CLIENT_SECRET:-}
   OAUTH_X_CLIENT_ID: ${OAUTH_X_CLIENT_ID:-}
   OAUTH_X_CLIENT_SECRET: ${OAUTH_X_CLIENT_SECRET:-}
+  # Publishing through SocialFlow (docs/mvp-blockers/01). With the socialflow profile below:
+  #   SOCIALFLOW_API_URL=http://socialflow:8080  SOCIALFLOW_ALLOW_PRIVATE_NETWORK=true  SOCIALFLOW_TRANSPORT=mcp
+  # SOCIALFLOW_VERIFIED stays false until npm run smoke:socialflow -- --publish passes on real accounts.
+  SOCIALFLOW_API_URL: ${SOCIALFLOW_API_URL:-}
+  SOCIALFLOW_VERIFIED: ${SOCIALFLOW_VERIFIED:-false}
+  SOCIALFLOW_ALLOW_PRIVATE_NETWORK: ${SOCIALFLOW_ALLOW_PRIVATE_NETWORK:-false}
+  SOCIALFLOW_TRANSPORT: ${SOCIALFLOW_TRANSPORT:-rest}
 
 services:
   postgres:
@@ -117,6 +124,29 @@ services:
 # Project-scoped names (banyan_pgdata, banyan_redisdata). Never give these a
 # global `name:`: a volume shared with another Postgres container (different
 # image, different uid) gets its ownership rewritten and both servers break.
+  # SocialFlow Lite: LinkedIn + X publishing, REST and MCP (branch socialflow-lite of kael-tombo/socialFlow).
+  # Opt in with: docker compose --profile socialflow up -d --build
+  # Its port is published because LinkedIn and X send the founder's browser back to SFL_PUBLIC_URL;
+  # Banyan reaches it privately at http://socialflow:8080.
+  socialflow:
+    profiles: ["socialflow"]
+    build: https://github.com/kael-tombo/socialFlow.git#socialflow-lite
+    image: socialflow-lite:local
+    restart: unless-stopped
+    environment:
+      PUBLIC_URL: ${SFL_PUBLIC_URL:-}  # required; SocialFlow Lite refuses to start without it
+      ENCRYPTION_KEY: ${SFL_ENCRYPTION_KEY:-}  # openssl rand -hex 32; refused if missing
+      LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID:-}
+      LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET:-}
+      X_CONSUMER_KEY: ${X_CONSUMER_KEY:-}
+      X_CONSUMER_SECRET: ${X_CONSUMER_SECRET:-}
+    ports:
+      - "${SFL_PORT:-8080}:8080"
+    volumes:
+      - sfldata:/data
+    stop_grace_period: 30s
+
 volumes:
   pgdata:
   redisdata:
+  sfldata:

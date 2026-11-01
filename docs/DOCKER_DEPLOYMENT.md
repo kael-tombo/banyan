@@ -121,3 +121,28 @@ not start; read `docker compose logs migrate`.
 - Put `web` behind TLS (a reverse proxy or a platform load balancer); set `COMPOSE_APP_URL` to the public URL.
 - Keep `postgres` and `redis` off the host network (default).
 - Production profile with resource limits and no source mounts: US-008.
+
+## Publishing with SocialFlow Lite (optional profile)
+
+SocialFlow Lite (branch `socialflow-lite` of `kael-tombo/socialFlow`) publishes to LinkedIn and X over REST and MCP. It
+runs as the `socialflow` profile, built straight from the git branch:
+
+```bash
+# .env
+SFL_PUBLIC_URL=https://social.example.com   # where LinkedIn and X send the founder back (https in production)
+SFL_ENCRYPTION_KEY=$(openssl rand -hex 32)
+LINKEDIN_CLIENT_ID=… LINKEDIN_CLIENT_SECRET=… X_CONSUMER_KEY=… X_CONSUMER_SECRET=…
+SOCIALFLOW_API_URL=http://socialflow:8080   # Banyan reaches it on the private Compose network
+SOCIALFLOW_ALLOW_PRIVATE_NETWORK=true
+SOCIALFLOW_TRANSPORT=mcp                     # or rest; both carry the same contract
+
+docker compose --profile socialflow up -d --build
+docker compose exec socialflow /socialflow-lite doctor                      # what to enter in each developer console
+docker compose exec socialflow /socialflow-lite keys create "Banyan"         # the API key for Banyan's connection
+```
+
+Then run `npm run smoke:socialflow -- --connect linkedin`, then `-- --connect x`, then `-- --publish`. Set
+`SOCIALFLOW_VERIFIED=true` only after that passes on real accounts.
+
+Not yet verified: building this image under Docker. The configuration is validated with `docker compose config`, and
+the binary and its tests are verified natively.
