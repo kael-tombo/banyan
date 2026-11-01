@@ -1,5 +1,6 @@
 "use client";
 
+import { ProductSwitcher, type SwitcherProduct } from "@/components/ProductSwitcher";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -29,6 +30,9 @@ type AppShellProps = {
   user: { name: string; email: string };
   workspace: { id: string; name: string; isSelf: boolean };
   product: string;
+  /** Every product this person can reach (BOS-011) and whether they may create one (BOS-008). */
+  products: SwitcherProduct[];
+  canCreateProduct: boolean;
   goal: string;
   onboardingComplete: boolean;
   attention: { approvals: number };
@@ -98,6 +102,8 @@ export function AppShell({
   user,
   workspace,
   product,
+  products,
+  canCreateProduct,
   goal,
   onboardingComplete,
   attention,
@@ -119,7 +125,8 @@ export function AppShell({
 
   const active = findActiveDestination(pathname);
   const initials = initialsOf(user.name || user.email);
-  const productInitial = (product || workspace.name).slice(0, 1).toUpperCase();
+  const activeOrg = products.find((p) => p.id === workspace.id)?.organization ?? "";
+  const switcherDetail = [activeOrg, workspace.isSelf ? "self-distribution" : "", goal ? `${goal.replace(/_/g, " ")} goal` : ""].filter(Boolean).join(" · ") || workspace.name;
 
   // The palette is the global shortcut, from any page and any focus state.
   useEffect(() => {
@@ -194,14 +201,7 @@ export function AppShell({
             </span>
           </Link>
 
-          <WorkspaceCard
-            product={product}
-            workspace={workspace}
-            goal={goal}
-            productInitial={productInitial}
-            className="mt-4"
-            href="/app/workspace"
-          />
+          <ProductSwitcher activeId={workspace.id} activeLabel={product || workspace.name} detail={switcherDetail} products={products} canCreate={canCreateProduct} className="mt-4" />
         </div>
 
         <nav className="app-light-scroll mt-1 min-h-0 flex-1 overflow-y-auto pr-1" aria-label="Sections">
@@ -395,13 +395,7 @@ export function AppShell({
               </button>
             </div>
 
-            <WorkspaceCard
-              product={product}
-              workspace={workspace}
-              goal={goal}
-              productInitial={productInitial}
-              className="mt-4"
-            />
+            <ProductSwitcher activeId={workspace.id} activeLabel={product || workspace.name} detail={switcherDetail} products={products} canCreate={canCreateProduct} className="mt-4" />
 
             <nav className="mt-2 flex flex-col" aria-label="Sections">
               {NAV_GROUPS.map((group) => (
@@ -442,50 +436,6 @@ export function AppShell({
 
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
     </div>
-  );
-}
-
-/** Product, workspace and goal: who this rail is working for. */
-function WorkspaceCard({
-  product,
-  workspace,
-  goal,
-  productInitial,
-  href,
-  className = "",
-}: {
-  product: string;
-  workspace: { name: string; isSelf: boolean };
-  goal: string;
-  productInitial: string;
-  href?: string;
-  className?: string;
-}) {
-  const body = (
-    <>
-      <span
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-forest-deep text-[13px] font-medium text-white"
-        aria-hidden="true"
-      >
-        {productInitial}
-      </span>
-      <span className="min-w-0">
-        <span className="block truncate text-sm font-medium leading-5 text-charcoal">{product || "No product yet"}</span>
-        <span className="block truncate text-xs leading-4 text-muted">
-          {workspace.name}
-          {workspace.isSelf ? " · self-distribution" : ""}
-          {goal ? ` · ${goal.replace(/_/g, " ")} goal` : ""}
-        </span>
-      </span>
-    </>
-  );
-  const cls = `flex items-center gap-2.5 rounded-xl border border-bark/10 bg-canvas p-2 ${className}`;
-  return href ? (
-    <Link href={href} className={`${cls} transition-colors hover:border-bark/20`} aria-label="Open workspace profile">
-      {body}
-    </Link>
-  ) : (
-    <div className={cls}>{body}</div>
   );
 }
 

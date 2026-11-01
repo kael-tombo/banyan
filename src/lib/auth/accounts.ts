@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 import { recordActivity, recordMetricEvent } from "@/lib/activity";
 import { VISITOR_COOKIE } from "@/lib/auth/session";
-import { randomSlug } from "@/lib/crypto";
+import { createOrganizationWithProduct } from "@/lib/organizations";
 import type { OAuthIdentity } from "@/lib/auth/oauth/providers";
 
 /**
@@ -57,10 +57,12 @@ export async function createAccount(input: {
     });
   }
 
-  const workspace = await prisma.workspace.create({
-    data: { name: `${input.name}'s workspace`, slug: `ws-${randomSlug(8)}` },
+  // BOS-001: every founder starts with an organization and a first product (a workspace), as OWNER — atomically.
+  const { product: workspace } = await createOrganizationWithProduct({
+    userId: user.id,
+    organizationName: input.name,
+    productName: `${input.name}'s product`,
   });
-  await prisma.membership.create({ data: { userId: user.id, workspaceId: workspace.id, role: "owner" } });
   const via = input.identity ? ` with ${input.identity.provider}` : "";
   await recordActivity({
     workspaceId: workspace.id,

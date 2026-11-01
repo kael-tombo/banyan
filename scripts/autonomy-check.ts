@@ -16,7 +16,7 @@ async function main() {
   };
   const stamp = Date.now();
   const user = await prisma.user.create({ data: { email: `autonomy-${stamp}@check.local`, name: "Autonomy Check" } });
-  const ws = await prisma.workspace.create({ data: { name: "autonomy-check", slug: `ac-${stamp}`, timeZone: "Europe/Paris" } });
+  const ws = await prisma.workspace.create({ data: { organization: { create: { name: "autonomy-check", slug: `autonomy-check-${Date.now()}` } }, name: "autonomy-check", slug: `ac-${stamp}`, timeZone: "Europe/Paris" } });
   try {
     await prisma.membership.create({ data: { userId: user.id, workspaceId: ws.id, role: "owner" } });
     const campaign = await prisma.campaign.create({
@@ -72,7 +72,7 @@ async function main() {
     const again = await superviseDrafts(ws.id, campaign.id);
     check(again.approved === 0, "a second pass does not approve anything twice");
   } finally {
-    await prisma.workspace.delete({ where: { id: ws.id } });
+    await prisma.organization.delete({ where: { id: ws.organizationId } }); // cascades to the product
     await prisma.user.delete({ where: { id: user.id } });
   }
   console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) failed.`);

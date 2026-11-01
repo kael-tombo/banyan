@@ -29,7 +29,9 @@ export type ActivityType =
   | "profile"
   // Supervised autonomy: policy changes (human) and each decision made under a policy
   | "autonomy_policy"
-  | "autonomy";
+  | "autonomy"
+  // Organizations and products (ADR-005)
+  | "organization";
 
 export async function recordActivity(input: {
   workspaceId: string;

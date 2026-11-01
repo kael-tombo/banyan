@@ -25,6 +25,7 @@ model User {
   attributedSource      String?
   sessions              Session[]
   apiTokens             ApiToken[]
+  organizationMembers   OrganizationMember[]
   oauthAccounts         OAuthAccount[]
   memberships           Membership[]
   approvals             ContentItem[] @relation("approvals")
@@ -46,6 +47,33 @@ model OAuthAccount {
   lastUsedAt        DateTime?
 
   @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+/// The founder's business (ADR-005): owns products (workspaces), members and, later, the credit balance.
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  timeZone  String   @default("UTC")
+  createdAt DateTime @default(now())
+
+  members  OrganizationMember[]
+  products Workspace[]
+}
+
+/// Organization role: OWNER | ADMIN | MEMBER | BILLING_MANAGER. OWNER and ADMIN reach every product;
+/// MEMBER reaches only products they are a member of; BILLING_MANAGER reaches billing only.
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String       @default("MEMBER")
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, userId])
   @@index([userId])
 }
 
@@ -81,6 +109,13 @@ model Session {
 
 model Workspace {
   id        String   @id @default(cuid())
+  // ADR-005: a workspace is one product of an organization.
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  // saas | web_app | mobile_app | ecommerce | developer_tool | digital_product | agency_service | personal_brand | other
+  productType    String   @default("saas")
+  // active | archived (archived products leave the selector and their agents stop)
+  status         String   @default("active")
   name      String
   slug      String   @unique
   // The seeded Banyan.ai self-distribution workspace is its own first customer.
@@ -122,6 +157,8 @@ model Workspace {
   chatMessages    ChatMessage[]
   onboardingStages OnboardingStage[]
   productAnalyses  ProductAnalysis[]
+
+  @@index([organizationId])
 }
 
 /// Onboarding progress, one row per stage the workspace has finished or

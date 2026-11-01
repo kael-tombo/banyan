@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { getSessionUser, readSessionToken } from "@/lib/auth/session";
 import { rateLimit } from "@/lib/ratelimit";
 import { Membership, User, Workspace } from "@prisma/client";
+import { cookies } from "next/headers";
+import { ACTIVE_PRODUCT_COOKIE, resolveActiveProduct } from "@/lib/products";
 
 export function json(data: unknown, status = 200) {
   return NextResponse.json(data, { status });
@@ -46,13 +48,11 @@ export async function requireWorkspace(): Promise<ApiContext | null> {
   const token = await readSessionToken();
   const user = await getSessionUser(token);
   if (!user) return null;
-  const membership = await prisma.membership.findFirst({
-    where: { userId: user.id },
-    include: { workspace: true },
-    orderBy: { id: "asc" },
-  });
-  if (!membership) return null;
-  return { user, workspace: membership.workspace, membership };
+  // ADR-005: the active product is a cookie preference, re-validated here on every request.
+  const preferred = (await cookies()).get(ACTIVE_PRODUCT_COOKIE)?.value ?? null;
+  const active = await resolveActiveProduct(user.id, preferred);
+  if (!active) return null;
+  return { user, workspace: active.workspace, membership: active.membership };
 }
 
 export type ParseResult<T> = { ok: true; data: T } | { ok: false; status: number; message: string };

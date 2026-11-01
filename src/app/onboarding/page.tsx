@@ -1,3 +1,5 @@
+import { cookies } from "next/headers";
+import { ACTIVE_PRODUCT_COOKIE, resolveActiveProduct } from "@/lib/products";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -21,12 +23,10 @@ export default async function OnboardingPage({
   // the first concrete step of "from product URL to your next experiment".
   const seedUrl = url && /^https?:\/\//i.test(url) ? url : "";
 
-  const membership = await prisma.membership.findFirst({
-    where: { userId: user.id },
-    include: { workspace: { include: { profile: true } } },
-  });
-  const profile = membership?.workspace.profile ?? null;
-  const workspace = membership?.workspace;
+  // ADR-005: onboard the active product.
+  const active = await resolveActiveProduct(user.id, (await cookies()).get(ACTIVE_PRODUCT_COOKIE)?.value ?? null);
+  const workspace = active?.workspace;
+  const profile = workspace ? await prisma.productProfile.findUnique({ where: { workspaceId: workspace.id } }) : null;
   const progress = workspace ? await getProgress(workspace.id) : null;
 
   return (
@@ -53,7 +53,7 @@ export default async function OnboardingPage({
         channels: JSON.parse(profile?.channels || '["x"]'),
         voice: JSON.parse(profile?.brandVoice || '{"tone":"direct, plain-spoken","language":"English","approvalPreference":"manual_everything"}'),
       }}
-      workspaceName={membership?.workspace.name ?? "Your workspace"}
+      workspaceName={workspace?.name ?? "Your workspace"}
     />
   );
 }

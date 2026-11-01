@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { prisma } from "@/lib/db";
+import { accessibleProducts } from "@/lib/products";
 
 /**
  * Personal access tokens for Banyan's MCP server (/api/mcp).
@@ -45,8 +46,10 @@ export async function authenticateToken(authorization: string | null): Promise<T
     include: { user: { select: { id: true, name: true, email: true } }, workspace: { select: { id: true, name: true, timeZone: true } } },
   });
   if (!row || row.revokedAt) return null;
-  const membership = await prisma.membership.findFirst({ where: { userId: row.userId, workspaceId: row.workspaceId }, select: { role: true } });
-  if (!membership) return null;
+  // Still reachable? (product membership, or OWNER/ADMIN of its organization — ADR-005)
+  const reachable = (await accessibleProducts(row.userId)).find((p) => p.workspace.id === row.workspaceId);
+  if (!reachable) return null;
+  const membership = { role: reachable.role };
   // Record use at most once a minute, so reads stay cheap.
   if (!row.lastUsedAt || Date.now() - row.lastUsedAt.getTime() > 60_000) {
     await prisma.apiToken.update({ where: { id: row.id }, data: { lastUsedAt: new Date() } }).catch(() => {});

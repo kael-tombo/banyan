@@ -31,10 +31,20 @@ export async function seedDemoDatabase(prisma: PrismaClient): Promise<{ email: s
     },
   });
 
+  const organization = await prisma.organization.upsert({
+    where: { slug: "banyan" },
+    update: { name: "Banyan" },
+    create: { name: "Banyan", slug: "banyan" },
+  });
+  await prisma.organizationMember.upsert({
+    where: { organizationId_userId: { organizationId: organization.id, userId: user.id } },
+    update: { role: "OWNER" },
+    create: { organizationId: organization.id, userId: user.id, role: "OWNER" },
+  });
   const workspace = await prisma.workspace.upsert({
     where: { slug: "banyan-ai" },
     update: { name: "Banyan.ai", isSelf: true },
-    create: { name: "Banyan.ai", slug: "banyan-ai", isSelf: true },
+    create: { name: "Banyan.ai", slug: "banyan-ai", isSelf: true, organizationId: organization.id, productType: "saas" },
   });
 
   await prisma.membership.upsert({

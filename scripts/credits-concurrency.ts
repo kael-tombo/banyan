@@ -13,7 +13,7 @@ import { fold } from "@/lib/credits/ledger";
 import { getBalance, reserveCredits, finalizeReservation, InsufficientCreditsError } from "@/lib/credits/service";
 
 async function main() {
-  const ws = await prisma.workspace.create({ data: { name: "credits-concurrency", slug: `cc-${Date.now()}` } });
+  const ws = await prisma.workspace.create({ data: { organization: { create: { name: "credits-concurrency", slug: `credits-concurrency-${Date.now()}` } }, name: "credits-concurrency", slug: `cc-${Date.now()}` } });
   let failures = 0;
   const check = (ok: boolean, label: string) => {
     console.log(`${ok ? "PASS" : "FAIL"}: ${label}`);
@@ -40,7 +40,7 @@ async function main() {
     check(ledger.available === cached.available && ledger.reserved === cached.reserved, `cached balance equals the ledger (${cached.available} available, ${cached.reserved} held)`);
     check(cached.available === 2 && cached.reserved === 8, "2 available and 8 held after the race");
   } finally {
-    await prisma.workspace.delete({ where: { id: ws.id } });
+    await prisma.organization.delete({ where: { id: ws.organizationId } }); // cascades to the product
     await prisma.$disconnect();
   }
   console.log(failures === 0 ? "ALL CREDIT CHECKS PASSED" : `${failures} CREDIT CHECK(S) FAILED`);
