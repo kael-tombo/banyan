@@ -8,7 +8,7 @@ copies the approved text, posts it by hand and pastes the live URL back.
 
 ## Status update — 2026-11-01: a working SocialFlow exists
 
-**SocialFlow Lite** (`C:\Users\All in one\ShipStudio\socialflow-lite`, not yet pushed) is a minimal SocialFlow.ai
+**SocialFlow Lite** (branch [`socialflow-lite`](https://github.com/kael-tombo/socialFlow/tree/socialflow-lite) of `kael-tombo/socialFlow`) is a minimal SocialFlow.ai
 built from `kael-tombo/socialFlow` (an OpenPost fork, AGPL-3.0). It implements this contract (C1–C10) for LinkedIn
 personal profiles and X, text posts and threads, publish now or scheduled. This keeps the brief's
 "SocialFlow.ai is the publishing provider" intact, so option A below is no longer needed.
@@ -21,7 +21,7 @@ only with `SOCIALFLOW_ALLOW_PRIVATE_NETWORK=true`; by default the SSRF guard sti
 
 **What is left to close this blocker:**
 
-1. Choose where SocialFlow Lite lives (its own repo, or a branch on `kael-tombo/socialFlow`) and deploy it on a
+1. ~~Choose where SocialFlow Lite lives~~ (done: branch `socialflow-lite`). Deploy it on a
    public HTTPS host. That host is needed for the OAuth callbacks either way.
 2. Register the LinkedIn and X developer apps (step 2 below, with SocialFlow Lite's callback URLs).
 3. Run `npm run smoke:socialflow -- --connect linkedin`, `-- --connect x`, then `-- --publish` against the real
