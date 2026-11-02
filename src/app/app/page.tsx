@@ -4,6 +4,7 @@ import { campaignCounts } from "@/lib/campaign/progress";
 import { approvalState, parseSources } from "@/lib/product/profile-review";
 import { enabledProviderIds } from "@/lib/distribution/providers";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireWorkspaceServer } from "@/lib/workspace";
 import { Badge, Card, LinkButton, StatusBadge } from "@/components/ui";
@@ -101,6 +102,10 @@ function MoreLink({ href, children, className = "" }: { href: string; children: 
 export default async function DashboardPage() {
   const ctx = await requireWorkspaceServer();
   const wid = ctx.workspace.id;
+  // Blocker 04: a new founder's first screen is their first cycle, not an empty dashboard.
+  if (!ctx.user.onboardingCompletedAt && (await prisma.goal.count({ where: { workspaceId: wid } })) === 0) {
+    redirect("/onboarding");
+  }
   const now = new Date();
   const d14 = new Date(now.getTime() - 14 * DAY);
   const d28 = new Date(now.getTime() - 28 * DAY);

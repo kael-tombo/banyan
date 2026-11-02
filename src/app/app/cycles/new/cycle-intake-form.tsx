@@ -48,9 +48,12 @@ function stepClass(active: boolean, done: boolean): string {
 export default function CycleIntakeForm({
   initialProfile,
   initialUrl = "",
+  firstCycle = false,
 }: {
   initialProfile: ProductSnapshot | null;
   initialUrl?: string;
+  /** Onboarding (blocker 04): starting this cycle also finishes onboarding, with the browser's time zone. */
+  firstCycle?: boolean;
 }) {
   const router = useRouter();
   const [phase, setPhase] = useState<"url" | "review">(initialProfile ? "review" : "url");
@@ -214,6 +217,16 @@ export default function CycleIntakeForm({
       };
       if (!goalRes.ok || !goalBody.goal) {
         throw new Error(goalBody.error || "Could not start the cycle.");
+      }
+      if (firstCycle) {
+        let timeZone: string | undefined;
+        try {
+          timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        } catch {
+          timeZone = undefined;
+        }
+        // Best effort: the cycle exists either way; onboarding can be finished later from Settings.
+        await fetch("/api/profile", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ timeZone }) }).catch(() => null);
       }
       router.push(`/app/cycles/${goalBody.goal.id}`);
       router.refresh();

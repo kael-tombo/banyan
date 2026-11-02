@@ -6,6 +6,8 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { approvalState, editBump, markUserFields } from "@/lib/product/profile-review";
+import { isValidTimeZone } from "@/lib/onboarding/stages";
+import { markStage } from "@/lib/onboarding/progress";
 
 const schema = z.object({
   name: z.string().trim().min(1).max(120),
@@ -165,12 +167,20 @@ export async function POST(req: NextRequest) {
     req,
     z.object({
       planId: z.string().optional(),
+      // The browser's time zone, sent when the first cycle starts (blocker 04). Applied only
+      // while the product still has the default, so a deliberate choice is never overwritten.
+      timeZone: z.string().trim().max(60).optional(),
     })
   );
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
 
   const user = ctx.user;
 
+  const tz = parsed.data.timeZone;
+  if (tz && isValidTimeZone(tz) && (!ctx.workspace.timeZone || ctx.workspace.timeZone === "UTC")) {
+    await prisma.workspace.update({ where: { id: ctx.workspace.id }, data: { timeZone: tz } });
+    await markStage(ctx.workspace.id, "workspace", "done");
+  }
   await prisma.user.update({ where: { id: user.id }, data: { onboardingCompletedAt: new Date() } });
   await recordMetricEvent({
     workspaceId: ctx.workspace.id,
