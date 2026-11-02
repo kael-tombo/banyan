@@ -41,6 +41,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     }),
     prisma.strategy.count({ where: { workspaceId: membership.workspace.id, status: "proposed" } }),
   ]);
+  // Problems the agents cannot fix themselves: posts that did not go out, and connections that broke.
+  const [failedPosts, brokenConnections] = await Promise.all([
+    prisma.contentItem.count({ where: { workspaceId: membership.workspace.id, status: "failed" } }),
+    prisma.channelConnection.count({ where: { workspaceId: membership.workspace.id, status: "error" } }),
+  ]);
 
   const credits = await getBalance(membership.workspace.id).catch(() => null);
 
@@ -55,7 +60,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       // Setup is done once the wizard finished or a product profile exists: the
       // banner asks for exactly that, and the launch path covers what comes next.
       onboardingComplete={Boolean(user.onboardingCompletedAt || membership.workspace.profile)}
-      attention={{ approvals: awaitingContent + awaitingGates + awaitingStrategy }}
+      attention={{ approvals: awaitingContent + awaitingGates + awaitingStrategy, failedPosts, brokenConnections }}
       credits={credits?.available ?? null}
     >
       {children}

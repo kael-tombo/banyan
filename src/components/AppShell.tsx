@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { BanyanMark } from "@/components/BanyanMark";
 import { CommandPalette } from "@/components/CommandPalette";
 import {
-  NAV_GROUPS, SETTINGS_ITEM, findActiveDestination, type NavItem,
+  NAV_GROUPS, SETTINGS_ITEM, findActiveDestination, attentionFor, type Attention, type NavItem,
 } from "@/components/app-nav";
 import {
   ChevronDown, ChevronRight, LogOut, Menu, Search, Sprout, X,
@@ -35,7 +35,7 @@ type AppShellProps = {
   canCreateProduct: boolean;
   goal: string;
   onboardingComplete: boolean;
-  attention: { approvals: number };
+  attention: Attention;
   /** Available credits (US-063), null when unknown. */
   credits?: number | null;
   children: React.ReactNode;
@@ -49,6 +49,10 @@ function initialsOf(value: string): string {
 
 function isActiveRoute(pathname: string, href: string): boolean {
   return href === "/app" ? pathname === "/app" : pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function ClayDot() {
+  return <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-clay" aria-hidden="true" />;
 }
 
 /** The signature: a fig dot appears only where something waits on a human. */
@@ -69,11 +73,11 @@ function NavRow({
 }: {
   item: NavItem;
   pathname: string;
-  attention: number;
+  attention: Attention;
   onNavigate?: () => void;
 }) {
   const active = isActiveRoute(pathname, item.href);
-  const showCount = item.href === "/app/approvals" && attention > 0;
+  const count = attentionFor(item.href, attention);
   const Icon = item.icon;
   return (
     <Link
@@ -88,10 +92,13 @@ function NavRow({
         aria-hidden="true"
       />
       <span className="truncate">{item.label}</span>
-      {showCount && (
-        <span className="ml-auto flex items-center gap-1.5" aria-label={`${attention} waiting on you`}>
-          <FigDot />
-          <span className="num font-mono text-xs text-charcoal-soft">{attention}</span>
+      {count && (
+        <span
+          className="ml-auto flex items-center gap-1.5"
+          aria-label={count.tone === "decision" ? `${count.n} waiting on you` : `${count.n} need fixing`}
+        >
+          {count.tone === "decision" ? <FigDot /> : <ClayDot />}
+          <span className={`num font-mono text-xs ${count.tone === "decision" ? "text-charcoal-soft" : "text-clay"}`}>{count.n}</span>
         </span>
       )}
     </Link>
@@ -207,7 +214,7 @@ export function AppShell({
         <nav className="app-light-scroll mt-1 min-h-0 flex-1 overflow-y-auto pr-1" aria-label="Sections">
           {NAV_GROUPS.map((group) => {
             const open = isGroupOpen(group);
-            const groupHasAttention = group.items.some((i) => i.href === "/app/approvals") && attention.approvals > 0;
+            const groupHasAttention = group.items.some((i) => attentionFor(i.href, attention));
             return (
               <div key={group.label} className="mt-4">
                 <button
@@ -227,7 +234,7 @@ export function AppShell({
                 {open && (
                   <div className="flex flex-col gap-0.5">
                     {group.items.map((item) => (
-                      <NavRow key={item.href} item={item} pathname={pathname} attention={attention.approvals} />
+                      <NavRow key={item.href} item={item} pathname={pathname} attention={attention} />
                     ))}
                   </div>
                 )}
@@ -238,7 +245,7 @@ export function AppShell({
 
         <div className="mt-auto flex shrink-0 flex-col gap-0.5 border-t border-bark/10 pt-2">
           {workspace.isSelf && <GrowthRow pathname={pathname} />}
-          <NavRow item={SETTINGS_ITEM} pathname={pathname} attention={attention.approvals} />
+          <NavRow item={SETTINGS_ITEM} pathname={pathname} attention={attention} />
           <div className="mt-1 flex h-12 items-center gap-2.5 px-2">
             <span
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sage text-[11px] font-medium text-forest-deep"
@@ -407,7 +414,7 @@ export function AppShell({
                         key={item.href}
                         item={item}
                         pathname={pathname}
-                        attention={attention.approvals}
+                        attention={attention}
                         onNavigate={() => setMenuOpen(false)}
                       />
                     ))}
@@ -421,7 +428,7 @@ export function AppShell({
               <NavRow
                 item={SETTINGS_ITEM}
                 pathname={pathname}
-                attention={attention.approvals}
+                attention={attention}
                 onNavigate={() => setMenuOpen(false)}
               />
               <button type="button" onClick={logout} className={`${RAIL_ROW} ${RAIL_ROW_IDLE} w-full text-left`}>

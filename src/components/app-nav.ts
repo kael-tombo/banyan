@@ -119,3 +119,17 @@ export function findActiveDestination(pathname: string): PaletteAction | undefin
 export function findActiveGroup(pathname: string): string | undefined {
   return findActiveDestination(pathname)?.group;
 }
+
+/**
+ * What only a human can move. Approvals wait on a decision (fig); failed posts and
+ * broken connections are things the agents cannot fix themselves (clay).
+ */
+export type Attention = { approvals: number; failedPosts?: number; brokenConnections?: number };
+
+/** The count a nav row shows, and whether it is a decision or a problem. */
+export function attentionFor(href: string, a: Attention): { n: number; tone: "decision" | "problem" } | null {
+  if (href === "/app/approvals" && a.approvals > 0) return { n: a.approvals, tone: "decision" };
+  if (href === "/app/publishing" && (a.failedPosts ?? 0) > 0) return { n: a.failedPosts!, tone: "problem" };
+  if (href === "/app/connections" && (a.brokenConnections ?? 0) > 0) return { n: a.brokenConnections!, tone: "problem" };
+  return null;
+}
