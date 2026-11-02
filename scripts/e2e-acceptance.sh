@@ -62,6 +62,15 @@ req POST /api/auth/signup "$JAR1" "{\"name\":\"E2E Founder\",\"email\":\"$U1\",\
                                        check "$STATUS" 201 "signup works"
 req GET /api/goals "$JAR1";            check "$STATUS" 200 "session cookie grants API access"
 
+# Blocker 04: a new founder's first screen is the first cycle, not an empty dashboard.
+FIRST=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' -b "$JAR1" "$BASE/app")
+case "$FIRST" in
+  30[0-9]*"/onboarding"*) ok "a new founder opening the app is sent to the first cycle" ;;
+  *) bad "a new founder opening the app is sent to the first cycle" "got [$FIRST]" ;;
+esac
+req GET /onboarding "$JAR1";           check "$STATUS" 200 "onboarding page loads"
+                                       contains "$BODY" "Your first cycle starts with one link" "onboarding opens on the first cycle"
+
 # US-018 / US-019: onboarding progress across the nine stages.
 req GET /api/onboarding/progress "$JAR1"
                                        check "$STATUS" 200 "onboarding progress readable"
