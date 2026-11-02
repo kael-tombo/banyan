@@ -136,6 +136,45 @@ export const PLAN_SCHEMA = z.object({
 
 export type DraftPlan = z.infer<typeof PLAN_SCHEMA>;
 
+/** Shorten text to at most `max` characters, cutting at a word boundary and marking the cut. */
+export function clampText(value: unknown, max: number): unknown {
+  if (typeof value !== "string" || value.length <= max) return value;
+  const head = value.slice(0, max - 1);
+  const cut = head.lastIndexOf(" ");
+  return `${(cut > max * 0.6 ? head.slice(0, cut) : head).replace(/[\s,;:.–—-]+$/, "")}…`;
+}
+
+/**
+ * Models sometimes run a field a little past the plan's limits. One long theme
+ * should not throw away an otherwise good plan, so over-long text is shortened
+ * at a word boundary before validation. Structure (counts, channel keys, types)
+ * is still validated strictly.
+ */
+export function clampPlanLengths(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object") return raw;
+  const p = { ...(raw as Record<string, unknown>) };
+  p.positioning = clampText(p.positioning, 500);
+  if (Array.isArray(p.contentThemes)) p.contentThemes = p.contentThemes.map((t) => clampText(t, 120));
+  if (p.initialCampaign && typeof p.initialCampaign === "object") {
+    const c = { ...(p.initialCampaign as Record<string, unknown>) };
+    c.name = clampText(c.name, 80);
+    c.keyMessage = clampText(c.keyMessage, 300);
+    c.cta = clampText(c.cta, 120);
+    p.initialCampaign = c;
+  }
+  if (Array.isArray(p.experiments)) {
+    p.experiments = p.experiments.map((e) => {
+      if (!e || typeof e !== "object") return e;
+      const x = { ...(e as Record<string, unknown>) };
+      x.title = clampText(x.title, 100);
+      x.hypothesis = clampText(x.hypothesis, 400);
+      x.variable = clampText(x.variable, 200);
+      return x;
+    });
+  }
+  return p;
+}
+
 export async function generateDraftPlan(input: {
   productName: string;
   productDescription: string;
@@ -157,6 +196,7 @@ export async function generateDraftPlan(input: {
     "Never fabricate metrics, competitors' results, or market statistics.",
     'Respond with ONLY a JSON object matching: {"positioning": string, "contentThemes": [string x3], "channelFocus": [channel keys], "initialCampaign": {"name", "keyMessage", "cta"}, "experiments": [{"title","hypothesis","variable"}], "assumptions": [string]}',
     'channelFocus keys: "x", "linkedin", "shortvideo".',
+    "Length limits (hard): positioning under 450 characters; each content theme under 110; campaign name under 70; keyMessage under 280; cta under 100; experiment title under 90, hypothesis under 380, variable under 180.",
   ].join("\n");
 
   const user = [
@@ -181,7 +221,7 @@ export async function generateDraftPlan(input: {
       temperature: 0.6,
       schema: z.string(),
     });
-    const plan = PLAN_SCHEMA.parse(extractJSON(data));
+    const plan = PLAN_SCHEMA.parse(clampPlanLengths(extractJSON(data)));
     return { plan, provider: usage.provider, isFallback: usage.isFallback, label: usage.label };
   } catch {
     // Live provider missing, malformed, or failed: fall back to a clearly

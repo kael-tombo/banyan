@@ -47,3 +47,28 @@ describe("generators use the provider they are given", () => {
     expect(out.provider).toBe("spy");
   });
 });
+
+describe("plan length clamping", () => {
+  it("shortens an over-long theme at a word boundary instead of discarding the plan", async () => {
+    const { clampPlanLengths, PLAN_SCHEMA } = await import("@/lib/ai/generate");
+    const longTheme = "Working from anywhere: " + "the invoice that waits for signal is the invoice that waits to be paid, ".repeat(3);
+    const raw = {
+      positioning: "Hypothesis: invoicing that never waits for signal",
+      contentThemes: [longTheme, "Building offline-first", "Honest early results"],
+      channelFocus: ["linkedin"],
+      initialCampaign: { name: "First wave", keyMessage: "Get paid offline, every time", cta: "Try it" },
+      experiments: [{ title: "Angle test", hypothesis: "Offline beats speed as an opening", variable: "angle" }],
+    };
+    expect(() => PLAN_SCHEMA.parse(raw)).toThrow();
+    const plan = PLAN_SCHEMA.parse(clampPlanLengths(raw));
+    expect(plan.contentThemes[0].length).toBeLessThanOrEqual(120);
+    expect(plan.contentThemes[0].endsWith("…")).toBe(true);
+    expect(plan.contentThemes[0]).not.toMatch(/\s…$/);
+    expect(plan.contentThemes[1]).toBe("Building offline-first");
+  });
+
+  it("still rejects structural problems", async () => {
+    const { clampPlanLengths, PLAN_SCHEMA } = await import("@/lib/ai/generate");
+    expect(() => PLAN_SCHEMA.parse(clampPlanLengths({ positioning: "Hypothesis: something real", contentThemes: ["a theme here"], channelFocus: ["myspace"] }))).toThrow();
+  });
+});
