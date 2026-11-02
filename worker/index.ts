@@ -101,9 +101,11 @@ function runHttpTickFallback(): void {
   setInterval(() => void tick(), intervalMs);
 }
 
+import { log as writeLog } from "@/lib/log";
+
+/** JSON lines with secrets redacted (src/lib/log.ts). */
 function log(level: "info" | "error", event: string, fields: Record<string, unknown> = {}): void {
-  const line = JSON.stringify({ level, time: new Date().toISOString(), service: "worker", event, ...fields });
-  (level === "error" ? console.error : console.log)(line);
+  writeLog(level, event, fields, "worker");
 }
 
 if (process.env.REDIS_URL) {

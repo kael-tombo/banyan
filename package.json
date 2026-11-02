@@ -18,7 +18,10 @@
     "build:worker": "esbuild worker/index.ts --bundle --platform=node --target=node22 --format=cjs --packages=external --tsconfig=tsconfig.json --outfile=dist/worker.js",
     "worker:prod": "node dist/worker.js",
     "smoke:socialflow": "tsx --env-file-if-exists=.env scripts/smoke-socialflow.ts",
-    "report:activation": "tsx --env-file-if-exists=.env scripts/report-activation.ts"
+    "report:activation": "tsx --env-file-if-exists=.env scripts/report-activation.ts",
+    "credits:grant": "tsx --env-file-if-exists=.env scripts/credits-grant.ts",
+    "db:backup": "sh scripts/backup.sh",
+    "db:restore": "sh scripts/restore.sh"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

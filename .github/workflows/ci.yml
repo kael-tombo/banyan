@@ -33,6 +33,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Dependency audit (fails on critical; known highs are TD-18/TD-19)
+        run: npm audit --omit=dev --audit-level=critical
       - run: npx prisma generate
       - name: Typecheck
         run: npm run -s typecheck
