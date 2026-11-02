@@ -10,7 +10,7 @@ import { ActivityControls } from "@/app/app/activity/activity-client";
 import { PolicyForm } from "./policy-form";
 import { EarnedAutonomy } from "./earned-autonomy";
 import { channelTrust } from "@/lib/autonomy/trust-service";
-import { proposedPolicy } from "@/lib/autonomy/trust";
+import { narrowedPolicy, proposedPolicy } from "@/lib/autonomy/trust";
 
 export const metadata: Metadata = { title: "Autonomy" };
 export const dynamic = "force-dynamic";
@@ -45,7 +45,11 @@ export default async function AutonomyPage() {
   const paused = Boolean(ws?.agentsPausedAt);
   const supervised = isSupervised(policy);
   const verdicts = await channelTrust(wid, policy);
-  const proposals = Object.fromEntries(verdicts.filter((v) => v.state === "ready").map((v) => [v.channel, proposedPolicy(policy, v.channel)]));
+  const proposals = Object.fromEntries(
+    verdicts
+      .filter((v) => v.state === "ready" || v.state === "slipping")
+      .map((v) => [v.channel, v.state === "ready" ? proposedPolicy(policy, v.channel) : narrowedPolicy(policy, v.channel)]),
+  );
 
   return (
     <>

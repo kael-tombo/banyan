@@ -40,9 +40,9 @@ switch the policy back to approving each draft.
 ## How the record can lose trust
 
 Earned autonomy is not permanent. The bar is checked against the latest 10 human decisions on a channel, so a
-rejection, a flagged claim or a failed post puts the channel back to "not yet" for any *new* proposal. Next to
-build: when a supervised channel's record falls below the bar, Banyan says so on the Autonomy page and proposes
-narrowing the policy, again for the founder to accept.
+rejection, a flagged claim or a failed post puts the channel back to "not yet" for any *new* proposal. When a
+supervised channel's record shows a problem (a rejection, a flagged claim, a failure; not merely a short history),
+the Autonomy page marks it "Record slipped" and proposes taking the channel back, again for the founder to accept.
 
 ## What this rules out
 

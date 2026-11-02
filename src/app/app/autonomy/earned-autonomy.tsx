@@ -40,6 +40,7 @@ export function EarnedAutonomy({ verdicts, proposals, canEdit }: { verdicts: Tru
           <div className="flex items-center justify-between gap-2">
             <h3 className="font-medium text-forest-deep">{NAME[v.channel]}</h3>
             {v.state === "supervised" && <Badge variant="forest">Supervised</Badge>}
+            {v.state === "slipping" && <Badge variant="clay">Record slipped</Badge>}
             {v.state === "ready" && <Badge variant="fig">Ready to supervise</Badge>}
             {v.state === "not_yet" && <Badge variant="warm">You approve each</Badge>}
           </div>
@@ -53,6 +54,13 @@ export function EarnedAutonomy({ verdicts, proposals, canEdit }: { verdicts: Tru
               </li>
             ))}
           </ul>
+          {v.state === "slipping" && canEdit && (
+            <div className="mt-3 border-t border-bark/10 pt-3">
+              <Button size="sm" variant="secondary" onClick={() => accept(v.channel)} disabled={busy !== null}>
+                {busy === v.channel ? "Updating…" : `Go back to approving each ${NAME[v.channel]} draft`}
+              </Button>
+            </div>
+          )}
           {v.state === "ready" && canEdit && (
             <div className="mt-3 border-t border-bark/10 pt-3">
               <Button size="sm" onClick={() => accept(v.channel)} disabled={busy !== null}>

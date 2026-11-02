@@ -65,13 +65,14 @@ export function trustRecord(channel: AutonomyChannel, drafts: ReviewedDraft[]): 
   };
 }
 
-export type TrustCheck = { label: string; met: boolean };
+/** "history": not enough evidence yet. "quality": the evidence shows a problem. */
+export type TrustCheck = { label: string; met: boolean; kind: "history" | "quality" };
 export type TrustVerdict = {
   channel: AutonomyChannel;
   record: TrustRecord;
   checks: TrustCheck[];
-  /** supervised already | ready to propose | keep approving each */
-  state: "supervised" | "ready" | "not_yet";
+  /** supervised and holding | supervised but the record slipped | ready to propose | keep approving each */
+  state: "supervised" | "slipping" | "ready" | "not_yet";
   summary: string;
 };
 
@@ -80,16 +81,27 @@ const NAME: Record<AutonomyChannel, string> = { linkedin: "LinkedIn", x: "X" };
 export function trustVerdict(record: TrustRecord, policy: AutonomyPolicy): TrustVerdict {
   const share = record.reviewed ? record.approvedAsWritten / record.reviewed : 0;
   const checks: TrustCheck[] = [
-    { label: `${record.reviewed} of ${TRUST_BAR.minReviewed} drafts reviewed by you`, met: record.reviewed >= TRUST_BAR.minReviewed },
-    { label: `${Math.round(share * 100)}% approved as written (needs ${TRUST_BAR.minAsWrittenShare * 100}%)`, met: record.reviewed > 0 && share >= TRUST_BAR.minAsWrittenShare },
-    { label: record.rejected ? `${record.rejected} rejected recently` : "None rejected recently", met: record.rejected <= TRUST_BAR.maxRejected },
-    { label: record.flagged ? `${record.flagged} approved with a flagged claim` : "No flagged claims approved", met: record.flagged <= TRUST_BAR.maxFlagged },
-    { label: `${record.publishedLive} of ${TRUST_BAR.minPublishedLive} posts confirmed live`, met: record.publishedLive >= TRUST_BAR.minPublishedLive },
-    { label: record.failed ? `${record.failed} failed to publish` : "No failed posts", met: record.failed <= TRUST_BAR.maxFailed },
+    { label: `${record.reviewed} of ${TRUST_BAR.minReviewed} drafts reviewed by you`, met: record.reviewed >= TRUST_BAR.minReviewed, kind: "history" },
+    { label: `${Math.round(share * 100)}% approved as written (needs ${TRUST_BAR.minAsWrittenShare * 100}%)`, met: record.reviewed > 0 && share >= TRUST_BAR.minAsWrittenShare, kind: record.reviewed === 0 ? "history" : "quality" },
+    { label: record.rejected ? `${record.rejected} rejected recently` : "None rejected recently", met: record.rejected <= TRUST_BAR.maxRejected, kind: "quality" },
+    { label: record.flagged ? `${record.flagged} approved with a flagged claim` : "No flagged claims approved", met: record.flagged <= TRUST_BAR.maxFlagged, kind: "quality" },
+    { label: `${record.publishedLive} of ${TRUST_BAR.minPublishedLive} posts confirmed live`, met: record.publishedLive >= TRUST_BAR.minPublishedLive, kind: "history" },
+    { label: record.failed ? `${record.failed} failed to publish` : "No failed posts", met: record.failed <= TRUST_BAR.maxFailed, kind: "quality" },
   ];
   const name = NAME[record.channel];
   if (policy.level === "supervised" && policy.channels.includes(record.channel)) {
-    return { channel: record.channel, record, checks, state: "supervised", summary: `${name} is already supervised: Banyan approves routine drafts within your policy.` };
+    // Earned autonomy can be lost: a problem in the recent record (not a lack of history) is flagged.
+    const problems = checks.filter((c) => !c.met && c.kind === "quality");
+    if (problems.length) {
+      return {
+        channel: record.channel,
+        record,
+        checks,
+        state: "slipping",
+        summary: `${name} is supervised, but its recent record slipped (${problems.map((p) => p.label.toLowerCase()).join("; ")}). Banyan suggests going back to approving each ${name} draft until it is clean again.`,
+      };
+    }
+    return { channel: record.channel, record, checks, state: "supervised", summary: `${name} is supervised and its record holds: Banyan approves routine drafts within your policy.` };
   }
   if (checks.every((c) => c.met)) {
     return {
@@ -102,6 +114,19 @@ export function trustVerdict(record: TrustRecord, policy: AutonomyPolicy): Trust
   }
   const missing = checks.filter((c) => !c.met).length;
   return { channel: record.channel, record, checks, state: "not_yet", summary: `Keep approving each ${name} draft: ${missing} of ${checks.length} conditions are not met yet.` };
+}
+
+/** The policy after taking a channel back (record slipped): the same policy, minus this channel. */
+export function narrowedPolicy(policy: AutonomyPolicy, channel: AutonomyChannel) {
+  const channels = policy.channels.filter((c) => c !== channel);
+  return {
+    level: channels.length ? ("supervised" as const) : ("approve_each" as const),
+    channels,
+    maxPerDay: policy.maxPerDay,
+    quietHours: policy.quietHours,
+    blackoutDates: policy.blackoutDates,
+    autoPublish: channels.length ? policy.autoPublish : false,
+  };
 }
 
 /** The policy the founder would apply by accepting a proposal: the same policy, plus this channel. */
