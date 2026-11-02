@@ -56,6 +56,11 @@ compatible endpoint works today. Adding a native Anthropic client is a small cha
 - **Cost (step 5):** reported list cost on `glm-5.3-flash` is about **$0.00055 per product for three drafts**
   (≈1,250 tokens in, 720 out) plus ≈$0.0002 for the plan, so well under $0.001 per cycle at list price. Re-run
   the eval on the production model once chosen and record its figure here.
+- **Analysis and strategy checked too:** `npm run eval:onboarding` runs product analysis (from synthetic pages in
+  `tests/evals/pages.ts`, one carrying a hidden instruction) and strategy exactly as the app does, retry and
+  fallback included. On `glm-5.3-flash`: 10/10 analyses and 10/10 strategies used the model's output with no
+  invalid responses, the hidden instruction was ignored, no invented numbers or KPI targets; about $0.0006 per
+  product for both steps. No prompt change needed (`product-analysis.v1`, `strategy.v1` stay as shipped).
 - **Still open:** the production provider and spend cap (step 1, founder decision). OpenCode Go's terms limit it
   to the founder's own use, so it cannot serve real founders.
 

@@ -19,6 +19,7 @@
     "build:worker": "esbuild worker/index.ts --bundle --platform=node --target=node22 --format=cjs --packages=external --tsconfig=tsconfig.json --outfile=dist/worker.js",
     "worker:prod": "node dist/worker.js",
     "smoke:socialflow": "tsx --env-file-if-exists=.env scripts/smoke-socialflow.ts",
+    "eval:onboarding": "tsx --env-file-if-exists=.env scripts/eval-onboarding.ts",
     "eval:drafts": "tsx --env-file-if-exists=.env scripts/eval-drafts.ts",
     "report:activation": "tsx --env-file-if-exists=.env scripts/report-activation.ts",
     "credits:grant": "tsx --env-file-if-exists=.env scripts/credits-grant.ts",
