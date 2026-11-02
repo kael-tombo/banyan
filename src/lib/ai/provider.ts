@@ -15,6 +15,8 @@ export type UsageMeta = {
   label: string;
   promptTokens?: number;
   completionTokens?: number;
+  /** List cost in USD when the gateway reports it (e.g. OpenCode's usage.opencode.list_cost). */
+  reportedCostUsd?: number;
 };
 
 export type GenResult = { text: string; usage: UsageMeta };
@@ -73,7 +75,7 @@ export class OpenAICompatProvider implements AIProvider {
     }
     const data = res.json as {
       choices?: { message?: { content?: string } }[];
-      usage?: { prompt_tokens?: number; completion_tokens?: number };
+      usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number; opencode?: { list_cost?: number } };
     };
     const text = data.choices?.[0]?.message?.content;
     if (!text) throw new AIError("Model provider returned an empty completion.");
@@ -86,6 +88,7 @@ export class OpenAICompatProvider implements AIProvider {
         label: `Live model: ${model}`,
         promptTokens: data.usage?.prompt_tokens,
         completionTokens: data.usage?.completion_tokens,
+        reportedCostUsd: reportedCost(data.usage),
       },
     };
   }
@@ -106,6 +109,14 @@ export function gatewayHeaders(baseUrl: string): Record<string, string> {
   }
   if (host !== "opencode.ai" && !host.endsWith(".opencode.ai")) return {};
   return { "user-agent": "banyan/0.1", "x-opencode-session": `banyan-${crypto.randomUUID()}` };
+}
+
+/** A positive, finite cost the gateway put in the usage block, preferring the list price over a subscription's zero. */
+export function reportedCost(usage: { cost?: number; opencode?: { list_cost?: number } } | undefined): number | undefined {
+  for (const v of [usage?.opencode?.list_cost, usage?.cost]) {
+    if (typeof v === "number" && Number.isFinite(v) && v > 0) return v;
+  }
+  return undefined;
 }
 
 async function fetchJSONWithTimeout(

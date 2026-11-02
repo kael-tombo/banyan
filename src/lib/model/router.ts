@@ -181,7 +181,9 @@ async function recordCall(
         completionTokens: usage.completionTokens ?? 0,
         estCostMicros: usage.isFallback
           ? 0
-          : estimateCostMicros(usage.model, usage.promptTokens ?? 0, usage.completionTokens ?? 0),
+          : usage.reportedCostUsd !== undefined
+            ? Math.round(usage.reportedCostUsd * 1_000_000)
+            : estimateCostMicros(usage.model, usage.promptTokens ?? 0, usage.completionTokens ?? 0),
         latencyMs,
         ok,
         error: error ?? null,

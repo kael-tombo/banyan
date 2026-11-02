@@ -30,7 +30,7 @@ Postgres, Redis and a queue worker (US-001–007).
 | --- | --- | --- | --- | --- |
 | [01](01-no-live-publishing-rail.md) | No verified live publishing rail — **SocialFlow Lite built; Banyan tested against it in CI over REST and MCP (stand-in LinkedIn/X); status sync, cancel and no-double-post done. Needs hosting, developer apps, one live post** | "real publishing" — ≥2 provider-confirmed posts | Ops + vendor apps | M |
 | [02](02-no-production-environment.md) | No production environment | Nothing runs for a real founder; OAuth needs a public HTTPS callback | Ops | M |
-| [03](03-no-live-model-provider.md) | No live model provider configured | "channel-native assets" in the founder's voice | Ops + quality | S |
+| [03](03-no-live-model-provider.md) | No live model provider configured — **eval built and prompts tuned on a dev model: 10/10 products clean, 0 invented claims, < $0.001 per cycle. Needs the production provider + spend cap** | "channel-native assets" in the founder's voice | Ops + quality | S |
 | [04](04-onboarding-does-not-reach-first-cycle.md) | Onboarding stops before the first campaign and publication — **✅ onboarding is the first cycle (URL → review → update → cycle); checked in the CI journey; not browser-checked** | The cycle a new founder actually walks; <30 min | Build | M |
 | [05](05-no-cycle-report.md) | No cycle report — **✅ built (not browser-checked; product signups need a pixel)** | "measured results, and the next move" as one closing artefact | Build | S |
 | [06](06-no-email-delivery.md) | No email delivery | Account recovery, verification, "approval needed" reminders | Build + vendor | M |

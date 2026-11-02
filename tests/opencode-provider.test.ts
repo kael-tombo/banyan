@@ -125,3 +125,14 @@ describe("gatewayHeaders", () => {
     expect(gatewayHeaders("not a url")).toEqual({});
   });
 });
+
+describe("reportedCost", () => {
+  it("prefers the gateway's list cost over a subscription's zero, and ignores junk", async () => {
+    const { reportedCost } = await import("@/lib/ai/provider");
+    expect(reportedCost({ cost: 0, opencode: { list_cost: 0.000926 } })).toBe(0.000926);
+    expect(reportedCost({ cost: 0.0041 })).toBe(0.0041);
+    expect(reportedCost({ cost: 0 })).toBeUndefined();
+    expect(reportedCost({ cost: Number.NaN })).toBeUndefined();
+    expect(reportedCost(undefined)).toBeUndefined();
+  });
+});

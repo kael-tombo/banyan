@@ -39,6 +39,26 @@ compatible endpoint works today. Adding a native Anthropic client is a small cha
    price (blocker 11) covers it.
 6. **Keep the fallback** exactly as is: labelled, used only when the model fails or the quota is spent.
 
+## Status (2026-11-02)
+
+- **Eval built (step 3):** `npm run eval:drafts` (add `-- --judge` for a model's approvability score). Ten
+  fictional products in `tests/evals/products.ts` × X thread, LinkedIn post and short-video script; automatic
+  checks in `tests/evals/score.ts` (live model, channel limits, avoided terms, claims not in the evidence,
+  grounded in the product's facts, no placeholders/meta-commentary, X and LinkedIn open differently). Each run
+  writes every draft to `tests/evals/reports/<date>-<model>.md` for a human read.
+- **Prompt tuned (step 4):** the first run on `glm-5.3-flash` (OpenCode Go, dev only) had 2/10 products fully
+  clean: `[link]` placeholders in half the X threads, one invented price, one product whose X thread and LinkedIn
+  post opened identically. Fixes in `generateContent`: no URLs or placeholders (Banyan attaches the tracked
+  link), no numbers outside the facts, no stated facts about customers' behaviour, and a per-format guide that
+  gives each format its own opening move. Result: **10/10 products clean, 0 invented claims, 10/10 distinct
+  openings, judge 30/30 ≥ 4/5** (same-model judge, so a hint; the human read of the report agrees the drafts
+  need light edits at most).
+- **Cost (step 5):** reported list cost on `glm-5.3-flash` is about **$0.00055 per product for three drafts**
+  (≈1,250 tokens in, 720 out) plus ≈$0.0002 for the plan, so well under $0.001 per cycle at list price. Re-run
+  the eval on the production model once chosen and record its figure here.
+- **Still open:** the production provider and spend cap (step 1, founder decision). OpenCode Go's terms limit it
+  to the founder's own use, so it cannot serve real founders.
+
 ## Acceptance
 
 - In production, drafts show the live provider, not "Template fallback".
