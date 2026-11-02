@@ -8,6 +8,9 @@ import { buildDigest, describePolicy, isSupervised, parsePolicy } from "@/lib/au
 import { autonomyEvents } from "@/lib/autonomy/service";
 import { ActivityControls } from "@/app/app/activity/activity-client";
 import { PolicyForm } from "./policy-form";
+import { EarnedAutonomy } from "./earned-autonomy";
+import { channelTrust } from "@/lib/autonomy/trust-service";
+import { proposedPolicy } from "@/lib/autonomy/trust";
 
 export const metadata: Metadata = { title: "Autonomy" };
 export const dynamic = "force-dynamic";
@@ -41,6 +44,8 @@ export default async function AutonomyPage() {
   const digest = buildDigest(events, weekAgo);
   const paused = Boolean(ws?.agentsPausedAt);
   const supervised = isSupervised(policy);
+  const verdicts = await channelTrust(wid, policy);
+  const proposals = Object.fromEntries(verdicts.filter((v) => v.state === "ready").map((v) => [v.channel, proposedPolicy(policy, v.channel)]));
 
   return (
     <>
@@ -81,6 +86,15 @@ export default async function AutonomyPage() {
             </div>
           ))}
         </div>
+      </Card>
+
+      <Card className="mt-4">
+        <h2 className="font-serif text-xl tracking-[-0.01em] text-forest-deep">Earned, channel by channel</h2>
+        <p className="mb-3 mt-1 max-w-2xl text-sm leading-relaxed text-charcoal-soft">
+          Autonomy is earned from your own decisions, not switched on. Banyan reads how you reviewed its recent drafts on each channel and
+          what happened when they went out. When the record is clean, it proposes taking routine drafts off your plate. Only you can accept.
+        </p>
+        <EarnedAutonomy verdicts={verdicts} proposals={proposals} canEdit={canApprove(ctx.membership.role)} />
       </Card>
 
       <Card className="mt-4">
