@@ -487,7 +487,8 @@ done
 [ -n "$AUTO_N" ] && [ "$AUTO_N" -ge 1 ] 2>/dev/null && ok "the creator writes drafts without being asked ($AUTO_N)" || bad "the creator writes drafts without being asked" "items=$AUTO_N"
 contains "$BODY" '"status":"ready_for_review"' "autopilot drafts wait for review"
 req GET /app "$JAR4"
-contains "$BODY" "wait on your review" "the launch path says what is waiting on the founder"
+# "1 draft waits" / "3 drafts wait": a live model may have written only one draft so far.
+contains "$BODY" "on your review" "the launch path says what is waiting on the founder"
 rm -f "$JAR4"
 
 req POST /api/auth/logout "$JAR1";     check "$STATUS" 200 "logout works"
