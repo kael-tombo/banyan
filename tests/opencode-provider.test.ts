@@ -107,3 +107,21 @@ describe("OpenCodeSessionProvider", () => {
     expect(oc.calls).toHaveLength(0);
   });
 });
+
+describe("gatewayHeaders", () => {
+  it("adds a fresh OpenCode session id and a named user agent for opencode.ai", async () => {
+    const { gatewayHeaders } = await import("@/lib/ai/provider");
+    const a = gatewayHeaders("https://opencode.ai/inference/go/openai/v1");
+    const b = gatewayHeaders("https://opencode.ai/inference/go/openai/v1");
+    expect(a["user-agent"]).toBe("banyan/0.1");
+    expect(a["x-opencode-session"]).toMatch(/^banyan-[0-9a-f-]{36}$/);
+    expect(a["x-opencode-session"]).not.toBe(b["x-opencode-session"]);
+  });
+
+  it("leaves other providers alone", async () => {
+    const { gatewayHeaders } = await import("@/lib/ai/provider");
+    expect(gatewayHeaders("https://api.openai.com/v1")).toEqual({});
+    expect(gatewayHeaders("https://opencode.ai.evil.example/v1")).toEqual({});
+    expect(gatewayHeaders("not a url")).toEqual({});
+  });
+});

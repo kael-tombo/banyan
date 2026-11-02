@@ -51,6 +51,7 @@ export class OpenAICompatProvider implements AIProvider {
         headers: {
           "content-type": "application/json",
           authorization: `Bearer ${apiKey}`,
+          ...gatewayHeaders(baseUrl),
           ...parseExtraHeaders(env.OPENAI_EXTRA_HEADERS),
         },
         body: JSON.stringify({
@@ -88,6 +89,23 @@ export class OpenAICompatProvider implements AIProvider {
       },
     };
   }
+}
+
+/**
+ * Headers a known gateway asks for. OpenCode's inference API (Go plans in
+ * particular) rejects requests without a per-conversation `x-opencode-session`
+ * and asks clients to name themselves in the user agent. Every Banyan
+ * completion is a single-turn conversation, so each call gets a fresh id.
+ */
+export function gatewayHeaders(baseUrl: string): Record<string, string> {
+  let host = "";
+  try {
+    host = new URL(baseUrl).hostname;
+  } catch {
+    return {};
+  }
+  if (host !== "opencode.ai" && !host.endsWith(".opencode.ai")) return {};
+  return { "user-agent": "banyan/0.1", "x-opencode-session": `banyan-${crypto.randomUUID()}` };
 }
 
 async function fetchJSONWithTimeout(
