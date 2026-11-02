@@ -130,3 +130,37 @@ export async function cancelPendingPublication(contentItemId: string, workspaceI
   }
   return { ok: true, atProvider };
 }
+
+export type PriorAttemptVerdict =
+  | { proceed: true }
+  | { proceed: false; reason: string; adoptPublished?: { publicationId: string; url?: string } };
+
+/**
+ * Before a new attempt after a failure: an earlier attempt SocialFlow accepted
+ * (it has an externalId) may still go out, and a fresh attempt is a new post,
+ * so it would publish twice. Ask SocialFlow first: proceed only when the
+ * earlier post is definitely not going out (failed or cancelled there). If it
+ * went out after all, adopt it instead of posting again.
+ */
+export async function checkPriorAttempts(
+  workspaceId: string,
+  publications: { id: string; status: string; externalId: string | null; connectionId: string | null }[],
+): Promise<PriorAttemptVerdict> {
+  for (const p of publications) {
+    if (p.status !== "failed" || !p.externalId || !p.connectionId) continue;
+    const connection = await prisma.channelConnection.findFirst({ where: { id: p.connectionId, workspaceId } });
+    const provider = connection && !["error", "removed"].includes(connection.status) ? providerFor(connection.adapter) : null;
+    if (!provider || !connection) continue; // nothing can publish through it; a new attempt is blocked or exported anyway
+    const st = await provider.getStatus({ workspaceId, credentials: credentialsFromConnection(connection) }, p.externalId);
+    if (!st.ok) {
+      if (st.error.code === "not_found") continue;
+      return { proceed: false, reason: `SocialFlow.ai could not say whether the earlier attempt went out (${st.error.message}). Try again shortly, so this post is not published twice.` };
+    }
+    if (st.value.state === "failed" || st.value.state === "cancelled") continue;
+    if (st.value.state === "published") {
+      return { proceed: false, reason: "The earlier attempt was published after all; it is now recorded as published.", adoptPublished: { publicationId: p.id, url: st.value.url } };
+    }
+    return { proceed: false, reason: `SocialFlow.ai still has the earlier attempt (${st.value.state}). Cancel it there, or wait for it, so this post is not published twice.` };
+  }
+  return { proceed: true };
+}

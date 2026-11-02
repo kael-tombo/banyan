@@ -67,7 +67,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // Users may only edit while the item is draft/rejected to preserve approved copy;
   // if it is scheduled/approved (downstream confirmed), edits restart review.
-  const restartFlow = ["approved", "scheduled"].includes(item.status);
+  // Failed content still carries its approval (a retry may publish it), so editing it restarts review too.
+  const restartFlow = ["approved", "scheduled", "failed"].includes(item.status);
 
   const channel = item.channel;
   if (!isChannel(channel)) return apiError(`Unsupported channel "${channel}".`, 400);

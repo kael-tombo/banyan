@@ -8,7 +8,7 @@ import { recordActivity } from "@/lib/activity";
 import { randomSlug } from "@/lib/crypto";
 import { claimDecision } from "@/lib/publishing/claim";
 import { enqueuePublicationAttempt } from "@/lib/queue/jobs";
-import { syncAcceptedPost } from "@/lib/publishing/status-sync";
+import { checkPriorAttempts, syncAcceptedPost } from "@/lib/publishing/status-sync";
 
 /** Connection statuses that can never be used to publish. */
 export const UNUSABLE_CONNECTION_STATUSES = ["error", "removed"];
@@ -39,7 +39,10 @@ async function attemptPublicationInner(input: {
   if (!item || item.workspaceId !== input.workspaceId) {
     return { ok: false, status: "blocked", message: "Content not found." };
   }
-  if (!isExportableContent(item)) {
+  // A failed attempt keeps its approval (editing failed content sends it back to
+  // draft), so "Retry publish now" is allowed on approved copy that failed.
+  const retryOfFailed = item.status === "failed" && !!item.approvedById;
+  if (!isExportableContent(item) && !retryOfFailed) {
     return { ok: false, status: "blocked", message: "Content must be approved before publishing." };
   }
 
@@ -50,6 +53,25 @@ async function attemptPublicationInner(input: {
       return { ok: false, status: "published", message: "This content is already published." };
     }
     return { ok: false, status: active.status, message: `A publication is already ${active.status} for this content.`, publicationId: active.id };
+  }
+
+  // An earlier attempt SocialFlow accepted may still go out; never post twice.
+  const prior = await checkPriorAttempts(input.workspaceId, item.publications);
+  if (!prior.proceed) {
+    if (prior.adoptPublished) {
+      const url = prior.adoptPublished.url && /^https?:\/\//i.test(prior.adoptPublished.url) ? prior.adoptPublished.url : null;
+      await prisma.publication.update({ where: { id: prior.adoptPublished.publicationId }, data: { status: "published", externalUrl: url, publishedAt: new Date(), lastError: null } });
+      await prisma.contentItem.update({ where: { id: item.id }, data: { status: "published", publishedAt: new Date(), scheduledFor: null } });
+      await recordActivity({
+        workspaceId: input.workspaceId,
+        type: "publication_success",
+        actorType: "system",
+        summary: `"${item.title}" was published by SocialFlow.ai after Banyan stopped waiting; recorded, not posted again.`,
+        meta: { contentItemId: item.id },
+      });
+      return { ok: true, status: "published", message: prior.reason, publicationId: prior.adoptPublished.publicationId };
+    }
+    return { ok: false, status: "blocked", message: prior.reason };
   }
 
   const connection = input.connectionId
@@ -119,7 +141,8 @@ async function executePublicationInner(publicationId: string): Promise<{ ok: boo
       where: { id: publication.id },
       data: { status: "blocked", lastError: "Content lost approval before the attempt; publishing refused." },
     });
-    await prisma.contentItem.update({ where: { id: item.id }, data: { status: "failed" } }).catch(() => {});
+    // The content keeps its own status (draft, in review…): marking it "failed" would
+    // let a retry ride on an approval that no longer covers the current copy.
     return { ok: false, status: "blocked", message: "Content lost approval before the attempt; publishing refused." };
   }
 
@@ -188,13 +211,22 @@ async function executePublicationInner(publicationId: string): Promise<{ ok: boo
       return { ok: false, status: "retry_scheduled", message: `Transient failure — attempt ${attemptNumber + 1} scheduled for ${retryAt.toISOString()}.` };
     }
 
+    // Giving up on a post SocialFlow accepted but never confirmed: cancel it there,
+    // so it cannot go out later behind a retry (checkPriorAttempts guards the rest).
+    let finalError = errorMessage;
+    if (externalId && result.retryable) {
+      const cancel = await provider.cancelScheduled(providerCtx, externalId).catch(() => null);
+      finalError = cancel?.ok
+        ? `${errorMessage} Banyan stopped waiting and cancelled it in SocialFlow.ai, so a retry cannot post it twice.`
+        : `${errorMessage} Banyan stopped waiting; SocialFlow.ai may still publish it, so a retry first checks its outcome.`;
+    }
     await prisma.publication.update({
       where: { id: publication.id },
-      data: { status: "failed", lastError: errorMessage, externalId, providerResponse: JSON.stringify(result.raw).slice(0, 4000) },
+      data: { status: "failed", lastError: finalError, externalId, providerResponse: JSON.stringify(result.raw).slice(0, 4000) },
     });
     await prisma.contentItem.update({ where: { id: item.id }, data: { status: "failed" } });
-    await recordActivity({ workspaceId: item.workspaceId, type: "publication_failed", actorType: "system", summary: `Publishing failed for "${item.title}" after ${attemptNumber} attempt(s): ${errorMessage}`, meta: { contentItemId: item.id } });
-    return { ok: false, status: "failed", message: errorMessage };
+    await recordActivity({ workspaceId: item.workspaceId, type: "publication_failed", actorType: "system", summary: `Publishing failed for "${item.title}" after ${attemptNumber} attempt(s): ${finalError}`, meta: { contentItemId: item.id } });
+    return { ok: false, status: "failed", message: finalError };
   }
 
   // Provider confirmed. Only now does content become published.

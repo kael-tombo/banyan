@@ -128,6 +128,49 @@ async function main() {
     const local = await cancelPendingPublication(d.id, ws.id, user.id);
     check(local.ok && !local.atProvider && script.calls.length === 0, "a not-yet-sent schedule is cancelled without calling the provider");
 
+    // 5b. Never confirmed: Banyan gives up, cancels it in SocialFlow, and a retry is then safe.
+    const g = await approved("Never confirmed");
+    const rg = await attemptPublication({ contentItemId: g.id, workspaceId: ws.id, connectionId: conn.id, mode: "now" });
+    const gid = rg.publicationId!;
+    for (let i = 0; i < 6 && (await pub(gid)).status === "scheduled"; i++) {
+      await due(gid);
+      await executePublication(gid);
+    }
+    const pg = await pub(gid);
+    check(
+      pg.status === "failed" && /cancelled it in SocialFlow/.test(pg.lastError ?? "") && script.status.get(pg.externalId!)?.state === "cancelled",
+      "giving up on an unconfirmed post cancels it in SocialFlow",
+      pg.lastError ?? "",
+    );
+    const retry = await attemptPublication({ contentItemId: g.id, workspaceId: ws.id, connectionId: conn.id, mode: "now" });
+    check(retry.publicationId !== gid && retry.status !== "blocked", "a retry after that cancel goes ahead as a new delivery", `${retry.status} ${retry.message}`);
+
+    // 5a'. A job that finds content which lost approval leaves its status alone, so no retry can ride on it.
+    const lost = await approved("Lost approval");
+    const rl = await attemptPublication({ contentItemId: lost.id, workspaceId: ws.id, connectionId: conn.id, mode: "schedule", scheduledFor: new Date(Date.now() + 3600_000) });
+    await prisma.contentItem.update({ where: { id: lost.id }, data: { status: "draft" } }); // what an edit does
+    await due(rl.publicationId!);
+    await executePublication(rl.publicationId!);
+    const lostAfter = await prisma.contentItem.findUniqueOrThrow({ where: { id: lost.id } });
+    const lostRetry = await attemptPublication({ contentItemId: lost.id, workspaceId: ws.id, connectionId: conn.id, mode: "now" });
+    check(lostAfter.status === "draft" && !lostRetry.ok && /must be approved/.test(lostRetry.message), "edited copy that lost approval cannot be republished by a retry", lostAfter.status);
+
+    // 5c. An earlier attempt SocialFlow still holds: a retry is refused; once it went out, it is adopted.
+    const h = await approved("Held by SocialFlow");
+    const heldPub = await prisma.publication.create({
+      data: { contentItemId: h.id, connectionId: conn.id, provider: "scripted", status: "failed", externalId: "ext-held", idempotencyKey: `held-${stamp}`, attempts: 4 },
+    });
+    script.status.set("ext-held", { state: "queued" });
+    const refusedRetry = await attemptPublication({ contentItemId: h.id, workspaceId: ws.id, connectionId: conn.id, mode: "now" });
+    check(refusedRetry.status === "blocked" && /not published twice/.test(refusedRetry.message), "a retry is refused while SocialFlow still holds the earlier attempt", refusedRetry.message);
+    script.status.set("ext-held", { state: "published", url: "https://www.linkedin.com/feed/update/urn:li:share:44/" });
+    const adopted = await attemptPublication({ contentItemId: h.id, workspaceId: ws.id, connectionId: conn.id, mode: "now" });
+    const ph = await pub(heldPub.id);
+    check(
+      adopted.ok && ph.status === "published" && ph.externalUrl?.endsWith("share:44/") === true && (await prisma.publication.count({ where: { contentItemId: h.id } })) === 1,
+      "an earlier attempt that went out is adopted, not posted again",
+    );
+
     // 6. Confirmed without a URL → the sweep fills it from the provider.
     script.publishAnswer = "published";
     const e = await approved("Confirmed without URL");
