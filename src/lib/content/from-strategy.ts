@@ -1,3 +1,4 @@
+import { generationMetaJson } from "@/lib/content/generation-meta";
 import { estimateDraftRun } from "@/lib/credits/ledger";
 import { finalizeReservation, reserveCredits } from "@/lib/credits/service";
 import { campaignForStrategy, syncCampaignLifecycle } from "@/lib/campaign/lifecycle-service";
@@ -106,7 +107,7 @@ export async function writeDraftsFromStrategy(workspaceId: string, opts: { strat
         strategyId: strategy.id,
         angle: d.angle || null,
         checks: JSON.stringify(flags),
-        generationMeta: JSON.stringify({ provider: result.provider, isFallback: result.isFallback, note: result.label, strategyId: strategy.id }),
+        generationMeta: generationMetaJson(result, { strategyId: strategy.id }),
         videoExtras: result.videoExtras ? JSON.stringify(result.videoExtras) : "{}",
         sourceRef: `strategy:${strategy.id}`,
       },

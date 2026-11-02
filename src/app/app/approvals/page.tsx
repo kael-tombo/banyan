@@ -1,3 +1,4 @@
+import { generationChip, readGenerationMeta } from "@/lib/content/generation-meta";
 import { bannedTerms, checkDraft } from "@/lib/content/checks";
 import { loadClaimEvidence, type EvidenceFor } from "@/lib/content/claim-evidence";
 import { isChannel } from "@/lib/formats";
@@ -152,6 +153,7 @@ export default async function ApprovalsPage() {
                   <h2 className="font-semibold text-forest-deep">{item.title}</h2>
                   <div className="flex items-center gap-2">
                     {flagCount(item) > 0 && <Badge variant="warm">{flagCount(item)} to check</Badge>}
+                    <GenerationChip raw={item.generationMeta} />
                     <Badge variant="charcoal">{item.channel === "shortvideo" ? "video" : item.channel}</Badge>
                     <StatusBadge status={item.status} />
                   </div>
@@ -201,5 +203,17 @@ export default async function ApprovalsPage() {
         </p>
       </Card>
     </>
+  );
+}
+
+/** Which model wrote the draft, so a founder knows what they are approving. */
+function GenerationChip({ raw }: { raw: string }) {
+  const meta = readGenerationMeta(raw);
+  const chip = generationChip(meta);
+  if (chip.tone === "none") return null;
+  return (
+    <span title={meta.label ?? undefined}>
+      <Badge variant={chip.tone === "template" ? "clay" : "forest"}>{chip.text}</Badge>
+    </span>
   );
 }

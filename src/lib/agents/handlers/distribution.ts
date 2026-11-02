@@ -1,3 +1,4 @@
+import { generationMetaJson } from "@/lib/content/generation-meta";
 import { syncCampaignLifecycle } from "@/lib/campaign/lifecycle-service";
 import { routedProvider } from "@/lib/model/router";
 import { prisma } from "@/lib/db";
@@ -175,7 +176,7 @@ export async function handleContentDraft(ctx: HandlerContext): Promise<HandlerRe
       // Agent drafts go straight to the review queue: they are complete, and
       // only a recorded human approval can ever move them toward publishing.
       status: "ready_for_review",
-      generationMeta: JSON.stringify({ provider: result.provider, isFallback: result.isFallback, note: result.label, taskId: ctx.task.id }),
+      generationMeta: generationMetaJson(result, { taskId: ctx.task.id }),
       videoExtras: result.videoExtras ? JSON.stringify(result.videoExtras) : "{}",
       sourceRef: `task:${ctx.task.id}`,
     },

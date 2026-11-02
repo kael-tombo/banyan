@@ -1,3 +1,4 @@
+import { readGenerationMeta } from "@/lib/content/generation-meta";
 import { bannedTerms, checkDraft } from "@/lib/content/checks";
 import { loadClaimEvidence } from "@/lib/content/claim-evidence";
 import { isChannel } from "@/lib/formats";
@@ -28,7 +29,7 @@ export default async function ContentEditorPage({ params }: { params: Promise<{ 
     prisma.productProfile.findUnique({ where: { workspaceId: ctx.workspace.id } }),
   ]);
 
-  const gen = JSON.parse(item.generationMeta || "{}") as { provider?: string; model?: string; isFallback?: boolean; label?: string; action?: string; generatedAt?: string };
+  const gen = readGenerationMeta(item.generationMeta);
   // Tracked link for this content if it exists
   const link = await prisma.trackedLink.findFirst({ where: { workspaceId: ctx.workspace.id, contentItemId: item.id } });
   const timezone = profile?.timezone ?? "UTC";
@@ -53,7 +54,7 @@ export default async function ContentEditorPage({ params }: { params: Promise<{ 
   const claims = [...claimLint(item.body), ...unsupported].filter((c, i, all) => all.findIndex((o) => o.phrase.toLowerCase() === c.phrase.toLowerCase()) === i);
   const review = reviewChecklist({
     status: item.status,
-    genMeta: gen.provider ? gen : null,
+    genMeta: gen.provider ? { provider: gen.provider, model: gen.model ?? undefined, isFallback: gen.isFallback } : null,
     sourceRef: item.sourceRef,
     campaignEvidence: item.campaign?.evidence || null,
     claims,
@@ -71,8 +72,10 @@ export default async function ContentEditorPage({ params }: { params: Promise<{ 
       <div className="mb-5 flex flex-wrap items-center gap-2 text-xs text-charcoal-soft">
         <Badge variant={gen.isFallback ? "clay" : gen.provider ? "forest" : "warm"}>
           {gen.isFallback
-            ? "Dev fallback template — not a live model response"
-            : gen.label || gen.provider || "Not generated yet"}
+            ? "Template draft — not written by a model"
+            : gen.model
+              ? `Written by ${gen.model}`
+              : gen.label || gen.provider || "Not generated yet"}
         </Badge>
         {gen.generatedAt && <span>generated {new Date(gen.generatedAt).toLocaleString()}</span>}
         {!gen.provider && <span>Never generated yet — draft as written or generate below.</span>}

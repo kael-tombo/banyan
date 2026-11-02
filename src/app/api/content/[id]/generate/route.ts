@@ -1,3 +1,4 @@
+import { generationMetaJson } from "@/lib/content/generation-meta";
 import { requireRole } from "@/lib/permissions";
 import { assertCampaignAllowsGeneration, LifecycleError } from "@/lib/campaign/lifecycle-service";
 import { routedProvider } from "@/lib/model/router";
@@ -122,13 +123,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         format,
         body: result.body,
         videoExtras: result.videoExtras ? JSON.stringify(result.videoExtras) : item.videoExtras,
-        generationMeta: JSON.stringify({
-          provider: result.provider,
-          model: result.label,
-          isFallback: result.isFallback,
-          action: parsed.data.action,
-          generatedAt: new Date().toISOString(),
-        }),
+        generationMeta: generationMetaJson(result, { action: parsed.data.action }),
       },
     });
 

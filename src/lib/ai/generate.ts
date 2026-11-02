@@ -368,7 +368,7 @@ const FORMAT_GUIDE: Partial<Record<Channel, Record<string, string>>> = {
   },
 };
 
-export async function generateContent(req: ContentGenRequest): Promise<{ body: string; videoExtras?: VideoExtras; provider: string; isFallback: boolean; label: string }> {
+export async function generateContent(req: ContentGenRequest): Promise<{ body: string; videoExtras?: VideoExtras; provider: string; model: string; isFallback: boolean; label: string }> {
   if (!isFormatFor(req.channel, req.format)) {
     throw new AIError(`Format "${req.format}" is not valid for channel "${req.channel}".`);
   }
@@ -438,6 +438,7 @@ export async function generateContent(req: ContentGenRequest): Promise<{ body: s
       body: normalized.extras.script,
       videoExtras: normalized.extras,
       provider: usage.provider,
+      model: usage.model,
       isFallback: usage.isFallback || normalized.mode === "template",
       label,
     };
@@ -449,6 +450,7 @@ export async function generateContent(req: ContentGenRequest): Promise<{ body: s
     return {
       body: buildContextPost(req),
       provider: usage.provider,
+      model: usage.model,
       isFallback: true,
       label: isTemplate
         ? "Development fallback: context-built post from your profile and campaign (no model credentials). Edit before use."
@@ -463,7 +465,7 @@ export async function generateContent(req: ContentGenRequest): Promise<{ body: s
   } else if (body.length > limit * (req.channel === "x" ? 4 : 1)) {
     body = body.slice(0, limit * (req.channel === "x" ? 10 : 1));
   }
-  return { body, provider: usage.provider, isFallback: usage.isFallback, label: usage.label };
+  return { body, provider: usage.provider, model: usage.model, isFallback: usage.isFallback, label: usage.label };
 }
 
 /** JSON-safety wrapper used by plan generation. */
