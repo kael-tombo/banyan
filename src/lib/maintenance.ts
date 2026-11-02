@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { processDueSchedule } from "@/lib/publishing/publish";
 import { advanceWorkspace } from "@/lib/agents/orchestrator";
 import { backfillPublishedUrls } from "@/lib/publishing/status-sync";
+import { releaseStaleReservations } from "@/lib/credits/service";
 
 /**
  * The maintenance sweep: everything that must happen periodically, whether
@@ -9,6 +10,7 @@ import { backfillPublishedUrls } from "@/lib/publishing/status-sync";
  *
  *  1. Attempt every due scheduled publication (safety net for lost or
  *     never-enqueued jobs; the atomic claim prevents double delivery).
+ *  1a. Return credit holds left by a run that crashed (blocker 09).
  *  1b. Fill in live URLs for confirmed posts that came back without one (BOS-027).
  *  2. Advance agent workflows — recover crashed leases, retry transient
  *     failures, run the next safe batch of tasks.
@@ -23,8 +25,11 @@ export async function runMaintenanceSweep(): Promise<{
   workflows: { workspaces: number; completed: number; failed: number; blocked: number } | null;
   workflowError?: string;
   urls?: { checked: number; filled: number };
+  creditsReleased?: number;
 }> {
-  const publishResult = { ...(await processDueSchedule()), urls: await backfillPublishedUrls().catch(() => undefined) };
+  const publishResult = { ...(await processDueSchedule()), urls: await backfillPublishedUrls().catch(() => undefined),
+    creditsReleased: (await releaseStaleReservations().catch(() => ({ released: 0 }))).released,
+  };
   try {
     const memberships = await prisma.membership.findMany({ select: { workspaceId: true }, distinct: ["workspaceId"] });
     let completed = 0;

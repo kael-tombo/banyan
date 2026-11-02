@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireWorkspaceServer } from "@/lib/workspace";
 import { Badge, Card, LinkButton, PageHeader, StatusBadge } from "@/components/ui";
+import { PublicationState } from "@/components/PublicationState";
 import {
   AlertTriangle, ArrowRight, ArrowUpRight, CheckCircle2, Circle, Clock3, Loader2,
   RefreshCw, ShieldCheck, Sparkles, Video,
@@ -402,24 +403,16 @@ export default async function CyclePage({ params }: { params: Promise<{ goalId: 
                       {isManualChannel(item.channel) && <Badge variant="warm">manual handoff</Badge>}
                     </div>
                     <p className="mt-1 text-xs text-charcoal-soft">
-                      {item.format} · {pub ? pub.status.replace(/_/g, " ") : "not published"}
+                      {item.format}
+                      {pub ? "" : " · not published yet"}
                       {link ? ` · ${link.clicks} tracked click(s)` : ""}
                     </p>
+                    {pub && <div className="mt-1.5"><PublicationState publication={pub} compact /></div>}
                     {item.rejectionReason && item.status === "rejected" && (
                       <p className="mt-1 text-xs leading-relaxed text-clay">Reason: {item.rejectionReason}</p>
                     )}
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    {pub?.externalUrl && (
-                      <a
-                        href={pub.externalUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-medium text-forest hover:underline"
-                      >
-                        Live post <ArrowUpRight size={12} aria-hidden="true" />
-                      </a>
-                    )}
                     <Link
                       href={`/app/content/${item.id}`}
                       className="inline-flex items-center gap-1 text-xs font-medium text-forest hover:underline"

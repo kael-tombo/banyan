@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireWorkspaceServer } from "@/lib/workspace";
-import { PageHeader, Card, Badge, StatusBadge } from "@/components/ui";
+import { PageHeader, Card, Badge } from "@/components/ui";
+import { PublicationState } from "@/components/PublicationState";
 import { CHANNEL_META, CHANNELS, isChannel } from "@/lib/formats";
 import { ConnectionManager } from "./connections";
 import { enabledProviderIds, providerFor } from "@/lib/distribution/providers";
@@ -126,12 +127,7 @@ export default async function PublishingPage() {
                 </Link>
                 <span className="flex items-center gap-2">
                   <Badge variant="charcoal">{p.manual ? "manual" : p.provider}</Badge>
-                  <StatusBadge status={p.status} />
-                  {p.externalUrl && (
-                    <a href={p.externalUrl} target="_blank" rel="noreferrer noopener" className="text-xs text-forest underline">
-                      view
-                    </a>
-                  )}
+                  <PublicationState publication={p} compact />
                 </span>
               </li>
             ))}

@@ -4,8 +4,9 @@ import { useState, FormEvent, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Select, StatusBadge, Textarea, Loading } from "@/components/ui";
 import { CHANNEL_META, CHANNEL_FORMATS, isChannel } from "@/lib/formats";
+import { PublicationState } from "@/components/PublicationState";
 import { ADAPTATION_TARGETS, adaptationLimit, type TimelineSegment, type ReviewCheck } from "@/lib/video-script";
-import { CalendarClock, Save, Sparkles, Send, Ban, CheckCircle2, ExternalLink, Clock, Eye, Film, Layers, ShieldCheck } from "lucide-react";
+import { CalendarClock, Save, Sparkles, Send, Ban, CheckCircle2, Clock, Eye, Film, Layers, ShieldCheck } from "lucide-react";
 
 type VideoExtras = { hook?: string; script?: string; scenes?: { scene: string; visual: string }[]; onScreenText?: string; caption?: string; cta?: string };
 
@@ -574,16 +575,10 @@ export function ContentEditor({
             <ul className="space-y-2 text-sm">
               {publications.map((p) => (
                 <li key={p.id} className="rounded-md border border-bark/10 bg-ivory p-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <StatusBadge status={p.status} />
-                    <span className="text-xs text-charcoal-soft">{p.provider}{p.manual ? " (manual)" : ""} · {p.attempts} attempt(s)</span>
+                  <div className="flex items-start justify-between gap-2">
+                    <PublicationState publication={p} />
+                    <span className="shrink-0 text-xs text-charcoal-soft">{p.provider}{p.manual ? " (manual)" : ""} · {p.attempts} attempt(s)</span>
                   </div>
-                  {p.externalUrl && (
-                    <a href={p.externalUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs text-forest hover:text-forest-deep">
-                      <ExternalLink size={12} aria-hidden="true" /> live post
-                    </a>
-                  )}
-                  {p.lastError && <p className="mt-1 text-xs text-clay">{p.lastError}</p>}
                   {p.createdAt && <p className="mt-1 text-xs text-bark/50">attempted {new Date(p.createdAt).toLocaleString()}</p>}
                 </li>
               ))}

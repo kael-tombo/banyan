@@ -115,6 +115,31 @@ export async function finalizeReservation(workspaceId: string, reservationKey: s
   });
 }
 
+/** A hold older than this, never settled or released, belongs to a run that died (blocker 09). */
+export const STALE_RESERVATION_MS = 60 * 60_000;
+
+/**
+ * Return holds left behind by a run that crashed between reserving and
+ * finalizing (worker killed, deploy mid-run). The whole hold goes back: when
+ * Banyan cannot tell what the run produced, the founder is not charged.
+ * Safe to repeat and to run beside live work (finalize writes each part once).
+ */
+export async function releaseStaleReservations(now = new Date(), olderThanMs = STALE_RESERVATION_MS): Promise<{ released: number }> {
+  // Only holds that are still open: no settle and no release written for them.
+  const open = await prisma.$queryRaw<{ workspaceId: string; reservationKey: string }[]>`
+    SELECT r."workspaceId", r."reservationKey" FROM "CreditEntry" r
+    WHERE r."kind" = 'reserve' AND r."reservationKey" IS NOT NULL
+      AND r."createdAt" < ${new Date(now.getTime() - olderThanMs)}
+      AND NOT EXISTS (
+        SELECT 1 FROM "CreditEntry" c
+        WHERE c."workspaceId" = r."workspaceId" AND c."reservationKey" = r."reservationKey" AND c."kind" IN ('settle', 'release')
+      )
+    ORDER BY r."createdAt" ASC
+    LIMIT 200`;
+  for (const r of open) await finalizeReservation(r.workspaceId, r.reservationKey, 0);
+  return { released: open.length };
+}
+
 /** Give back spent credits (for example after a provider-side failure). */
 export async function refundCredits(workspaceId: string, amount: number, key: string, extra: { campaignId?: string | null; note: string }) {
   return locked(workspaceId, async (tx, balance) => {

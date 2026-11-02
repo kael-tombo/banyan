@@ -10,7 +10,7 @@
  */
 import { prisma } from "@/lib/db";
 import { fold } from "@/lib/credits/ledger";
-import { getBalance, reserveCredits, finalizeReservation, InsufficientCreditsError } from "@/lib/credits/service";
+import { getBalance, reserveCredits, finalizeReservation, InsufficientCreditsError, releaseStaleReservations } from "@/lib/credits/service";
 
 async function main() {
   const ws = await prisma.workspace.create({ data: { organization: { create: { name: "credits-concurrency", slug: `credits-concurrency-${Date.now()}` } }, name: "credits-concurrency", slug: `cc-${Date.now()}` } });
@@ -39,6 +39,16 @@ async function main() {
     const cached = await getBalance(ws.id);
     check(ledger.available === cached.available && ledger.reserved === cached.reserved, `cached balance equals the ledger (${cached.available} available, ${cached.reserved} held)`);
     check(cached.available === 2 && cached.reserved === 8, "2 available and 8 held after the race");
+
+    // Blocker 09: a hold left by a crashed run comes back; a fresh hold is left alone.
+    const fresh = await releaseStaleReservations();
+    check((await getBalance(ws.id)).reserved === 8, `a fresh hold is not released (${fresh.released} stale)`);
+    await prisma.creditEntry.updateMany({ where: { workspaceId: ws.id, kind: "reserve", reservationKey: { in: ["race-a", "race-b"] } }, data: { createdAt: new Date(Date.now() - 2 * 3600_000) } });
+    await releaseStaleReservations();
+    const recovered = await getBalance(ws.id);
+    check(recovered.available === 10 && recovered.reserved === 0, `a hold left by a crashed run is returned in full (${recovered.available} available, ${recovered.reserved} held)`);
+    await releaseStaleReservations();
+    check((await getBalance(ws.id)).available === 10, "releasing again changes nothing");
   } finally {
     await prisma.organization.delete({ where: { id: ws.organizationId } }); // cascades to the product
     await prisma.$disconnect();

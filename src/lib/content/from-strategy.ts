@@ -68,7 +68,12 @@ export async function writeDraftsFromStrategy(workspaceId: string, opts: { strat
   await reserveCredits(workspaceId, estimate.total, reservationKey, { campaignId: campaign.id, note: `Drafts from strategy v${strategy.version}` });
 
   const created: { id: string; channel: string; format: string; flagged: boolean; isFallback: boolean }[] = [];
-  const spentFor = () => estimateDraftRun({ drafts: created.length, channels: new Set(created.map((c) => c.channel)).size }).total;
+  // Only model-written drafts are charged. A template draft is what the founder gets when the
+  // model failed or its quota ran out; charging for it would bill a failure (blocker 09).
+  const spentFor = () => {
+    const charged = created.filter((c) => !c.isFallback);
+    return charged.length ? estimateDraftRun({ drafts: charged.length, channels: new Set(charged.map((c) => c.channel)).size }).total : 0;
+  };
   try {
   const evidence = (await loadClaimEvidence(workspaceId))(campaign.id, null);
   for (const d of plan) {
