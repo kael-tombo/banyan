@@ -1,4 +1,5 @@
 import { env } from "@/lib/env";
+import { describeLiveModel } from "@/lib/ai/provider";
 import { fastlaneAdapter } from "@/lib/capabilities/fastlane";
 import type { CapabilityAdapter, CapabilityDescriptor, CapabilityHealth } from "@/lib/capabilities/types";
 import { enabledProviderIds } from "@/lib/distribution/providers";
@@ -19,23 +20,28 @@ class ManagedModelCapability implements CapabilityAdapter {
   }
 
   describe(): CapabilityDescriptor {
-    const live = !!env.OPENAI_API_KEY && env.AI_PROVIDER !== "none";
+    const brain = describeLiveModel();
+    const live = brain.live;
     return {
       id: this.id,
       kind: this.kind,
       label: this.label,
       capabilities: this.capabilities(),
       status: live ? "available" : "unavailable",
-      detail: live
-        ? `Live model access via ${env.OPENAI_MODEL}, executed server-side with per-workspace daily quotas and a usage ledger.`
-        : "No managed model credentials on this deployment. Generation uses the clearly labeled template fallback; nothing pretends to be live model output.",
+      detail:
+        brain.via === "opencode"
+          ? `Experimental local brain: OpenCode serving ${brain.model} (development only, no API key configured). Falls back to the labeled template if OpenCode does not answer.`
+          : live
+            ? `Live model access via ${brain.model}, executed server-side with per-workspace daily quotas and a usage ledger.`
+            : "No managed model credentials on this deployment. Generation uses the clearly labeled template fallback; nothing pretends to be live model output.",
       untested: false,
     };
   }
 
   async health(): Promise<CapabilityHealth> {
-    const live = !!env.OPENAI_API_KEY && env.AI_PROVIDER !== "none";
-    return live
+    const brain = describeLiveModel();
+    if (brain.via === "opencode") return { ok: true, detail: `Experimental OpenCode brain configured (${brain.model}).` };
+    return brain.live
       ? { ok: true, detail: "Managed provider configured." }
       : { ok: false, detail: "No OPENAI_API_KEY configured; template fallback is active." };
   }

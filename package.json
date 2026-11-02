@@ -8,6 +8,7 @@
     "build": "prisma generate && tsx scripts/migrate-if-configured.ts && next build",
     "start": "next start",
     "worker": "tsx worker/index.ts",
+    "brain:opencode": "node scripts/opencode-brain.mjs",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",

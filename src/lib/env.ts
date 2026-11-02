@@ -17,7 +17,14 @@ const envSchema = z.object({
   }).min(1, "Required — set DATABASE_URL (aliases accepted: PRISMA_DATABASE_URL, POSTGRES_URL)"),
   APP_SECRET: hex64,
   NEXT_PUBLIC_APP_URL: z.string().url().default("http://localhost:3000"),
-  AI_PROVIDER: z.enum(["", "openai", "none"]).default("none"),
+  AI_PROVIDER: z.enum(["", "openai", "opencode", "none"]).default("none"),
+  // Experimental, development-only brain: a local `opencode serve` instance
+  // used when no OPENAI_API_KEY is set (see scripts/opencode-brain.mjs).
+  // Ignored in production and whenever an API key is configured.
+  OPENCODE_URL: z.string().default(""),
+  OPENCODE_PASSWORD: z.string().default(""),
+  OPENCODE_MODEL: z.string().default("opencode/deepseek-v4.1-flash-free"),
+  OPENCODE_TIMEOUT_MS: z.coerce.number().int().min(5_000).max(600_000).default(90_000),
   OPENAI_API_KEY: z.string().default(""),
   OPENAI_BASE_URL: z.string().url().default("https://api.openai.com/v1"),
   OPENAI_MODEL: z.string().default("gpt-4o-mini"),
