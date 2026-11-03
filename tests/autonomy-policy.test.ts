@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  buildDigest, decideApproval, DEFAULT_POLICY, describePolicy, isSupervised, nextSlot, parsePolicy,
+  buildDigest, decideApproval, DEFAULT_POLICY, describePolicy, isSupervised, matchTopics, nextSlot, parsePolicy, policyInput, VOLUME_FACTOR,
   type AutonomyPolicy, type ApprovalCandidate,
 } from "@/lib/autonomy/policy";
 
@@ -120,5 +120,42 @@ describe("digest and description", () => {
     expect(describePolicy(policy({ autoPublish: true, maxPerDay: 2 }))).toBe(
       "Supervised: Banyan may approve and schedule routine LinkedIn and X posts, at most 2 per channel per day, never between 21:00 and 8:00."
     );
+  });
+});
+
+describe("escalation triggers beyond the draft checks", () => {
+  it("matches the founder's topics as whole words, ignoring case", () => {
+    expect(matchTopics("New PRICING for teams", ["pricing"])).toEqual(["pricing"]);
+    expect(matchTopics("We reprice nothing", ["price"])).toEqual([]);
+    expect(matchTopics("Shipped for Acme Corp today", ["acme corp", "security"])).toEqual(["acme corp"]);
+    expect(matchTopics("C++ (and regex chars) are safe", ["c++", "(and"])).toEqual(["c++", "(and"]);
+    expect(matchTopics("Café owners", ["café"])).toEqual(["café"]);
+  });
+
+  it("escalates a draft on a topic the founder asked to see", () => {
+    const d = decideApproval(draft({ text: "Our new pricing page" }), policy({ escalateTopics: ["Pricing"] }));
+    expect(d.auto).toBe(false);
+    expect(d.reasons.join(" ")).toContain("“Pricing”");
+    expect(decideApproval(draft({ text: "Offline mode shipped" }), policy({ escalateTopics: ["Pricing"] })).auto).toBe(true);
+  });
+
+  it("waits for the founder after a failed publish on the channel", () => {
+    const d = decideApproval(draft({ lastPublishFailed: true }), policy());
+    expect(d.auto).toBe(false);
+    expect(d.reasons.join(" ")).toContain("failed to publish");
+  });
+
+  it("escalates an unusual burst of approvals on one channel", () => {
+    const p = policy({ maxPerDay: 2 });
+    expect(decideApproval(draft({ autoApprovedLast24h: 2 * VOLUME_FACTOR - 1 }), p).auto).toBe(true);
+    const d = decideApproval(draft({ autoApprovedLast24h: 2 * VOLUME_FACTOR }), p);
+    expect(d.auto).toBe(false);
+    expect(d.reasons.join(" ")).toContain("unusual");
+  });
+
+  it("keeps older stored policies valid and bounds the topic list", () => {
+    expect(parsePolicy(JSON.stringify({ level: "supervised", channels: ["x"], maxPerDay: 1, quietHours: null, blackoutDates: [], autoPublish: false })).escalateTopics).toEqual([]);
+    expect(policyInput.safeParse({ ...DEFAULT_POLICY, escalateTopics: Array.from({ length: 21 }, (_, i) => `topic ${i}`) }).success).toBe(false);
+    expect(describePolicy(policy({ escalateTopics: ["pricing"] }))).toContain("Drafts about pricing always come to you.");
   });
 });

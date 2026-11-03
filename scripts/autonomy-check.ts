@@ -42,7 +42,7 @@ async function main() {
     const off = await superviseDrafts(ws.id, campaign.id);
     check(off.approved === 0 && off.escalated === 0, "approve-each policy does nothing");
 
-    const policy = await setPolicy(ws.id, user, { level: "supervised", channels: ["linkedin"], maxPerDay: 2, quietHours: null, blackoutDates: [], autoPublish: true });
+    const policy = await setPolicy(ws.id, user, { level: "supervised", channels: ["linkedin"], maxPerDay: 2, quietHours: null, blackoutDates: [], autoPublish: true, escalateTopics: [] });
     check(policy.version === 1 && policy.setById === user.id, "policy v1 recorded with the founder who set it");
 
     // Paused agents do nothing even when supervised.
@@ -71,6 +71,22 @@ async function main() {
 
     const again = await superviseDrafts(ws.id, campaign.id);
     check(again.approved === 0, "a second pass does not approve anything twice");
+
+    // Escalation triggers beyond the draft checks: a topic the founder listed, then a failed publish.
+    await setPolicy(ws.id, user, { level: "supervised", channels: ["linkedin"], maxPerDay: 2, quietHours: null, blackoutDates: [], autoPublish: false, escalateTopics: ["pricing"] });
+    const priced = await draft("linkedin", "New Pricing for teams");
+    const plain = await draft("linkedin", "Offline mode shipped");
+    const t = await superviseDrafts(ws.id, campaign.id);
+    const status = async (id: string) => (await prisma.contentItem.findUniqueOrThrow({ where: { id } })).status;
+    check((await status(priced.id)) === "ready_for_review" && (await status(plain.id)) === "approved", "a draft on a listed topic waits; a routine one is approved", JSON.stringify(t));
+    const topicReason = (await autonomyEvents(ws.id, new Date(stamp - 60_000))).find((e) => e.contentItemId === priced.id && e.decision === "escalated")?.reasons.join(" ") ?? "";
+    check(/“pricing”/.test(topicReason), "the topic draft names the topic", topicReason);
+
+    const broken = await prisma.contentItem.create({ data: { workspaceId: ws.id, channel: "linkedin", format: "post", title: "Broken", body: "b", status: "failed" } });
+    await prisma.publication.create({ data: { contentItemId: broken.id, provider: "socialflow", status: "failed", idempotencyKey: `ac-${stamp}-broken` } });
+    const afterFailure = await draft("linkedin", "Another routine post");
+    await superviseDrafts(ws.id, campaign.id);
+    check((await status(afterFailure.id)) === "ready_for_review", "after a failed publish on the channel, drafts wait for the founder");
   } finally {
     await prisma.organization.delete({ where: { id: ws.organizationId } }); // cascades to the product
     await prisma.user.delete({ where: { id: user.id } });

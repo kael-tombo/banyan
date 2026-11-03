@@ -14,6 +14,9 @@ import type { DraftFlag } from "@/lib/content/checks";
  *   - a draft with an unsupported claim, a banned term or an over-limit body escalates;
  *   - a template-fallback draft escalates (no model wrote it);
  *   - the first post on a channel escalates;
+ *   - a draft touching a topic the founder listed escalates;
+ *   - a channel whose last post failed escalates until one goes out;
+ *   - more than VOLUME_FACTOR days' worth of auto-approvals in 24 hours escalates;
  *   - short-form video is always published by the founder;
  *   - paused agents do nothing.
  */
@@ -31,6 +34,8 @@ export const policyInput = z.object({
     .nullable(),
   blackoutDates: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).max(60),
   autoPublish: z.boolean(),
+  /** Topics that always come back to the founder (pricing, security, a customer's name…). */
+  escalateTopics: z.array(z.string().trim().min(2).max(40)).max(20).default([]),
 });
 export type PolicyInput = z.infer<typeof policyInput>;
 
@@ -44,9 +49,17 @@ export const DEFAULT_POLICY: AutonomyPolicy = {
   quietHours: { start: 21, end: 8 },
   blackoutDates: [],
   autoPublish: false,
+  escalateTopics: [],
   setById: null,
   setAt: null,
 };
+
+/**
+ * Unusual volume: more auto-approvals on one channel in 24 hours than this
+ * many days of the policy's daily cap. Approving is cheap; a burst usually
+ * means something upstream went wrong, so the founder sees it.
+ */
+export const VOLUME_FACTOR = 3;
 
 /** Minimum gap between two autonomous posts on the same channel. */
 export const MIN_GAP_HOURS = 3;
@@ -82,7 +95,24 @@ export type ApprovalCandidate = {
   isFallback: boolean;
   /** Whether this workspace has ever published on the channel through a provider. */
   channelHasPublished: boolean;
+  /** Title and body, matched against the founder's escalation topics. */
+  text?: string;
+  /** The channel's most recent provider publish attempt failed. */
+  lastPublishFailed?: boolean;
+  /** Drafts the policy already approved on this channel in the last 24 hours. */
+  autoApprovedLast24h?: number;
 };
+
+const escapeRe = (t: string) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** The founder's topics this text mentions, matched as whole words, ignoring case. */
+export function matchTopics(text: string, topics: string[]): string[] {
+  return topics.filter((t) => {
+    const term = t.trim();
+    if (!term) return false;
+    return new RegExp(String.raw`(^|[^\p{L}\p{N}])` + escapeRe(term) + String.raw`($|[^\p{L}\p{N}])`, "iu").test(text);
+  });
+}
 
 export type ApprovalDecision = { auto: boolean; reasons: string[] };
 
@@ -97,6 +127,12 @@ export function decideApproval(c: ApprovalCandidate, p: AutonomyPolicy): Approva
   if (c.flags.some((f) => f.code === "over_limit")) reasons.push("It is longer than the channel allows.");
   if (c.isFallback) reasons.push("The template fallback wrote it, not the model; it needs your eye.");
   if (!c.channelHasPublished && c.channel !== "shortvideo") reasons.push(`It would be your first post on ${label(c.channel)}; the first one is always yours to approve.`);
+  const topics = matchTopics(c.text ?? "", p.escalateTopics ?? []);
+  if (topics.length) reasons.push(`It mentions ${topics.map((t) => `“${t}”`).join(", ")}, a topic you asked to see yourself.`);
+  if (c.lastPublishFailed) reasons.push(`Your last ${label(c.channel)} post failed to publish; Banyan waits for you until one goes out.`);
+  if ((c.autoApprovedLast24h ?? 0) >= p.maxPerDay * VOLUME_FACTOR) {
+    reasons.push(`Banyan already approved ${c.autoApprovedLast24h} ${label(c.channel)} drafts in the last 24 hours, which is unusual for your policy; this one waits for you.`);
+  }
   if (reasons.length) return { auto: false, reasons };
   return { auto: true, reasons: [`Within your policy v${p.version}: ${label(c.channel)} is an autopilot channel and every pre-review check passed.`] };
 }
@@ -200,5 +236,6 @@ export function describePolicy(p: AutonomyPolicy): string {
   const q = p.quietHours ? `, never between ${p.quietHours.start}:00 and ${p.quietHours.end}:00` : "";
   const b = p.blackoutDates.length ? `, not on ${p.blackoutDates.length} blackout date${p.blackoutDates.length === 1 ? "" : "s"}` : "";
   const act = p.autoPublish ? "approve and schedule" : "approve (you still press publish)";
-  return `Supervised: Banyan may ${act} routine ${p.channels.map(label).join(" and ")} posts, at most ${p.maxPerDay} per channel per day${q}${b}.`;
+  const t = p.escalateTopics?.length ? ` Drafts about ${p.escalateTopics.join(", ")} always come to you.` : "";
+  return `Supervised: Banyan may ${act} routine ${p.channels.map(label).join(" and ")} posts, at most ${p.maxPerDay} per channel per day${q}${b}.${t}`;
 }

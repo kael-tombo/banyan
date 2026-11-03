@@ -72,11 +72,30 @@ export async function superviseDrafts(workspaceId: string, campaignId: string): 
   const approverId = policy.setById;
 
   const drafts = await prisma.contentItem.findMany({ where: { workspaceId, campaignId, status: "ready_for_review" }, orderBy: { createdAt: "asc" } });
+  // Unusual-volume guard: what the policy already approved per channel in the last 24 hours.
+  const approvedRecently = new Map<string, number>();
+  for (const e of await autonomyEvents(workspaceId, new Date(Date.now() - 86_400_000))) {
+    if (e.decision === "auto_approved") approvedRecently.set(e.channel, (approvedRecently.get(e.channel) ?? 0) + 1);
+  }
   for (const item of drafts) {
     const providerPublished = await prisma.publication.count({ where: { status: "published", manual: false, contentItem: { workspaceId, channel: item.channel } } });
+    const lastAttempt = await prisma.publication.findFirst({
+      where: { manual: false, status: { in: ["published", "failed"] }, contentItem: { workspaceId, channel: item.channel } },
+      orderBy: { updatedAt: "desc" },
+      select: { status: true },
+    });
     const meta = (() => { try { return JSON.parse(item.generationMeta || "{}") as { isFallback?: boolean }; } catch { return {}; } })();
     const decision = decideApproval(
-      { channel: item.channel, status: item.status, flags: parseFlags(item.checks), isFallback: Boolean(meta.isFallback), channelHasPublished: providerPublished > 0 },
+      {
+        channel: item.channel,
+        status: item.status,
+        flags: parseFlags(item.checks),
+        isFallback: Boolean(meta.isFallback),
+        channelHasPublished: providerPublished > 0,
+        text: `${item.title}\n${item.body}`,
+        lastPublishFailed: lastAttempt?.status === "failed",
+        autoApprovedLast24h: approvedRecently.get(item.channel) ?? 0,
+      },
       policy
     );
     const base = { contentItemId: item.id, channel: item.channel, title: item.title, policyVersion: policy.version };
@@ -94,6 +113,7 @@ export async function superviseDrafts(workspaceId: string, campaignId: string): 
     });
     if (approved.count !== 1) continue; // edited or decided by a human meanwhile
     result.approved++;
+    approvedRecently.set(item.channel, (approvedRecently.get(item.channel) ?? 0) + 1);
     await logDecision(workspaceId, { ...base, decision: "auto_approved", reasons: decision.reasons });
 
     if (!policy.autoPublish) continue;

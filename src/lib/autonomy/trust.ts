@@ -126,6 +126,7 @@ export function narrowedPolicy(policy: AutonomyPolicy, channel: AutonomyChannel)
     quietHours: policy.quietHours,
     blackoutDates: policy.blackoutDates,
     autoPublish: channels.length ? policy.autoPublish : false,
+    escalateTopics: policy.escalateTopics,
   };
 }
 
@@ -138,5 +139,6 @@ export function proposedPolicy(policy: AutonomyPolicy, channel: AutonomyChannel)
     quietHours: policy.quietHours,
     blackoutDates: policy.blackoutDates,
     autoPublish: policy.level === "supervised" ? policy.autoPublish : false,
+    escalateTopics: policy.escalateTopics,
   };
 }

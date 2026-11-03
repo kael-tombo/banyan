@@ -20,6 +20,7 @@ export function PolicyForm({ policy, canEdit }: { policy: AutonomyPolicy; canEdi
   const [quietEnd, setQuietEnd] = useState(policy.quietHours?.end ?? 8);
   const [blackout, setBlackout] = useState(policy.blackoutDates.join(", "));
   const [autoPublish, setAutoPublish] = useState(policy.autoPublish);
+  const [topics, setTopics] = useState((policy.escalateTopics ?? []).join(", "));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
@@ -27,6 +28,8 @@ export function PolicyForm({ policy, canEdit }: { policy: AutonomyPolicy; canEdi
   const supervised = level === "supervised";
   const dates = blackout.split(/[\s,;]+/).map((d) => d.trim()).filter(Boolean);
   const badDate = dates.find((d) => !/^\d{4}-\d{2}-\d{2}$/.test(d));
+  const topicList = [...new Set(topics.split(/[,;\n]+/).map((t) => t.trim()).filter(Boolean))];
+  const badTopic = topicList.length > 20 ? "Keep it to 20 topics." : topicList.find((t) => t.length < 2 || t.length > 40) ? "Each topic needs 2 to 40 characters." : null;
 
   async function save(e: React.FormEvent) {
     e.preventDefault();
@@ -44,6 +47,7 @@ export function PolicyForm({ policy, canEdit }: { policy: AutonomyPolicy; canEdi
           quietHours: quiet ? { start: quietStart, end: quietEnd } : null,
           blackoutDates: dates,
           autoPublish: supervised && autoPublish,
+          escalateTopics: topicList,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -129,6 +133,11 @@ export function PolicyForm({ policy, canEdit }: { policy: AutonomyPolicy; canEdi
           </Field>
           {badDate && <p className="text-xs text-clay">“{badDate}” is not a date in YYYY-MM-DD form.</p>}
 
+          <Field label="Always ask me about" hint="Topics separated by commas. A draft that mentions one always comes to you, even on a supervised channel.">
+            <Input value={topics} onChange={(e) => setTopics(e.target.value)} placeholder="pricing, security, Acme Corp" />
+          </Field>
+          {badTopic && <p className="text-xs text-clay">{badTopic}</p>}
+
           <label className="flex items-start gap-2 text-sm text-charcoal">
             <input type="checkbox" className="mt-1" checked={autoPublish} onChange={(e) => setAutoPublish(e.target.checked)} />
             <span>
@@ -143,7 +152,7 @@ export function PolicyForm({ policy, canEdit }: { policy: AutonomyPolicy; canEdi
 
       {canEdit ? (
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit" disabled={saving || Boolean(badDate) || (supervised && channels.length === 0)}>
+          <Button type="submit" disabled={saving || Boolean(badDate) || Boolean(badTopic) ||(supervised && channels.length === 0)}>
             {saving ? "Saving…" : "Save policy"}
           </Button>
           {supervised && channels.length === 0 && <span className="text-xs text-charcoal-soft">Pick at least one channel.</span>}
