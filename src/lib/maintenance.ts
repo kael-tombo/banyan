@@ -27,9 +27,12 @@ export async function runMaintenanceSweep(): Promise<{
   urls?: { checked: number; filled: number };
   creditsReleased?: number;
   emails?: { attempted: number; sent: number };
+  digests?: { workspaces: number; queued: number };
 }> {
   const publishResult = { ...(await processDueSchedule()), urls: await backfillPublishedUrls().catch(() => undefined),
     creditsReleased: (await releaseStaleReservations().catch(() => ({ released: 0 }))).released,
+    // Weekly autopilot summaries are queued first, so this same sweep can deliver them.
+    digests: await import("@/lib/autonomy/digest-email").then((m) => m.sendDueAutonomyDigests()).catch(() => undefined),
     emails: await import("@/lib/email/outbox").then((m) => m.deliverDueEmails()).catch(() => undefined),
   };
   try {

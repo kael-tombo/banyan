@@ -11,6 +11,9 @@ import { SignInMethods, type LinkedAccount } from "./sign-in-methods";
 import { AssistantTokens } from "./assistant-tokens";
 import { listApiTokens } from "@/lib/api-tokens";
 import { env } from "@/lib/env";
+import { EmailPreferences } from "./email-preferences";
+import { parseEmailPrefs } from "@/lib/email/preferences";
+import { emailConfigured } from "@/lib/email/transport";
 
 export const metadata: Metadata = { title: "Settings" };
 
@@ -85,6 +88,11 @@ export default async function SettingsPage() {
       <Suspense>
         <SignInMethods hasPassword={Boolean(ctx.user.passwordHash)} accounts={accounts} providers={settingsProviders(accounts.map((a) => a.provider))} />
       </Suspense>
+
+      <Card className="mt-6" id="email">
+        <h2 className="mb-2 font-medium text-charcoal">Email</h2>
+        <EmailPreferences initial={parseEmailPrefs(ctx.user.emailPrefs)} emailConfigured={emailConfigured()} />
+      </Card>
 
       <Card className="mt-6">
         <h2 className="mb-2 font-medium text-charcoal">Selected channels</h2>

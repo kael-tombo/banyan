@@ -69,7 +69,16 @@ class SmtpTransport implements EmailTransport {
   async send(mail: OutgoingEmail): Promise<SendResult> {
     const t = await this.get();
     try {
-      const info = await t.sendMail({ from: env.EMAIL_FROM, to: mail.to, subject: mail.subject, text: mail.text });
+      const info = await t.sendMail({
+        from: env.EMAIL_FROM,
+        to: mail.to,
+        subject: mail.subject,
+        text: mail.text,
+        // Optional mail: one-click unsubscribe (RFC 2369 + RFC 8058), which mailbox providers expect from bulk senders.
+        ...(mail.listUnsubscribe
+          ? { list: { unsubscribe: { url: mail.listUnsubscribe, comment: "Unsubscribe" } }, headers: { "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } }
+          : {}),
+      });
       if (info.rejected?.length) throw new EmailSendError("The mail server rejected the recipient.", false);
       return { transport: "smtp", delivered: true, providerId: typeof info.messageId === "string" ? info.messageId : null };
     } catch (err) {

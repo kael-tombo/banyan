@@ -21,6 +21,8 @@ model User {
   onboardingCompletedAt DateTime?
   // US-011: set when the owner opens the verification link (or signs up through a provider that verified the address).
   emailVerifiedAt       DateTime?
+  // JSON: { autonomyDigest: boolean }. Null means the defaults (src/lib/email/preferences.ts).
+  emailPrefs            String?
   // Attribution recorded at signup when a tracked visitor cookie exists (observed, not inferred).
   attributedLinkId      String?
   attributedCampaignId  String?
@@ -848,6 +850,8 @@ model EmailMessage {
   nextAttemptAt DateTime  @default(now())
   lastError     String?
   providerId    String?
+  // Set for scheduled emails (e.g. one weekly summary per workspace, user and week) so they are queued once.
+  dedupeKey     String?   @unique
   sentAt        DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

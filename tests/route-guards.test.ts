@@ -19,6 +19,8 @@ const EXEMPT: Record<string, string> = {
   "tokens/[id]": "revokes your own token",
   "mcp": "token-authenticated, read-only tools",
   "worker/tick": "protected by WORKER_SECRET, no user",
+  "email/unsubscribe": "signed one-click unsubscribe link (RFC 8058); can only turn one optional email off",
+  "account/email-preferences": "your own email preferences",
 };
 
 function routeFiles(dir: string): string[] {

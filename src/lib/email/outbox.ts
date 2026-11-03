@@ -38,14 +38,30 @@ export async function queueEmail<T extends EmailTemplate>(input: {
    * reset), since that would reveal which addresses have accounts.
    */
   background?: boolean;
-}): Promise<{ id: string; queued: boolean }> {
+  /** Queue at most one message per key (scheduled mail, e.g. one weekly summary per workspace, user and week). */
+  dedupeKey?: string;
+}): Promise<{ id: string; queued: boolean; duplicate?: boolean }> {
   const to = safeAddress(input.to);
   if (!to) throw new InvalidRecipientError();
   renderEmail(input.template, input.data); // fail now, not in the worker, if the data is incomplete
-  const row = await prisma.emailMessage.create({
-    data: { template: input.template, toAddress: to, userId: input.userId ?? null, payload: encryptSecret(JSON.stringify(input.data)) },
-    select: { id: true },
-  });
+  if (input.dedupeKey) {
+    const existing = await prisma.emailMessage.findUnique({ where: { dedupeKey: input.dedupeKey }, select: { id: true } });
+    if (existing) return { id: existing.id, queued: false, duplicate: true };
+  }
+  let row: { id: string };
+  try {
+    row = await prisma.emailMessage.create({
+      data: { template: input.template, toAddress: to, userId: input.userId ?? null, payload: encryptSecret(JSON.stringify(input.data)), dedupeKey: input.dedupeKey ?? null },
+      select: { id: true },
+    });
+  } catch (err) {
+    // Two sweeps raced on the same key: the other one queued it.
+    if (input.dedupeKey && (err as { code?: string }).code === "P2002") {
+      const existing = await prisma.emailMessage.findUnique({ where: { dedupeKey: input.dedupeKey }, select: { id: true } });
+      if (existing) return { id: existing.id, queued: false, duplicate: true };
+    }
+    throw err;
+  }
 
   const { queueConfigured, enqueue, JOB } = await import("@/lib/queue/jobs");
   if (queueConfigured()) {
