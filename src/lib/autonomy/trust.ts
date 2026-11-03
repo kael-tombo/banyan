@@ -10,8 +10,24 @@ import type { AutonomyChannel, AutonomyPolicy } from "@/lib/autonomy/policy";
  * autonomy: only the founder changes the policy (policy.ts invariant).
  *
  * Only decisions a human made count. Drafts approved by the policy itself are
- * excluded, otherwise autonomy would vouch for itself.
+ * excluded, otherwise autonomy would vouch for itself, except the ones the
+ * founder spot-checked afterwards: their verdict is a human decision, so a
+ * supervised channel keeps earning (or losing) trust instead of freezing.
  */
+
+/**
+ * Spot checks: the first draft the policy approves on a channel, then one in
+ * every SPOT_CHECK_EVERY, goes back to the founder after the fact.
+ */
+export const SPOT_CHECK_EVERY = 3;
+
+/** `priorAutoApprovals`: drafts the policy approved on this channel before this one. */
+export function spotCheckDue(priorAutoApprovals: number): boolean {
+  return priorAutoApprovals % SPOT_CHECK_EVERY === 0;
+}
+
+export const SPOT_CHECK_VERDICTS = ["as_written", "would_edit", "stop"] as const;
+export type SpotCheckVerdict = (typeof SPOT_CHECK_VERDICTS)[number];
 
 export type ReviewedDraft = {
   channel: string;
@@ -26,6 +42,8 @@ export type ReviewedDraft = {
   /** Provider-confirmed publications (not manual records) and failed attempts. */
   publishedLive: boolean;
   failed: boolean;
+  /** The founder's spot-check verdict on a policy-approved draft. */
+  spotCheck?: SpotCheckVerdict;
 };
 
 export type TrustRecord = {
@@ -51,14 +69,16 @@ export const TRUST_BAR = {
 } as const;
 
 export function trustRecord(channel: AutonomyChannel, drafts: ReviewedDraft[]): TrustRecord {
-  const human = drafts.filter((d) => d.channel === channel && !d.approvedByPolicy).slice(0, TRUST_BAR.window);
-  const approved = human.filter((d) => d.status !== "rejected");
+  const human = drafts.filter((d) => d.channel === channel && (!d.approvedByPolicy || d.spotCheck)).slice(0, TRUST_BAR.window);
+  const rejected = (d: ReviewedDraft) => d.status === "rejected" || d.spotCheck === "stop";
+  const edited = (d: ReviewedDraft) => d.edited || d.spotCheck === "would_edit";
+  const approved = human.filter((d) => !rejected(d));
   return {
     channel,
     reviewed: human.length,
-    approvedAsWritten: approved.filter((d) => !d.edited).length,
-    edited: approved.filter((d) => d.edited).length,
-    rejected: human.filter((d) => d.status === "rejected").length,
+    approvedAsWritten: approved.filter((d) => !edited(d)).length,
+    edited: approved.filter(edited).length,
+    rejected: human.filter(rejected).length,
     flagged: approved.filter((d) => d.flagged).length,
     publishedLive: human.filter((d) => d.publishedLive).length,
     failed: human.filter((d) => d.failed).length,

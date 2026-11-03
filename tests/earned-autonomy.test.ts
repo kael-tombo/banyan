@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_POLICY, policyInput } from "@/lib/autonomy/policy";
-import { narrowedPolicy, proposedPolicy, trustRecord, trustVerdict, type ReviewedDraft } from "@/lib/autonomy/trust";
+import { narrowedPolicy, proposedPolicy, spotCheckDue, SPOT_CHECK_EVERY, trustRecord, trustVerdict, type ReviewedDraft } from "@/lib/autonomy/trust";
 
 const draft = (over: Partial<ReviewedDraft> = {}): ReviewedDraft => ({
   channel: "linkedin", status: "published", edited: false, approvedByPolicy: false, flagged: false, publishedLive: true, failed: false, ...over,
@@ -70,5 +70,33 @@ describe("earned autonomy", () => {
     const widened = proposedPolicy({ ...DEFAULT_POLICY, level: "supervised", channels: ["linkedin"], autoPublish: true }, "x");
     expect(widened.channels.sort()).toEqual(["linkedin", "x"]);
     expect(widened.autoPublish).toBe(true); // kept as the founder set it, never switched on by a proposal
+  });
+});
+
+describe("spot checks", () => {
+  it("picks the first policy approval on a channel, then one in every SPOT_CHECK_EVERY", () => {
+    const picked = Array.from({ length: 10 }, (_, i) => i).filter(spotCheckDue);
+    expect(picked[0]).toBe(0);
+    expect(picked).toEqual(Array.from({ length: Math.ceil(10 / SPOT_CHECK_EVERY) }, (_, i) => i * SPOT_CHECK_EVERY));
+  });
+
+  it("policy approvals without a verdict never count; spot-checked ones do", () => {
+    const supervised = { ...DEFAULT_POLICY, level: "supervised" as const, channels: ["linkedin" as const], setById: "u1" };
+    const unjudged = clean(6, { approvedByPolicy: true });
+    expect(trustRecord("linkedin", unjudged).reviewed).toBe(0);
+    const judged = clean(6, { approvedByPolicy: true, spotCheck: "as_written" });
+    const r = trustRecord("linkedin", judged);
+    expect(r.reviewed).toBe(6);
+    expect(r.approvedAsWritten).toBe(6);
+    expect(trustVerdict(r, supervised).state).toBe("supervised");
+  });
+
+  it("'I'd have changed it' counts as an edit; 'shouldn't go out' as a rejection that slips the record", () => {
+    const supervised = { ...DEFAULT_POLICY, level: "supervised" as const, channels: ["linkedin" as const], setById: "u1" };
+    const edited = trustRecord("linkedin", [...clean(5), draft({ approvedByPolicy: true, spotCheck: "would_edit" })]);
+    expect(edited.edited).toBe(1);
+    const stopped = trustRecord("linkedin", [...clean(5), draft({ approvedByPolicy: true, spotCheck: "stop" })]);
+    expect(stopped.rejected).toBe(1);
+    expect(trustVerdict(stopped, supervised).state).toBe("slipping");
   });
 });

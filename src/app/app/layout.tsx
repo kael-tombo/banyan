@@ -1,5 +1,6 @@
 import { verificationRequired } from "@/lib/auth/email-flows";
 import { VerifyEmailBanner } from "@/components/VerifyEmailBanner";
+import { pendingSpotChecks } from "@/lib/autonomy/spot-checks";
 import { getBalance } from "@/lib/credits/service";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -49,6 +50,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     prisma.channelConnection.count({ where: { workspaceId: membership.workspace.id, status: "error" } }),
   ]);
 
+  // Spot checks waiting on the founder (supervised autonomy). The cheap count skips the work for workspaces that never had one.
+  const spotChecks = (await prisma.activityEvent.count({
+    where: { workspaceId: membership.workspace.id, type: "autonomy", meta: { contains: '"spotCheck":true' }, createdAt: { gte: new Date(Date.now() - 30 * 86_400_000) } },
+  }))
+    ? (await pendingSpotChecks(membership.workspace.id).catch(() => [])).length
+    : 0;
+
   const credits = await getBalance(membership.workspace.id).catch(() => null);
 
   return (
@@ -62,7 +70,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       // Setup is done once the wizard finished or a product profile exists: the
       // banner asks for exactly that, and the launch path covers what comes next.
       onboardingComplete={Boolean(user.onboardingCompletedAt || membership.workspace.profile)}
-      attention={{ approvals: awaitingContent + awaitingGates + awaitingStrategy, failedPosts, brokenConnections }}
+      attention={{ approvals: awaitingContent + awaitingGates + awaitingStrategy, failedPosts, brokenConnections, spotChecks }}
       credits={credits?.available ?? null}
     >
       {verificationRequired(user) && <VerifyEmailBanner email={user.email} />}

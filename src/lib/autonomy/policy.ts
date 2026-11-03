@@ -197,6 +197,8 @@ export type AutonomyEvent = {
   title: string;
   reasons: string[];
   scheduledFor?: string | null;
+  /** This auto-approval was picked for the founder's spot check. */
+  spotCheck?: boolean;
 };
 
 export type Digest = {

@@ -31,6 +31,8 @@ export type ActivityType =
   // Supervised autonomy: policy changes (human) and each decision made under a policy
   | "autonomy_policy"
   | "autonomy"
+  // The founder's after-the-fact verdict on a draft the policy approved (spot check)
+  | "autonomy_spotcheck"
   // Organizations and products (ADR-005)
   | "organization";
 

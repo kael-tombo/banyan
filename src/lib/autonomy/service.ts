@@ -4,6 +4,7 @@ import { parseFlags } from "@/lib/content/checks";
 import { syncCampaignLifecycle } from "@/lib/campaign/lifecycle-service";
 import { attemptPublication, UNUSABLE_CONNECTION_STATUSES } from "@/lib/publishing/publish";
 import { providerFor } from "@/lib/distribution/providers";
+import { spotCheckDue } from "@/lib/autonomy/trust";
 import {
   decideApproval, describePolicy, isSupervised, nextSlot, parsePolicy,
   type AutonomyEvent, type AutonomyPolicy, type PolicyInput,
@@ -72,10 +73,15 @@ export async function superviseDrafts(workspaceId: string, campaignId: string): 
   const approverId = policy.setById;
 
   const drafts = await prisma.contentItem.findMany({ where: { workspaceId, campaignId, status: "ready_for_review" }, orderBy: { createdAt: "asc" } });
-  // Unusual-volume guard: what the policy already approved per channel in the last 24 hours.
+  // Per channel: what the policy approved in the last 24 hours (unusual-volume guard)
+  // and in all (which approval is due a spot check).
   const approvedRecently = new Map<string, number>();
-  for (const e of await autonomyEvents(workspaceId, new Date(Date.now() - 86_400_000))) {
-    if (e.decision === "auto_approved") approvedRecently.set(e.channel, (approvedRecently.get(e.channel) ?? 0) + 1);
+  const approvedEver = new Map<string, number>();
+  const dayAgo = new Date(Date.now() - 86_400_000);
+  for (const e of await autonomyEvents(workspaceId, new Date(Date.now() - 365 * 86_400_000), 5000)) {
+    if (e.decision !== "auto_approved") continue;
+    approvedEver.set(e.channel, (approvedEver.get(e.channel) ?? 0) + 1);
+    if (e.createdAt >= dayAgo) approvedRecently.set(e.channel, (approvedRecently.get(e.channel) ?? 0) + 1);
   }
   for (const item of drafts) {
     const providerPublished = await prisma.publication.count({ where: { status: "published", manual: false, contentItem: { workspaceId, channel: item.channel } } });
@@ -114,7 +120,15 @@ export async function superviseDrafts(workspaceId: string, campaignId: string): 
     if (approved.count !== 1) continue; // edited or decided by a human meanwhile
     result.approved++;
     approvedRecently.set(item.channel, (approvedRecently.get(item.channel) ?? 0) + 1);
-    await logDecision(workspaceId, { ...base, decision: "auto_approved", reasons: decision.reasons });
+    const prior = approvedEver.get(item.channel) ?? 0;
+    approvedEver.set(item.channel, prior + 1);
+    const spotCheck = spotCheckDue(prior);
+    await logDecision(workspaceId, {
+      ...base,
+      decision: "auto_approved",
+      reasons: spotCheck ? [...decision.reasons, "Picked for your spot check."] : decision.reasons,
+      ...(spotCheck ? { spotCheck: true } : {}),
+    });
 
     if (!policy.autoPublish) continue;
     const connection = await prisma.channelConnection.findFirst({

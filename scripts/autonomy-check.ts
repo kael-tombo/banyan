@@ -7,6 +7,7 @@
  */
 import { prisma } from "@/lib/db";
 import { setPolicy, superviseDrafts, autonomyEvents } from "@/lib/autonomy/service";
+import { pendingSpotChecks, recordSpotCheck } from "@/lib/autonomy/spot-checks";
 
 async function main() {
   let failures = 0;
@@ -87,6 +88,18 @@ async function main() {
     const afterFailure = await draft("linkedin", "Another routine post");
     await superviseDrafts(ws.id, campaign.id);
     check((await status(afterFailure.id)) === "ready_for_review", "after a failed publish on the channel, drafts wait for the founder");
+
+    // Spot checks: the first LinkedIn approval was picked, the second (one in three) was not.
+    const pending = await pendingSpotChecks(ws.id);
+    check(pending.some((p) => p.contentItemId === clean.id) && !pending.some((p) => p.contentItemId === plain.id), "the first policy approval waits for a spot check; the next one does not", pending.map((p) => p.title).join(", "));
+    const notPicked = await recordSpotCheck(ws.id, user, plain.id, "as_written");
+    check(!notPicked.ok && notPicked.status === 404, "a verdict on a draft that was not picked is refused");
+    const stop = await recordSpotCheck(ws.id, user, clean.id, "stop");
+    const stoppedItem = await prisma.contentItem.findUniqueOrThrow({ where: { id: clean.id } });
+    check(stop.ok && stop.stopped && stoppedItem.status === "draft" && !stoppedItem.approvedById, "'shouldn't go out' stops it and withdraws the approval", stop.ok ? stop.message : stop.message);
+    check(!(await pendingSpotChecks(ws.id)).some((p) => p.contentItemId === clean.id), "a judged draft leaves the spot-check list");
+    const again2 = await recordSpotCheck(ws.id, user, clean.id, "as_written");
+    check(!again2.ok, "a draft is judged once");
   } finally {
     await prisma.organization.delete({ where: { id: ws.organizationId } }); // cascades to the product
     await prisma.user.delete({ where: { id: user.id } });

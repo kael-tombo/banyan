@@ -32,7 +32,7 @@ record, shows it, and asks for more room only when the record supports it.
 | **1 · Approved execution** | Everything except deciding what goes out | Default for every product and channel | Built |
 | **2 · Supervised, per channel** | Approve routine drafts inside the founder's rules (channels, posts per day, quiet hours, blackout dates); optionally schedule them | Earned: Banyan proposes it per channel when the record clears the bar; the founder accepts | Built (policy + earned-autonomy proposals) |
 | **2+ · Supervised publishing** | Also schedule and publish those drafts | The founder turns on auto-publishing explicitly; never proposed automatically | Built (founder-only switch) |
-| **3 · Continuous cycles** | Start the next cycle from the last report, inside a budget | Needs: a measured record across several cycles, per-cycle credit budgets, sampling of auto-approved posts for review, an incident log. Not before. | Not built. Not marketed. |
+| **3 · Continuous cycles** | Start the next cycle from the last report, inside a budget | Needs: a measured record across several cycles, per-cycle credit budgets, sampling of auto-approved posts for review (built: spot checks), an incident log. Not before. | Not built. Not marketed. |
 
 Moving **down** the ladder is always one click and never needs evidence: pause all agents, remove a channel, or
 switch the policy back to approving each draft.
@@ -43,6 +43,15 @@ Earned autonomy is not permanent. The bar is checked against the latest 10 human
 rejection, a flagged claim or a failed post puts the channel back to "not yet" for any *new* proposal. When a
 supervised channel's record shows a problem (a rejection, a flagged claim, a failure; not merely a short history),
 the Autonomy page marks it "Record slipped" and proposes taking the channel back, again for the founder to accept.
+
+## Spot checks: supervision keeps being earned
+
+Drafts the policy approves do not vouch for themselves, so on their own they would freeze a supervised channel's
+record. Instead Banyan sends a sample back to the founder after the fact: the first draft it approves on a channel,
+then one in every three (`spotCheckDue` in `src/lib/autonomy/trust.ts`). The founder answers "yes, as written",
+"I'd have changed it" (counts as an edit) or "it shouldn't go out" (counts as a rejection, and stops the post when it
+has not been published yet: the schedule is cancelled and the approval withdrawn). Those verdicts are human decisions,
+so they enter the channel's record, and a "shouldn't go out" marks a supervised channel "Record slipped".
 
 ## What this rules out
 

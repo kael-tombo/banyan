@@ -11,6 +11,8 @@ import { PolicyForm } from "./policy-form";
 import { EarnedAutonomy } from "./earned-autonomy";
 import { channelTrust } from "@/lib/autonomy/trust-service";
 import { narrowedPolicy, proposedPolicy } from "@/lib/autonomy/trust";
+import { pendingSpotChecks } from "@/lib/autonomy/spot-checks";
+import { SpotChecks } from "./spot-checks";
 
 export const metadata: Metadata = { title: "Autonomy" };
 export const dynamic = "force-dynamic";
@@ -45,6 +47,7 @@ export default async function AutonomyPage() {
   const paused = Boolean(ws?.agentsPausedAt);
   const supervised = isSupervised(policy);
   const verdicts = await channelTrust(wid, policy);
+  const spotChecks = await pendingSpotChecks(wid);
   const proposals = Object.fromEntries(
     verdicts
       .filter((v) => v.state === "ready" || v.state === "slipping")
@@ -76,7 +79,7 @@ export default async function AutonomyPage() {
         </div>
         <div className="mt-4 grid gap-4 border-t border-bark/10 pt-4 sm:grid-cols-3">
           {[
-            { title: "Always comes back to you", items: ["A claim nothing backs", "A banned term or an over-long post", "A draft the template wrote", "Your first post on a channel", "Any short-form video"] },
+            { title: "Always comes back to you", items: ["A claim nothing backs", "A banned term or an over-long post", "A draft the template wrote", "Your first post on a channel", "A topic you asked to see", "Drafts for a channel whose last post failed", "An unusual burst of approvals", "Any short-form video"] },
             { title: "Banyan never", items: ["Publishes copy nobody approved", "Spends money or boosts posts", "Messages people", "Changes your accounts"] },
             { title: "Only you", items: ["Connect a channel", "Change this mandate", "Resume paused agents"] },
           ].map((g) => (
@@ -91,6 +94,23 @@ export default async function AutonomyPage() {
           ))}
         </div>
       </Card>
+
+      {(supervised || spotChecks.length > 0) && (
+        <Card className="mt-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="font-serif text-xl tracking-[-0.01em] text-forest-deep">Spot checks</h2>
+            {spotChecks.length > 0 && <Badge variant="fig">{spotChecks.length} to check</Badge>}
+          </div>
+          <p className="mt-1 max-w-2xl text-sm leading-relaxed text-charcoal-soft">
+            A sample of what Banyan approved on its own, back in front of you. Your verdicts keep each channel&apos;s record honest: a post
+            you would have changed counts as an edit, and one that shouldn&apos;t go out is stopped and counts against the channel.
+          </p>
+          <SpotChecks
+            items={spotChecks.map((s) => ({ ...s, scheduledFor: s.scheduledFor?.toISOString() ?? null, approvedAt: s.approvedAt.toISOString() }))}
+            canEdit={canApprove(ctx.membership.role)}
+          />
+        </Card>
+      )}
 
       <Card className="mt-4">
         <h2 className="font-serif text-xl tracking-[-0.01em] text-forest-deep">Earned, channel by channel</h2>
