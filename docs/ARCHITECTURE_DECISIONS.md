@@ -103,3 +103,28 @@ user's *first* membership.
 **Consequences.** All existing isolation guarantees carry over, and multi-product ships as a thin, testable layer.
 The single-product MVP promise is unchanged: it is one product's cycle. Phase 0 details:
 [docs/architecture/MULTI_PRODUCT_PHASE0.md](architecture/MULTI_PRODUCT_PHASE0.md).
+
+## ADR-006 — OpenCode as the agent runtime, Banyan as the control plane
+
+**Date:** 2026-11-03 · **Status:** Accepted (design); R1 in progress
+
+**Context.** Each Banyan agent task is one model call. Research, writing and critique improve with tool use and
+delegation, and OpenCode V2 (`@opencode/sdk` 2.2.5) offers an embeddable host with sessions, subagents as durable child
+sessions, ordered permission rules and typed plugin tools. A spike on Node 24 showed a strategist delegating to two
+writer subagents through workspace-bound Banyan tools, child sessions inheriting workspace metadata, and a denied
+tool never offered to the model, even when the prompt asked for it.
+
+**Decision.**
+1. Banyan stays the orchestrator and system of record (goals, task graph, approvals, policy, credits, tenancy, time,
+   side effects). OpenCode runs the inner loop of a task, embedded in the worker. No OpenCode server, goal loop or
+   schedule.
+2. Agents get read, propose and ask tools only. Publishing, scheduling, approving, connecting, policy and spending are
+   never registered as tools.
+3. One plugin instance per workspace (keyed on session metadata), tools without a workspace argument, and every tool
+   re-checking the workspace.
+4. SocialFlow Lite stays a model-free publisher behind Banyan's publishing core.
+5. `AgentRuntime` interface with `direct` (today's behaviour, fallback) and `opencode` implementations.
+
+**Consequences.** The worker moves to Node 24 (the SDK uses `await using`). The SDK is pinned and isolated behind the
+seam because its API is days old. Production agents need direct provider keys (OpenCode Go is internal-use only).
+Full design and roadmap: [docs/architecture/AGENT_ORCHESTRATION.md](architecture/AGENT_ORCHESTRATION.md).
