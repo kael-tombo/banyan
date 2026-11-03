@@ -176,11 +176,20 @@ One source of truth: Banyan's env, injected into the OpenCode config.
 
 The template fallback still exists and is still labelled. OpenCode Go's terms limit it to the founder's own internal use.
 
+### The generated roster, checked in real OpenCode (2026-11-03)
+
+`buildOpenCodeConfig` (`src/lib/agents/runtime/roster.ts`) was exported and loaded into the embedded host with stub
+tools for the whole catalogue. OpenCode accepted all seven agents with the right modes. Told to write a post with the
+writer, then to also start the researcher and the strategist, the `creator` started a `writer` and a `critic`; the
+`researcher` call came back `permission.rejected: "Permission denied: subagent"` without running, and the
+`strategist` call failed with "cannot run as a subagent". The unit tests model OpenCode's rules (deny first, last
+match wins, the subagent permission's resource is the agent id) and this run confirms that model.
+
 ## Roadmap
 
 | Step | What | Done when |
 | --- | --- | --- |
-| **R1 · Seam** | `AgentRuntime` interface, `direct` runtime wrapping today's handlers, agent-config builder and tool catalogue as pure, tested modules | No behaviour change; tests pin "no agent can reach a side-effect tool" |
+| **R1 · Seam** | `AgentRuntime` interface, `direct` runtime wrapping today's handlers, agent-config builder and tool catalogue as pure, tested modules | No behaviour change; tests pin "no agent can reach a side-effect tool". **Partly done 2026-11-03**: `src/lib/agents/runtime/{types,tools,roster}.ts` and `tests/agent-runtime-roster.test.ts`; the `direct` runtime adapter is next |
 | **R2 · Worker on Node 24** | Worker image to `node:24-alpine`, pin `@opencode/sdk@2.2.5`, the OpenCode runtime behind `AGENT_RUNTIME=opencode`, first task type: `research` | A research task runs through OpenCode in a throwaway workspace, its notes carry provenance, usage lands in `ModelCall`, killing the worker mid-run duplicates nothing |
 | **R3 · Creator team** | `creator`, `writer` and `critic` agents; critic flags feed the autonomy policy | One draft per channel, critic flags visible on the draft, supervised approval unchanged |
 | **R4 · Ask and budgets** | `banyan_ask_founder` with `waiting_input`, per-run token budgets, per-cycle credit budgets, an incident log | A run that needs an answer pauses and resumes in the same session; an over-budget run stops cleanly |
