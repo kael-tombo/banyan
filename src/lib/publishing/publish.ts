@@ -9,6 +9,7 @@ import { randomSlug } from "@/lib/crypto";
 import { claimDecision } from "@/lib/publishing/claim";
 import { enqueuePublicationAttempt } from "@/lib/queue/jobs";
 import { checkPriorAttempts, syncAcceptedPost } from "@/lib/publishing/status-sync";
+import { VERIFY_FIRST_MESSAGE, workspacePublishingBlocked } from "@/lib/auth/verification";
 
 /** Connection statuses that can never be used to publish. */
 export const UNUSABLE_CONNECTION_STATUSES = ["error", "removed"];
@@ -44,6 +45,11 @@ async function attemptPublicationInner(input: {
   const retryOfFailed = item.status === "failed" && !!item.approvedById;
   if (!isExportableContent(item) && !retryOfFailed) {
     return { ok: false, status: "blocked", message: "Content must be approved before publishing." };
+  }
+  // US-011: nothing goes out in the owner's name (manual, scheduled, autopilot or
+  // campaign launch) until the workspace owner's address is confirmed.
+  if (await workspacePublishingBlocked(input.workspaceId)) {
+    return { ok: false, status: "blocked", message: VERIFY_FIRST_MESSAGE };
   }
 
   // Duplicate execution guard: one active publication per content item.

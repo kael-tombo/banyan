@@ -29,6 +29,8 @@ export async function createAccount(input: {
       attributedLinkId: link?.id ?? null,
       attributedCampaignId: link?.campaignId ?? null,
       attributedSource: link ? `tracked:${link.slug}` : "direct",
+      // A provider that vouched for this exact address has already verified it (US-011).
+      emailVerifiedAt: input.identity?.emailVerified && input.identity.email?.toLowerCase() === email ? new Date() : null,
       ...(input.identity
         ? {
             oauthAccounts: {

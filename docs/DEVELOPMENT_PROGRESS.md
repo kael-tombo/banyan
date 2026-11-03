@@ -11,7 +11,7 @@ says how. Story definitions: [USER_STORIES.md](USER_STORIES.md). Status source o
 | 0 — Repository audit | **Done** | [PROJECT_AUDIT.md](PROJECT_AUDIT.md); baseline 354/354 unit, 42/42 E2E, typecheck clean, build green (2026-11-01) |
 | 1 — Backlog | **Done** | 77 stories, dependency graph, roadmap, acceptance criteria, sprint plan; generator validation passes |
 | 2 — Infrastructure | **In progress**: US-001–US-007 and US-009 Done; US-008 next | Compose stack verified 2026-11-01 (E2E 42/42 in Docker) |
-| 3 — Authentication and onboarding | **In progress**: US-018 Done, US-019 in progress | E2E 54/54 |
+| 3 — Authentication and onboarding | **In progress**: US-018 Done, US-019 in progress, US-010–US-012 in Review | E2E 54/54 |
 | 4 — Product intelligence | **Done except US-025 (in Review)**: US-021–US-024 Done | E2E 61/61 |
 | 5 — SocialFlow.ai integration | **In progress**: US-027–US-030 and US-034 Done, US-031 in Review; live integration **blocked** | [SOCIALFLOW_INTEGRATION_AUDIT.md](SOCIALFLOW_INTEGRATION_AUDIT.md) |
 | 6 — Strategy and content | Not started | |
@@ -47,6 +47,9 @@ says how. Story definitions: [USER_STORIES.md](USER_STORIES.md). Status source o
 | US-009 Readiness checks | Done | `src/app/api/health/route.ts` | live up/down/back check | — | Redis and queue backlog reported; 503 names Redis when it is down |
 | US-018 Onboarding progress | Done | `prisma` (OnboardingStage, migration), `src/lib/onboarding/*`, `/api/onboarding/progress`, wizard | unit (11), E2E (6 new) | — | Nine stages; resume; optional skip; existing onboarded workspaces backfilled |
 | US-019 Workspace basics | In progress | Workspace fields, wizard step 1 | E2E time zone checks | — | Schedule times not yet shown in the workspace time zone |
+| US-010 Transactional email | Review | `src/lib/email/{transport,templates,outbox}.ts`, `email.send` job, sweep retry, `SMTP_URL`/`EMAIL_FROM` in env and Compose | `tests/email.test.ts` (outbox, retry/backoff, permanent failure, encryption at rest) | Production SMTP provider not chosen | Dev transport verified live 2026-11-03 (row `dev_logged`, content erased). Real SMTP delivery unverified |
+| US-011 Verify email | Review | `email-tokens.ts`, `verification.ts`, `/api/auth/verify{,/resend}`, `/verify-email`, banner; gate on connections and in the publishing core (manual, schedule, autopilot, campaign) | unit: single use, 24 h expiry, purpose isolation, gate on/off | Needs SMTP to be enforced | Gate is off without SMTP by design; existing users grandfathered by migration; verified-provider sign-in confirms the address |
+| US-012 Password recovery | Review | `/api/auth/password/{forgot,reset}`, `/forgot-password`, `/reset-password` | unit: 1 h expiry, single use | — | Live 2026-11-03: unknown and known address get identical responses, only the known one gets an outbox row; reset revokes all sessions. No E2E yet |
 | US-021 URL analysis | Done | `src/lib/product/{analyze,analysis-runner}.ts`, analyze routes, worker job, `/app/product` | E2E (7) | — | Live progress on the review page |
 | US-023 Profile review and approval | Done | `profile-review.ts`, apply-analysis and approve routes, `/api/profile`, goal gate, `/app/product` | unit (11), E2E (8) | — | Founder-written fields always kept; strategy gated on approval; versioning |
 | US-022 Structured analysis | Done | `src/lib/product/analyze.ts`, router purpose | unit (22) | No live model key here | Model path proven with a mocked provider; basic path live |

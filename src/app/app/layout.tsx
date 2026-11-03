@@ -1,3 +1,5 @@
+import { verificationRequired } from "@/lib/auth/email-flows";
+import { VerifyEmailBanner } from "@/components/VerifyEmailBanner";
 import { getBalance } from "@/lib/credits/service";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -63,6 +65,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       attention={{ approvals: awaitingContent + awaitingGates + awaitingStrategy, failedPosts, brokenConnections }}
       credits={credits?.available ?? null}
     >
+      {verificationRequired(user) && <VerifyEmailBanner email={user.email} />}
       {children}
     </AppShell>
   );

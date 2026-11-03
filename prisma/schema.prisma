@@ -19,6 +19,8 @@ model User {
   passwordHash          String?
   createdAt             DateTime      @default(now())
   onboardingCompletedAt DateTime?
+  // US-011: set when the owner opens the verification link (or signs up through a provider that verified the address).
+  emailVerifiedAt       DateTime?
   // Attribution recorded at signup when a tracked visitor cookie exists (observed, not inferred).
   attributedLinkId      String?
   attributedCampaignId  String?
@@ -28,6 +30,8 @@ model User {
   organizationMembers   OrganizationMember[]
   oauthAccounts         OAuthAccount[]
   memberships           Membership[]
+  emailTokens           EmailToken[]
+  emailMessages         EmailMessage[]
   approvals             ContentItem[] @relation("approvals")
   planApprovals         GoalPlan[]    @relation("planApprovals")
 }
@@ -812,4 +816,42 @@ model CreditAccount {
   available   Int       @default(0)
   reserved    Int       @default(0)
   updatedAt   DateTime  @updatedAt
+}
+
+// US-011 / US-012: single-use email links. Only an HMAC of the token is stored.
+model EmailToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose   String // verify | reset
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, purpose])
+}
+
+// US-010: transactional email outbox. The rendered fields live encrypted in
+// `payload` only until the message is sent, then the payload is cleared.
+model EmailMessage {
+  id            String    @id @default(cuid())
+  userId        String?
+  user          User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  template      String // verify_email | reset_password | approval_needed
+  toAddress     String
+  payload       String? // AES-GCM ciphertext of the template data; null once sent
+  // queued | sending | sent | dev_logged | failed
+  status        String    @default("queued")
+  transport     String?
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now())
+  lastError     String?
+  providerId    String?
+  sentAt        DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([userId, template, createdAt])
 }

@@ -1,3 +1,4 @@
+import { verificationRequired, VERIFY_FIRST_MESSAGE } from "@/lib/auth/email-flows";
 import { requireRole } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, guardRate, json, requireWorkspace, readJson } from "@/lib/api-utils";
@@ -29,6 +30,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const result = await recordManualPublication({ contentItemId: id, workspaceId: ctx.workspace.id, url: parsed.data.liveUrl });
     return result.ok ? json(result) : apiError(result.message, 400);
   }
+
+  // US-011: Banyan publishes in the founder's name only for a confirmed address.
+  if (verificationRequired(ctx.user)) return apiError(VERIFY_FIRST_MESSAGE, 403, { code: "verify_email" });
 
   if (parsed.data.mode === "now") {
     const result = await attemptPublication({

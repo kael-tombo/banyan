@@ -24,6 +24,9 @@ x-app-env: &app-env
   OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
   OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
   MODEL_MAX_CALLS_PER_DAY: ${MODEL_MAX_CALLS_PER_DAY:-500}
+  # Transactional email (US-010). Empty SMTP_URL: logged as not sent, verification not required.
+  SMTP_URL: ${SMTP_URL:-}
+  EMAIL_FROM: ${EMAIL_FROM:-Banyan <no-reply@localhost>}
   SEED_USER_EMAIL: ${SEED_USER_EMAIL:-founder@banyan.ai}
   SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-}
   # Sign-in providers (docs/SSO.md); each is offered only when both values are set.

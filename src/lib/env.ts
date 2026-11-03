@@ -34,6 +34,11 @@ const envSchema = z.object({
   // (e.g. {"X-Z-AI-From":"Z","X-Token":"…"}). Invalid JSON is ignored — the
   // provider must never crash on misconfiguration; the fallback path exists.
   OPENAI_EXTRA_HEADERS: z.string().default(""),
+  // US-010: transactional email over SMTP (any vendor: Resend, Postmark, Brevo…),
+  // e.g. smtps://user:pass@smtp.resend.com:465. Empty: the dev transport writes
+  // each email to the server log, labelled "not sent", and nothing is delivered.
+  SMTP_URL: z.string().default(""),
+  EMAIL_FROM: z.string().default("Banyan <no-reply@localhost>"),
   WORKER_SECRET: z.string().default(DEV_WORKER_SECRET),
   // Daily cap on live managed-model calls per workspace (quota applies to live
   // calls only; the labeled template fallback is never quota-limited).

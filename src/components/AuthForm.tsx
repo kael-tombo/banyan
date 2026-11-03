@@ -110,7 +110,15 @@ export function AuthForm({ mode }: { mode: Mode }) {
       <div className="flex flex-col gap-1.5">
         <Label
           htmlFor="auth-password"
-          aside={mode === "signup" ? <span id="auth-password-hint" className="text-xs text-muted">8 characters or more</span> : undefined}
+          aside={
+            mode === "signup" ? (
+              <span id="auth-password-hint" className="text-xs text-muted">8 characters or more</span>
+            ) : (
+              <Link href="/forgot-password" className="text-xs text-charcoal-soft underline decoration-bark/30 underline-offset-2 hover:text-forest-deep">
+                Forgot password?
+              </Link>
+            )
+          }
         >
           Password
         </Label>
@@ -273,7 +281,34 @@ export function AuthShell({ mode, providers = [] }: { mode: Mode; providers?: Pr
   const other = mode === "signup" ? "/login" : "/signup";
   const otherHref = next ? `${other}?next=${encodeURIComponent(next)}` : other;
   const oauthError = oauthMessage(params.get("error"), params.get("provider"), providers);
+  const notice = mode === "login" && params.get("reset") === "1" ? "Password changed and every session signed out. Sign in with your new password." : null;
 
+  return (
+    <AuthFrame title={copy.title} lede={copy.lede}>
+      {notice && (
+        <p role="status" className="mb-5 rounded-lg border border-forest/20 bg-forest/[0.05] px-3 py-2.5 text-[13px] leading-relaxed text-forest-deep">
+          {notice}
+        </p>
+      )}
+      {oauthError && (
+        <div className="mb-5">
+          <ErrorNote>{oauthError}</ErrorNote>
+        </div>
+      )}
+      <ProviderButtons providers={providers} next={next} />
+      <AuthForm mode={mode} />
+      <p className="mt-8 border-t border-bark/10 pt-6 text-[14px] text-charcoal-soft">
+        {mode === "signup" ? "Already have an account? " : "New to Banyan? "}
+        <Link href={otherHref} className="font-medium text-forest hover:text-forest-deep">
+          {mode === "signup" ? "Sign in" : "Create an account"}
+        </Link>
+      </p>
+    </AuthFrame>
+  );
+}
+
+/** The two-column auth layout: form on the left, the approval moment on the right. */
+export function AuthFrame({ title, lede, children }: { title: string; lede: string; children: React.ReactNode }) {
   return (
     <div className="grid min-h-svh bg-white lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
       <div className="flex min-h-svh flex-col px-5 py-5 sm:px-10 sm:py-6">
@@ -292,21 +327,9 @@ export function AuthShell({ mode, providers = [] }: { mode: Mode; providers?: Pr
 
         <main className="flex flex-1 items-center justify-center py-12">
           <div className="fade-up w-full max-w-[380px]">
-            <h1 className="tight text-[28px] font-medium leading-tight text-forest-deep">{copy.title}</h1>
-            <p className="mb-8 mt-2 text-[15px] leading-relaxed text-charcoal-soft">{copy.lede}</p>
-            {oauthError && (
-              <div className="mb-5">
-                <ErrorNote>{oauthError}</ErrorNote>
-              </div>
-            )}
-            <ProviderButtons providers={providers} next={next} />
-            <AuthForm mode={mode} />
-            <p className="mt-8 border-t border-bark/10 pt-6 text-[14px] text-charcoal-soft">
-              {mode === "signup" ? "Already have an account? " : "New to Banyan? "}
-              <Link href={otherHref} className="font-medium text-forest hover:text-forest-deep">
-                {mode === "signup" ? "Sign in" : "Create an account"}
-              </Link>
-            </p>
+            <h1 className="tight text-[28px] font-medium leading-tight text-forest-deep">{title}</h1>
+            <p className="mb-8 mt-2 text-[15px] leading-relaxed text-charcoal-soft">{lede}</p>
+            {children}
           </div>
         </main>
 

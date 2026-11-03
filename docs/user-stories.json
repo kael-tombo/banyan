@@ -1,11 +1,11 @@
 {
-  "generated": "2026-11-01",
+  "generated": "2026-11-03",
   "source": "scripts/backlog/stories-*.mjs",
   "totals": {
     "stories": 77,
     "done": 35,
-    "ready": 3,
-    "backlog": 26,
+    "ready": 2,
+    "backlog": 24,
     "blocked": 3
   },
   "criticalPath": [
@@ -525,7 +525,7 @@
       "epic": "Authentication and account management",
       "code": "AUTH",
       "priority": "P0",
-      "status": "Ready",
+      "status": "Review",
       "sprint": 2,
       "wave": 1,
       "story": {
@@ -584,7 +584,7 @@
       "epic": "Authentication and account management",
       "code": "AUTH",
       "priority": "P0",
-      "status": "Backlog",
+      "status": "Review",
       "sprint": 2,
       "wave": 2,
       "story": {
@@ -643,7 +643,7 @@
       "epic": "Authentication and account management",
       "code": "AUTH",
       "priority": "P0",
-      "status": "Backlog",
+      "status": "Review",
       "sprint": 2,
       "wave": 2,
       "story": {

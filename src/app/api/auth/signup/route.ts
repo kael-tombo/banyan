@@ -1,3 +1,4 @@
+import { sendVerificationEmail } from "@/lib/auth/email-flows";
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/auth/password";
 import { createSession, sessionCookieOptions, SESSION_COOKIE } from "@/lib/auth/session";
@@ -32,6 +33,9 @@ export async function POST(req: NextRequest) {
       name: parsed.data.name,
       passwordHash: await hashPassword(parsed.data.password),
     });
+
+    // US-011: the verification link goes out with signup; a mail problem never blocks the account.
+    await sendVerificationEmail(user).catch((err) => console.error("[signup] verification email:", err instanceof Error ? err.message : err));
 
     const { token } = await createSession(user.id);
     // Straight into the app — setup is guided, never forced.

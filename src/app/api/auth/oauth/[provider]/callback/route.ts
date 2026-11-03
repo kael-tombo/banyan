@@ -62,6 +62,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ prov
     });
 
     const identityData = { email: identity.email, emailVerified: identity.emailVerified, displayName: identity.name, lastUsedAt: new Date() };
+    // US-011: a provider that vouches for the account's own address confirms it.
+    const confirmEmail = (uid: string) =>
+      identity.emailVerified && identity.email
+        ? prisma.user.updateMany({ where: { id: uid, email: identity.email.toLowerCase(), emailVerifiedAt: null }, data: { emailVerifiedAt: new Date() } })
+        : Promise.resolve(null);
     let userId: string;
     switch (outcome.kind) {
       case "error":
@@ -76,6 +81,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ prov
       case "signin":
         userId = outcome.userId;
         await prisma.oAuthAccount.update({ where: { id: linked!.id }, data: identityData });
+        await confirmEmail(userId);
         break;
       case "link":
         userId = outcome.userId;
@@ -84,6 +90,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ prov
           create: { userId, provider, providerAccountId: identity.id, ...identityData },
           update: identityData,
         });
+        await confirmEmail(userId);
         if (outcome.then === "settings") {
           const res = redirectTo(flow.next, { linked: provider });
           res.cookies.set({ name: STATE_COOKIE, value: "", path: "/api/auth/oauth", maxAge: 0 });

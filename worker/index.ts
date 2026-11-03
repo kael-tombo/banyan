@@ -49,6 +49,11 @@ async function runQueueWorker(): Promise<void> {
           const { runAutopilotDrafts } = await import("@/lib/agents/autopilot");
           return runAutopilotDrafts(workspaceId, strategyId);
         }
+        case JOB.emailSend: {
+          const { messageId } = jobPayload[JOB.emailSend].parse(job.data);
+          const { deliverEmail } = await import("@/lib/email/outbox");
+          return deliverEmail(messageId);
+        }
         default:
           throw new Error(`Unknown job "${job.name}"`);
       }

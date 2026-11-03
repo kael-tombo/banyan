@@ -1,3 +1,4 @@
+import { verificationRequired, VERIFY_FIRST_MESSAGE } from "@/lib/auth/email-flows";
 import { requireRole } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, json, requireWorkspace, readJson } from "@/lib/api-utils";
@@ -45,6 +46,7 @@ export async function POST(req: NextRequest) {
   if (!ctx) return apiError("Unauthorized", 401);
   const forbidden = requireRole(ctx.membership.role, "manage");
   if (forbidden) return apiError(forbidden, 403);
+  if (verificationRequired(ctx.user)) return apiError(VERIFY_FIRST_MESSAGE, 403, { code: "verify_email" });
   const parsed = await readJson(req, createSchema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
 

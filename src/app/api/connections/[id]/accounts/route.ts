@@ -1,3 +1,4 @@
+import { verificationRequired, VERIFY_FIRST_MESSAGE } from "@/lib/auth/email-flows";
 import { NextRequest } from "next/server";
 import { apiError, assertSameOrigin, json, requireWorkspace } from "@/lib/api-utils";
 import { requireRole } from "@/lib/permissions";
@@ -24,6 +25,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!ctx) return apiError("Unauthorized", 401);
   const forbidden = requireRole(ctx.membership.role, "manage");
   if (forbidden) return apiError(forbidden, 403);
+  if (verificationRequired(ctx.user)) return apiError(VERIFY_FIRST_MESSAGE, 403, { code: "verify_email" });
   const scope = await loadConnectionScope(ctx.workspace.id, (await params).id);
   if (isScopeError(scope)) return apiError(scope.error, scope.status);
 

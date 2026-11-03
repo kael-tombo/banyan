@@ -130,7 +130,7 @@ export const storiesA = [
 
   // ───────────────────────── AUTH — Authentication ─────────────────────────
   {
-    id: "US-010", epic: "Authentication and account management", code: "AUTH", priority: "P0", status: "Ready", sprint: 2,
+    id: "US-010", epic: "Authentication and account management", code: "AUTH", priority: "P0", status: "Review", sprint: 2,
     title: "Send transactional email",
     as: "the platform", want: "to send transactional email through a configured SMTP provider", so: "verification, recovery and approval notices reach users",
     context: "No email capability exists (TD-12). Verification and recovery depend on it.",
@@ -142,7 +142,7 @@ export const storiesA = [
     tests: { happy: "mocked SMTP receives message", validation: "invalid recipient rejected", authorization: "n/a", external: "SMTP 5xx → retried then failed record", retry: "transient failure then success sends once" },
   },
   {
-    id: "US-011", epic: "Authentication and account management", code: "AUTH", priority: "P0", status: "Backlog", sprint: 2,
+    id: "US-011", epic: "Authentication and account management", code: "AUTH", priority: "P0", status: "Review", sprint: 2,
     title: "Verify email address",
     as: "new user", want: "to confirm my email address", so: "Banyan knows the account is mine before it publishes anything in my name",
     context: "Signup does not verify ownership of the email address.",
@@ -154,7 +154,7 @@ export const storiesA = [
     tests: { happy: "verify with valid token", validation: "expired or reused token refused", authorization: "token for user A cannot verify user B", external: "mailer failure leaves user unverified with retry option", retry: "resend rate limited" },
   },
   {
-    id: "US-012", epic: "Authentication and account management", code: "AUTH", priority: "P0", status: "Backlog", sprint: 2,
+    id: "US-012", epic: "Authentication and account management", code: "AUTH", priority: "P0", status: "Review", sprint: 2,
     title: "Recover a forgotten password",
     as: "user who forgot my password", want: "to reset it by email", so: "I can get back into my workspace",
     context: "No recovery flow exists.",

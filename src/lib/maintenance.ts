@@ -26,9 +26,11 @@ export async function runMaintenanceSweep(): Promise<{
   workflowError?: string;
   urls?: { checked: number; filled: number };
   creditsReleased?: number;
+  emails?: { attempted: number; sent: number };
 }> {
   const publishResult = { ...(await processDueSchedule()), urls: await backfillPublishedUrls().catch(() => undefined),
     creditsReleased: (await releaseStaleReservations().catch(() => ({ released: 0 }))).released,
+    emails: await import("@/lib/email/outbox").then((m) => m.deliverDueEmails()).catch(() => undefined),
   };
   try {
     const memberships = await prisma.membership.findMany({ select: { workspaceId: true }, distinct: ["workspaceId"] });

@@ -22,6 +22,7 @@ export const JOB = {
   productAnalyze: "product.analyze",
   autopilotStrategy: "autopilot.strategy",
   autopilotDrafts: "autopilot.drafts",
+  emailSend: "email.send",
 } as const;
 export type JobName = (typeof JOB)[keyof typeof JOB];
 
@@ -31,6 +32,7 @@ export const jobPayload = {
   [JOB.productAnalyze]: z.object({ analysisId: z.string().min(1) }),
   [JOB.autopilotStrategy]: z.object({ workspaceId: z.string().min(1), goalId: z.string().min(1).optional() }),
   [JOB.autopilotDrafts]: z.object({ workspaceId: z.string().min(1), strategyId: z.string().min(1) }),
+  [JOB.emailSend]: z.object({ messageId: z.string().min(1) }),
 } satisfies Record<JobName, z.ZodTypeAny>;
 
 export type JobPayload<N extends JobName> = z.infer<(typeof jobPayload)[N]>;
