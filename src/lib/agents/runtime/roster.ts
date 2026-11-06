@@ -10,6 +10,9 @@ import type { RuntimeAgent } from "./types";
  * tools and the subagents it may start. Subagents cannot start subagents.
  */
 
+/** Provider prefixes for OpenCode's hosted inference. */
+const HOSTED_INFERENCE = new Set(["opencode", "opencode-go"]);
+
 export type ModelTier = "strong" | "fast" | "critic";
 export type ModelTiers = Record<ModelTier, string>;
 
@@ -38,9 +41,9 @@ export const ROSTER: Record<RuntimeAgent, RosterEntry> = {
     mode: "primary",
     tier: "strong",
     steps: 8,
-    tools: [...READ, "banyan_results", "banyan_ask_founder"],
+    tools: [...READ, "banyan_results", "banyan_propose_plan", "banyan_ask_founder"],
     description: "Turns a goal into a plan the founder approves.",
-    system: "You are Banyan's planner. Turn the founder's goal into a short plan: assumptions, missing information, risks, phases.",
+    system: "You are Banyan's planner. Turn the founder's goal into a short plan: assumptions, missing information, risks, phases. Save it with banyan_propose_plan.",
   },
   strategist: {
     mode: "primary",
@@ -165,13 +168,24 @@ export function modelTiers(
   if (!strong) throw new Error('AGENT_MODEL_STRONG must look like "provider/model".');
   const tiers: ModelTiers = { strong, fast: valid(env.AGENT_MODEL_FAST) || strong, critic: valid(env.AGENT_MODEL_CRITIC) || strong };
   const warnings: string[] = [];
-  if (tiers.critic === tiers.fast) {
+  const family = (m: string) => m.split("/")[0]!;
+  if (opts.production) {
+    for (const m of Object.values(tiers)) {
+      if (HOSTED_INFERENCE.has(family(m))) {
+        throw new Error(`${m} is OpenCode's hosted inference, which its terms limit to internal use. Production agents need a direct provider key.`);
+      }
+    }
+  }
+  // The critic checks strategists and writers, so it must differ from both. Comparing whole model
+  // names is not enough: anthropic/haiku and anthropic/sonnet share a family and its blind spots.
+  const shared = [tiers.fast, tiers.strong].find((m) => family(m) === family(tiers.critic));
+  if (shared) {
     if (opts.production) {
       throw new Error(
-        `AGENT_MODEL_CRITIC must name a different model from the writers' (${tiers.fast}) in production: a critic from another family catches more of their mistakes, and the autonomy policy relies on the check.`
+        `AGENT_MODEL_CRITIC (${tiers.critic}) must be from a different model family than the agents it checks (${shared}) in production: a critic from another family catches more of their mistakes, and the autonomy policy relies on the check.`
       );
     }
-    warnings.push("The critic uses the same model as the writers; a different model family catches more of their mistakes.");
+    warnings.push("The critic is from the same model family as the agents it checks; a different family catches more of their mistakes.");
   }
   return { tiers, warnings };
 }

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { resolveDatabaseUrl } from "@/lib/db-url";
+import { modelTiers } from "@/lib/agents/runtime/roster";
 
 const hex64 = z.string().regex(/^[0-9a-fA-F]{64}$/, "APP_SECRET must be 64 hex chars (32 bytes)");
 
@@ -121,6 +122,14 @@ function readEnv() {
     throw new Error(
       'Invalid environment configuration — AGENT_MODEL_STRONG: required when AGENT_RUNTIME=opencode, as "provider/model" (FAST and CRITIC fall back to it).'
     );
+  }
+  // ADR-007 promises tier problems fail at boot, not mid-run. This is what keeps that promise.
+  if (data.AGENT_RUNTIME === "opencode" && !isBuildPhase) {
+    try {
+      modelTiers(data, { production: data.NODE_ENV === "production" });
+    } catch (err) {
+      throw new Error(`Invalid environment configuration — ${(err as Error).message}`);
+    }
   }
   return data;
 }

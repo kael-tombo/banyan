@@ -8,7 +8,29 @@ follow [Keep a Changelog](https://keepachangelog.com); commit hashes refer to
 
 ## [Unreleased]
 
+### Fixed
+- **Provider blips no longer become template drafts** (2026-11-06): the router retries a
+  transient failure once on the spot. It used to swallow every provider error, so a single 429
+  gave the founder a template. Failures are told apart from "no provider configured".
+- **An outage no longer uses up the daily quota**: only calls that worked count against it.
+- **Status can't claim a live model while templates serve**: `describeLiveModel` now uses the
+  same rules as `getAIProvider`.
+- **A late task result can't overwrite a founder's cancel, or another worker's takeover**: task
+  completion checks the attempt still owns the task, and a running task renews its lease.
+- **The dev OpenCode brain denies tools by wildcard**, not only by a fixed list that a new tool
+  would slip past.
+
+### Changed
+- **Production refuses OpenCode's hosted inference**, whose terms limit it to internal use:
+  `AGENT_MODEL_*` fails at boot, and `OPENAI_BASE_URL` on opencode.ai degrades to the labeled
+  template with the reason in the label.
+- **The critic must be from another model family** than both the writers and the strategist. The
+  check compared exact model names, so two models from one vendor passed. It now runs at boot,
+  as ADR-007 promised; before, nothing called it.
+
 ### Added
+- `banyan_propose_plan`: the planner had no way to deliver the plan the design says it produces.
+- `recordAgentRun` prefers a cost the provider reports over the price table.
 - **Model governance for the agentic runtime (ADR-007)** (2026-11-04) — the
   three seams ADR-006 left open before roadmap R2, closed as tested modules:
   (1) *one run = one quota unit = one ledger row*: an agentic run is gated by

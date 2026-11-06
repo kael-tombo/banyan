@@ -156,12 +156,17 @@ async function fetchJSONWithTimeout(
  * Not the ADR-006 agent runtime — this is the V1 HTTP gateway for single-shot
  * calls; the embedded V2 runtime (roadmap R2) replaces it.
  */
-const OPENCODE_DISABLED_TOOLS = Object.fromEntries(
-  [
-    "bash", "edit", "write", "read", "glob", "grep", "list", "patch", "multiedit", "webfetch",
-    "websearch", "codesearch", "task", "todowrite", "todoread", "skill", "lsp", "question",
-  ].map((t) => [t, false])
-);
+// The wildcard denies everything, including tools a future OpenCode or a developer's own MCP servers
+// add. The names stay as a second layer for any version that does not honour the wildcard.
+const OPENCODE_DISABLED_TOOLS = {
+  "*": false,
+  ...Object.fromEntries(
+    [
+      "bash", "edit", "write", "read", "glob", "grep", "list", "patch", "multiedit", "webfetch",
+      "websearch", "codesearch", "task", "todowrite", "todoread", "skill", "lsp", "question",
+    ].map((t) => [t, false])
+  ),
+};
 
 export class OpenCodeSessionProvider implements AIProvider {
   readonly name = "opencode-session";
@@ -298,9 +303,32 @@ export function openCodeBrainEnabled(): boolean {
   );
 }
 
-/** What serves live generation right now, for capability/status surfaces. */
+/**
+ * OpenCode's hosted inference (Go, Zen) is limited by its terms to "your own internal use, and not on
+ * behalf of or for the benefit of any third party". A production deployment serves customers, so this
+ * route stays off there and generation degrades to the labeled template.
+ */
+export function hostedInferenceBlocked(): boolean {
+  if (env.NODE_ENV !== "production" || !env.OPENAI_API_KEY) return false;
+  try {
+    const host = new URL(env.OPENAI_BASE_URL).hostname;
+    return host === "opencode.ai" || host.endsWith(".opencode.ai");
+  } catch {
+    return false;
+  }
+}
+
+/** The managed provider is selected: requested (or auto), with a key, and allowed here. */
+function managedProviderSelected(): boolean {
+  return (env.AI_PROVIDER === "openai" || env.AI_PROVIDER === "") && !!env.OPENAI_API_KEY && !hostedInferenceBlocked();
+}
+
+/**
+ * What serves live generation right now, for capability/status surfaces. Uses the same
+ * rules as getAIProvider, so status can never claim a live model while templates serve.
+ */
 export function describeLiveModel(): { live: boolean; model: string; via: "managed" | "opencode" | "none" } {
-  if (env.OPENAI_API_KEY && env.AI_PROVIDER !== "none") return { live: true, model: env.OPENAI_MODEL, via: "managed" };
+  if (managedProviderSelected()) return { live: true, model: env.OPENAI_MODEL, via: "managed" };
   if (openCodeBrainEnabled()) return { live: true, model: env.OPENCODE_MODEL, via: "opencode" };
   return { live: false, model: "banyan-template-1", via: "none" };
 }
@@ -365,8 +393,7 @@ export function parseExtraHeaders(raw: string): Record<string, string> {
 }
 
 export function getAIProvider(): { provider: AIProvider; usage: UsageMeta } {
-  const wantsOpenai = (env.AI_PROVIDER === "openai" || env.AI_PROVIDER === "") && env.OPENAI_API_KEY;
-  if (wantsOpenai) {
+  if (managedProviderSelected()) {
     const provider = new OpenAICompatProvider(env.OPENAI_API_KEY, env.OPENAI_BASE_URL, env.OPENAI_MODEL);
     return {
       provider,
@@ -397,7 +424,9 @@ export function getAIProvider(): { provider: AIProvider; usage: UsageMeta } {
       provider: provider.name,
       model: "banyan-template-1",
       isFallback: true,
-      label: "Development fallback (no model credentials configured)",
+      label: hostedInferenceBlocked()
+        ? "Template fallback: OpenCode's hosted inference is for internal use only, so it is off in production. Configure a direct provider key."
+        : "Development fallback (no model credentials configured)",
     },
   };
 }
@@ -433,6 +462,7 @@ export async function completeValidated<T>(args: {
           system: args.system,
           user: args.user,
           maxTokens: args.maxTokens,
+          temperature: args.temperature,
         });
         usage = res.usage;
         const data = args.schema.parse(res.text); // throws ZodError on invalid output

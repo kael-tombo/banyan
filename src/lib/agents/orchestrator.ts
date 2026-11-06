@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { canTransitionTask, type TaskType } from "@/lib/state-machines";
 import { recordActivity, type ActivityType } from "@/lib/activity";
@@ -179,7 +180,20 @@ async function injectDependencyOutputs(task: TaskEnvelope, all: TaskEnvelope[]):
 
 type ExecutionResult = "completed" | "failed" | "waiting_approval" | "blocked";
 
-async function executeTask(task: TaskEnvelope, userId: string | null): Promise<ExecutionResult | null> {
+/**
+ * Finish a task only if this attempt still owns it. A lease can expire while a slow handler runs, and
+ * a founder can cancel a running task. In both cases a late result must not overwrite what happened.
+ */
+async function finishIfCurrent(task: TaskEnvelope, data: Prisma.AgentTaskUpdateManyMutationInput): Promise<boolean> {
+  const res = await prisma.agentTask.updateMany({ where: { id: task.id, status: "running", attempts: task.attempts }, data });
+  return res.count === 1;
+}
+
+async function recordSuperseded(runId: string): Promise<void> {
+  await prisma.taskRun.update({ where: { id: runId }, data: { status: "superseded", error: "The task was cancelled or taken over while this attempt ran; its result was not applied.", finishedAt: new Date() } });
+}
+
+export async function executeTask(task: TaskEnvelope, userId: string | null): Promise<ExecutionResult | null> {
   const handler = HANDLERS[task.type as TaskType];
   if (!handler) {
     await finalizeFailure(task, `No handler registered for task type "${task.type}".`, false);
@@ -208,11 +222,20 @@ async function executeTask(task: TaskEnvelope, userId: string | null): Promise<E
     log: (step, detail) => logEntries.push({ at: new Date().toISOString(), step, detail: detail ? detail.slice(0, 300) : undefined }),
   };
 
+  // Renew the lease while the handler works, so a long task is not requeued and run twice.
+  const heartbeat = setInterval(() => {
+    void prisma.agentTask
+      .updateMany({ where: { id: task.id, status: "running", attempts: task.attempts }, data: { leasedUntil: new Date(Date.now() + LEASE_MS) } })
+      .catch(() => {});
+  }, LEASE_MS / 3);
+
   let result: HandlerResult;
   try {
     result = await handler(ctx);
   } catch (err) {
     result = { outcome: "failed", error: `Handler threw: ${(err as Error).message}`, retryable: true };
+  } finally {
+    clearInterval(heartbeat);
   }
 
   await persistRunLog(run.id, logEntries);
@@ -221,13 +244,13 @@ async function executeTask(task: TaskEnvelope, userId: string | null): Promise<E
     case "completed": {
       const verdict = verifyOutput(task.verification, result.output);
       if (!verdict.ok) {
-        await finalizeFailure(task, `Verification failed: ${verdict.error}`, true, run.id);
-        return "failed";
+        return (await finalizeFailure(task, `Verification failed: ${verdict.error}`, true, run.id)) ? "failed" : null;
       }
-      await prisma.agentTask.update({
-        where: { id: task.id },
-        data: { status: "completed", output: JSON.stringify(result.output), lastError: null, leasedUntil: null, completedAt: new Date() },
-      });
+      const finished = await finishIfCurrent(task, { status: "completed", output: JSON.stringify(result.output), lastError: null, leasedUntil: null, completedAt: new Date() });
+      if (!finished) {
+        await recordSuperseded(run.id);
+        return null;
+      }
       await prisma.taskRun.update({ where: { id: run.id }, data: { status: "completed", output: JSON.stringify(result.output), finishedAt: new Date() } });
       await recordActivity({
         workspaceId: task.workspaceId,
@@ -239,29 +262,31 @@ async function executeTask(task: TaskEnvelope, userId: string | null): Promise<E
       return "completed";
     }
     case "waiting_approval": {
-      await prisma.agentTask.update({
-        where: { id: task.id },
-        data: {
-          status: "waiting_approval",
-          leasedUntil: null,
-          lastError: result.note.slice(0, 400),
-          ...(result.output ? { output: JSON.stringify(result.output) } : {}),
-        },
+      const finished = await finishIfCurrent(task, {
+        status: "waiting_approval",
+        leasedUntil: null,
+        lastError: result.note.slice(0, 400),
+        ...(result.output ? { output: JSON.stringify(result.output) } : {}),
       });
+      if (!finished) {
+        await recordSuperseded(run.id);
+        return null;
+      }
       await prisma.taskRun.update({ where: { id: run.id }, data: { status: "completed", error: result.note.slice(0, 400), finishedAt: new Date() } });
       return "waiting_approval";
     }
     case "blocked": {
-      await prisma.agentTask.update({
-        where: { id: task.id },
-        data: {
-          status: "blocked",
-          lastError: `${result.reason} → ${result.actionable}`.slice(0, 800),
-          leasedUntil: null,
-          // Persist progress so a retry reconciles instead of re-doing side effects.
-          ...(result.output ? { output: JSON.stringify(result.output) } : {}),
-        },
+      const finished = await finishIfCurrent(task, {
+        status: "blocked",
+        lastError: `${result.reason} → ${result.actionable}`.slice(0, 800),
+        leasedUntil: null,
+        // Persist progress so a retry reconciles instead of re-doing side effects.
+        ...(result.output ? { output: JSON.stringify(result.output) } : {}),
       });
+      if (!finished) {
+        await recordSuperseded(run.id);
+        return null;
+      }
       await prisma.taskRun.update({ where: { id: run.id }, data: { status: "failed", error: `${result.reason} ${result.actionable}`.slice(0, 800), finishedAt: new Date() } });
       await recordActivity({
         workspaceId: task.workspaceId,
@@ -274,25 +299,30 @@ async function executeTask(task: TaskEnvelope, userId: string | null): Promise<E
     }
     case "failed": {
       const prefix = result.retryable ? "transient: " : "permanent: ";
-      await finalizeFailure(task, `${prefix}${result.error}`, result.retryable, run.id, result.output);
-      return "failed";
+      return (await finalizeFailure(task, `${prefix}${result.error}`, result.retryable, run.id, result.output)) ? "failed" : null;
     }
   }
 }
 
-async function finalizeFailure(task: TaskEnvelope, error: string, retryable: boolean, runId?: string, output?: TaskOutput): Promise<void> {
+/** Returns false when a claimed attempt no longer owns the task, so nothing was applied. */
+async function finalizeFailure(task: TaskEnvelope, error: string, retryable: boolean, runId?: string, output?: TaskOutput): Promise<boolean> {
   const terminal = !retryable || task.attempts >= task.maxAttempts;
-  await prisma.agentTask.update({
-    where: { id: task.id },
-    data: {
-      // Transient failures within budget requeue immediately; the next tick
-      // retries them (bounded by attempts vs maxAttempts).
-      status: terminal ? "failed" : "ready",
-      lastError: error.slice(0, 800),
-      leasedUntil: null,
-      ...(output ? { output: JSON.stringify(output) } : {}),
-    },
-  });
+  const data = {
+    // Transient failures within budget requeue immediately; the next tick
+    // retries them (bounded by attempts vs maxAttempts).
+    status: terminal ? "failed" : "ready",
+    lastError: error.slice(0, 800),
+    leasedUntil: null,
+    ...(output ? { output: JSON.stringify(output) } : {}),
+  };
+  if (runId) {
+    if (!(await finishIfCurrent(task, data))) {
+      await recordSuperseded(runId);
+      return false;
+    }
+  } else {
+    await prisma.agentTask.update({ where: { id: task.id }, data }); // no attempt was claimed: nothing to fence
+  }
   if (runId) {
     await prisma.taskRun.update({ where: { id: runId }, data: { status: "failed", error: error.slice(0, 800), finishedAt: new Date() } });
   }
@@ -303,6 +333,7 @@ async function finalizeFailure(task: TaskEnvelope, error: string, retryable: boo
     summary: `Task ${terminal ? "failed" : "will retry"}: ${task.title} — ${error.slice(0, 200)}`,
     meta: { taskId: task.id, goalId: task.goalId },
   });
+  return true;
 }
 
 async function persistRunLog(runId: string, entries: { at: string; step: string; detail?: string }[]): Promise<void> {

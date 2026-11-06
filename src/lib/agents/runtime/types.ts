@@ -19,7 +19,7 @@ export type Budget = {
   maxTokens: number;
 };
 
-export type ProposalRef = { kind: "draft" | "strategy" | "recommendation" | "note" | "flag" | "question"; id: string };
+export type ProposalRef = { kind: "plan" | "draft" | "strategy" | "recommendation" | "note" | "flag" | "question"; id: string };
 
 export type AgentUsage = { inputTokens: number; outputTokens: number; steps: number; toolCalls: number; subagents: number };
 

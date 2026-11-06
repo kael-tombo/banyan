@@ -72,6 +72,8 @@ export type AgentRunRecord = {
   runtime: "opencode" | "direct";
   /** Per-model usage across the whole session tree. */
   perModel: RunModelUsage[];
+  /** The session tree's total when the provider reports one; preferred over the price table. */
+  reportedCostUsd?: number;
   steps: number;
   toolCalls: number;
   latencyMs: number;

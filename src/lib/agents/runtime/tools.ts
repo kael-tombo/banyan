@@ -37,6 +37,10 @@ export const AGENT_TOOLS = {
     kind: "propose",
     description: "Record a research note with its provenance (hypothesis or external observation) and source.",
   },
+  banyan_propose_plan: {
+    kind: "propose",
+    description: "Save a plan (assumptions, missing information, risks, phases) as a proposal waiting for the founder's approval.",
+  },
   banyan_propose_draft: {
     kind: "propose",
     description: "Save one channel post as a draft waiting for review. It is never published by this tool.",

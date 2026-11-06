@@ -106,12 +106,18 @@ export async function countLiveModelActionsToday(workspaceId: string): Promise<n
     where: {
       workspaceId,
       isFallback: false,
+      ok: true,
       createdAt: { gte: startOfUtcDay() },
     },
   });
 }
 
 const countLiveCallsToday = countLiveModelActionsToday;
+
+/** A failed call does not use the allowance: an outage should not eat a founder's daily quota. */
+export const ROUTER_RETRY = { attempts: 2, delayMs: 800, withinMs: 30_000 };
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function routeComplete(req: ModelRouteRequest): Promise<ModelRouteResult> {
   const started = Date.now();
@@ -128,36 +134,52 @@ export async function routeComplete(req: ModelRouteRequest): Promise<ModelRouteR
   }
 
   // 2. Resolve the provider chain in order; first available live provider wins.
+  // A blip (429, 5xx, a dropped connection) gets one more try on the spot: without it,
+  // a single 429 hands the founder a template draft. Slow failures don't retry, so a
+  // request is never held for two full timeouts.
   const chain = resolveProviderChain(req.workspaceId);
+  let lastError: string | undefined;
   for (const link of chain) {
     if (!link.provider || !link.usage) continue;
-    try {
-      const result: GenResult = await link.provider.complete({
-        system: req.system,
-        user: req.user,
-        maxTokens: req.maxTokens,
-        temperature: req.temperature,
-      });
-      const latencyMs = Date.now() - started;
-      const modelCallId = await recordCall(req, result.usage, latencyMs, true);
-      return {
-        modelCallId,
-        text: result.text,
-        usage: result.usage,
-        latencyMs,
-        quotaDeferred: false,
-      };
-    } catch (err) {
-      const message = err instanceof AIError || err instanceof Error ? err.message : String(err);
-      // Record the failure, then try the next link (eventually the fallback).
-      await recordCall(req, link.usage, Date.now() - started, false, message.slice(0, 500));
-      continue;
+    for (let attempt = 1; attempt <= ROUTER_RETRY.attempts; attempt++) {
+      const ledgerReq = { ...req, attempt: (req.attempt ?? 1) + attempt - 1 };
+      try {
+        const result: GenResult = await link.provider.complete({
+          system: req.system,
+          user: req.user,
+          maxTokens: req.maxTokens,
+          temperature: req.temperature,
+        });
+        const latencyMs = Date.now() - started;
+        const modelCallId = await recordCall(ledgerReq, result.usage, latencyMs, true);
+        return {
+          modelCallId,
+          text: result.text,
+          usage: result.usage,
+          latencyMs,
+          quotaDeferred: false,
+        };
+      } catch (err) {
+        const message = err instanceof AIError || err instanceof Error ? err.message : String(err);
+        lastError = message.slice(0, 500);
+        // Record the failure, then retry a blip or try the next link (eventually the fallback).
+        await recordCall(ledgerReq, link.usage, Date.now() - started, false, lastError);
+        const retryable = err instanceof AIError && err.retryable;
+        if (!retryable || attempt >= ROUTER_RETRY.attempts || Date.now() - started >= ROUTER_RETRY.withinMs) break;
+        await sleep(ROUTER_RETRY.delayMs);
+      }
     }
   }
 
-  // 3. No live provider available — labeled fallback.
+  // 3. No live provider served this. Say which it was: nothing configured is a setup
+  // question, a failing provider is an incident. The provider's own words stay in the
+  // ledger and in providerError, out of the label a founder reads.
+  if (lastError !== undefined) {
+    const res = await serveFallback(req, started, "The live model failed, so this draft is a template.");
+    return { ...res, quotaDeferred: false, providerError: lastError };
+  }
   const res = await serveFallback(req, started, "No live model provider available.");
-  return { ...res, quotaDeferred: false, providerError: "No live model provider available." };
+  return { ...res, quotaDeferred: false };
 }
 
 async function serveFallback(req: ModelRouteRequest, started: number, note?: string): Promise<ModelRouteResult> {
@@ -248,7 +270,8 @@ export async function checkRunQuota(workspaceId: string): Promise<QuotaDecision>
  */
 export async function recordAgentRun(run: AgentRunRecord): Promise<string | null> {
   const price = priceRunUsage(run.perModel);
-  if (price.unpricedModels.length > 0) {
+  const reportedMicros = run.reportedCostUsd && run.reportedCostUsd > 0 ? Math.round(run.reportedCostUsd * 1_000_000) : null;
+  if (reportedMicros === null && price.unpricedModels.length > 0) {
     log(
       "warn",
       "agent_run_cost_incomplete",
@@ -273,7 +296,8 @@ export async function recordAgentRun(run: AgentRunRecord): Promise<string | null
         isFallback: false,
         promptTokens: price.inputTokens,
         completionTokens: price.outputTokens,
-        estCostMicros: price.estCostMicros,
+        // Same rule as single-shot calls: what the provider reported beats our table.
+        estCostMicros: reportedMicros ?? price.estCostMicros,
         latencyMs: run.latencyMs,
         ok: run.ok,
         error: run.ok ? null : ((run.error ?? "Agent run failed.").slice(0, 500)),

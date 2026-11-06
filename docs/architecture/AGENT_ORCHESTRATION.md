@@ -107,12 +107,12 @@ founder. If the OpenCode runtime throws or is unavailable, the handler falls bac
 
 | Agent | Mode | Model tier | May call | Produces |
 | --- | --- | --- | --- | --- |
-| `planner` | primary | strong | read tools, `banyan_ask_founder` | a plan proposal (waits for approval, as today) |
+| `planner` | primary | strong | read tools, `banyan_propose_plan`, `banyan_ask_founder` | a plan proposal (waits for approval, as today) |
 | `strategist` | primary | strong | read tools, `subagent` (researcher, critic), `banyan_propose_strategy`, `banyan_ask_founder` | a strategy proposal |
 | `researcher` | subagent | fast | read tools, `banyan_web_search` (only when a verified provider exists), `banyan_record_note` | notes stored with `hypothesis` or `external_observation` provenance |
 | `creator` | primary | strong | read tools, `subagent` (writer, critic) | drafts, via writers |
 | `writer` | subagent | fast | read tools, `banyan_channel_rules`, `banyan_propose_draft` | one channel draft |
-| `critic` | subagent | strong, **different family from the writer** | read tools, `banyan_flag` | flags: unsupported claim, off-voice, banned term, risky topic |
+| `critic` | subagent | critic, **different family from the writers and the strategist** | read tools, `banyan_flag` | flags: unsupported claim, off-voice, banned term, risky topic |
 | `analyst` | primary | strong | read tools incl. results, `banyan_propose_recommendation` | a recommendation citing recorded evidence |
 
 Every agent starts from `{ action: "*", resource: "*", effect: "deny" }` and is allowed only its own tools. Subagent
@@ -125,7 +125,7 @@ no agent can reach a tool that changes state outside proposals.
 | Kind | Tools | Rule |
 | --- | --- | --- |
 | Read | `banyan_read_context` (approved profile, facts with provenance, learning memory), `banyan_channel_rules` (limits from SocialFlow `get_account_capabilities`, voice, banned terms), `banyan_results` (recorded outcomes only) | Workspace from the closure. Untrusted text comes back fenced and labelled (`src/lib/ai/untrusted.ts`). |
-| Propose | `banyan_propose_draft`, `banyan_propose_strategy`, `banyan_propose_recommendation`, `banyan_record_note`, `banyan_flag` | Writes a proposal row tied to `taskId`, idempotent by a dedupe key (`taskId:channel:n`), status always "waiting for review" (or the policy's decision later, outside the agent). |
+| Propose | `banyan_propose_plan`, `banyan_propose_draft`, `banyan_propose_strategy`, `banyan_propose_recommendation`, `banyan_record_note`, `banyan_flag` | Writes a proposal row tied to `taskId`, idempotent by a dedupe key (`taskId:channel:n`), status always "waiting for review" (or the policy's decision later, outside the agent). |
 | Ask | `banyan_ask_founder` | Creates a Banyan question and ends the run as `waiting_input`. The founder's answer is sent into the same session as a new prompt. No OpenCode `ask` permissions in production: nobody is watching a terminal. |
 | Never | publish, schedule, cancel, approve, connect or disconnect accounts, change policy, spend credits, send messages | Not registered at all, so not even visible to a model. |
 
@@ -185,8 +185,8 @@ The template fallback still exists and is still labelled. OpenCode Go's terms li
 
 Tiers are validated at the env boundary (ADR-007): `AGENT_RUNTIME` and `AGENT_MODEL_STRONG/FAST/CRITIC` join the zod
 schema in `src/lib/env.ts` (a non-empty value must look like `provider/model`; a missing strong model fails startup
-only when `AGENT_RUNTIME=opencode`). In production, `modelTiers` **refuses** a critic that names the same model as the
-writers — the different-family check the autonomy policy relies on is a configuration error, not a warning. Until the
+only when `AGENT_RUNTIME=opencode`). In production, `modelTiers` **refuses** a critic from the same model family as the
+writers or the strategist, and refuses OpenCode's hosted inference, at boot. In development both are warnings or allowed. Until the
 embedded runtime exists (R2), `resolveRuntimeSelection` (`src/lib/agents/runtime/select.ts`) resolves
 `AGENT_RUNTIME=opencode` to `direct` with a labelled reason — never silently, never a crash. The development-only
 "OpenCode brain" (`scripts/opencode-brain.mjs`) is a separate, V1 text-in/text-out gateway and retires when R2 ships.
@@ -199,6 +199,13 @@ writer, then to also start the researcher and the strategist, the `creator` star
 `researcher` call came back `permission.rejected: "Permission denied: subagent"` without running, and the
 `strategist` call failed with "cannot run as a subagent". The unit tests model OpenCode's rules (deny first, last
 match wins, the subagent permission's resource is the agent id) and this run confirms that model.
+
+## Open: a separate platform instead of R2
+
+A review on 2026-11-06 found problems with this design that R2 would run into. The web process also runs handlers, so it
+would load an SDK that needs Node 24. Subagents make fan-out unbounded until R4. Falling back to `direct` after a partial
+run can duplicate drafts. `central-brain-agent-platform` (a separate repo, not yet published) addresses these by running
+OpenCode behind HTTP. Adopting it would supersede ADR-006 and replace R2. Nothing in Banyan depends on it yet.
 
 ## Roadmap
 

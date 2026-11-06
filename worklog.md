@@ -659,3 +659,52 @@ gateway, **not** the ADR-006 runtime, and retires when R2 ships.
 - Known limitation: `recordAgentRun`/`checkRunQuota` have no caller yet — they are
   R2's contract, unit-tested at the pure layer; the DB wrappers follow the router's
   existing "the ledger must never break the workflow" pattern.
+
+---
+
+## 2026-11-06 — Fixes from the architecture review
+
+**Starting point.** A review of the OpenCode brain found bugs on today's single-call path and
+promises in ADR-007 that nothing enforced.
+
+### The live path
+
+- **Retries.** `routeComplete` caught every provider error and moved straight to the template,
+  so the retry in `completeValidated` never ran for routed calls. The router now retries a
+  transient failure once, unless the first try was already slow (30 s), so a request is not held
+  for two full timeouts. Every try is a ledger row.
+- **Quota.** The count ignored `ok`, so failed calls used up the allowance.
+- **Status.** With `AI_PROVIDER=opencode` and a key set, selection served templates while
+  `describeLiveModel` reported a live model. Both now share one rule.
+
+### Tasks
+
+`executeTask` held a fixed 5-minute lease and finished with an unconditional update. A handler
+slower than the lease was requeued and could run twice, and a late result overwrote a founder's
+cancel. It now renews the lease while the handler runs, and every outcome applies only if
+`status = running` and `attempts` still match. Otherwise the `TaskRun` is marked `superseded`.
+No handler changes its own task's status, so nothing legitimate is fenced off.
+
+### Governance
+
+`modelTiers` compared whole model names, so `anthropic/haiku` against `anthropic/opus` passed, and
+an empty critic falling back to the strategist's model passed too. It now compares families, against
+both the writers and the strategist, and refuses hosted OpenCode in production. `env.ts` calls it at
+boot; before this, nothing did, so ADR-007's "fails at boot" was not true.
+
+For `OPENAI_BASE_URL` on opencode.ai in production, Banyan degrades to the labeled template instead of
+refusing to boot, because crashing a whole deployment over the model route is worse than a labeled
+template, and the label says why.
+
+### Verification
+
+- `npm run typecheck` clean. New: `tests/model-router.test.ts` (the router had none),
+  `tests/provider-selection.test.ts`, `tests/orchestrator-fencing.test.ts`.
+- Not run: nothing here has run against a real database or a real model. The fencing tests use a
+  mock that applies the where clause; the router tests mock the ledger.
+
+### Still open
+
+- Agent runs (R2) have not started. A separate platform (`central-brain-agent-platform`) addresses
+  the design's other blockers, and adopting it would supersede ADR-006. That decision is open.
+- The session provider is still here, pending the decision on whether to keep it as a backup.

@@ -56,6 +56,7 @@ describe("OpenCodeSessionProvider", () => {
     expect(body.model).toEqual({ providerID: "opencode", modelID: "glm-5.3-flash-free" });
     expect(body.system).toBe("You write posts.");
     for (const tool of ["bash", "edit", "write", "read", "webfetch", "task"]) expect(body.tools[tool]).toBe(false);
+    expect(body.tools["*"]).toBe(false); // a tool nobody listed stays off too
     expect(msg.headers.authorization).toBe(`Basic ${Buffer.from("opencode:pw").toString("base64")}`);
   });
 

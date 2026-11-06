@@ -193,10 +193,32 @@ describe("agent runtime environment validation (ADR-007)", () => {
     await expect(import("@/lib/env")).rejects.toThrow(/AGENT_MODEL_STRONG/);
   });
 
-  it("accepts AGENT_RUNTIME=opencode when the strong tier is set", async () => {
-    agentEnv({ AGENT_RUNTIME: "opencode", AGENT_MODEL_STRONG: "opencode-go/glm-5.3-flash" });
+  it("accepts AGENT_RUNTIME=opencode with a direct provider and an independent critic", async () => {
+    agentEnv({ AGENT_RUNTIME: "opencode", AGENT_MODEL_STRONG: "anthropic/claude-sonnet-5-5", AGENT_MODEL_CRITIC: "openai/gpt-critic" });
     const mod = await import("@/lib/env");
     expect(mod.env.AGENT_RUNTIME).toBe("opencode");
+  });
+
+  it("accepts OpenCode Go for agents in development, where it is allowed", async () => {
+    agentEnv({ NODE_ENV: "development", AGENT_RUNTIME: "opencode", AGENT_MODEL_STRONG: "opencode-go/glm-5.3-flash" });
+    const mod = await import("@/lib/env");
+    expect(mod.env.AGENT_MODEL_STRONG).toBe("opencode-go/glm-5.3-flash");
+  });
+
+  it("fails at boot on OpenCode Go in production, not mid-run", async () => {
+    agentEnv({ AGENT_RUNTIME: "opencode", AGENT_MODEL_STRONG: "opencode-go/glm-5.3-flash", AGENT_MODEL_CRITIC: "openai/gpt-critic" });
+    await expect(import("@/lib/env")).rejects.toThrow(/internal use/);
+  });
+
+  it("fails at boot on a critic from the same family in production", async () => {
+    agentEnv({ AGENT_RUNTIME: "opencode", AGENT_MODEL_STRONG: "anthropic/claude-sonnet-5-5", AGENT_MODEL_CRITIC: "anthropic/claude-opus-5-5" });
+    await expect(import("@/lib/env")).rejects.toThrow(/different model family/);
+  });
+
+  it("leaves tiers alone when the opencode runtime is not selected", async () => {
+    agentEnv({ AGENT_RUNTIME: "direct", AGENT_MODEL_STRONG: "opencode-go/glm-5.3-flash" });
+    const mod = await import("@/lib/env");
+    expect(mod.env.AGENT_RUNTIME).toBe("direct");
   });
 
   it("build phase tolerates AGENT_RUNTIME=opencode without tiers (build machines never run agents)", async () => {

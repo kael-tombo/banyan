@@ -40,8 +40,8 @@ export function startOfUtcDay(d = new Date()): Date {
  * prices, so unknown models record tokens only.
  */
 const MICRO_USD_PER_1K_TOKENS: { match: RegExp; input: number; output: number }[] = [
-  { match: /gpt-4o-mini/i, input: 150, output: 600 }, // $0.15 / $0.60 per 1k
-  { match: /gpt-4o/i, input: 2500, output: 10000 }, // $2.50 / $10 per 1k
+  { match: /gpt-4o-mini/i, input: 150, output: 600 }, // $0.15 / $0.60 per 1M tokens
+  { match: /gpt-4o/i, input: 2500, output: 10000 }, // $2.50 / $10 per 1M tokens
   { match: /gpt-4-turbo/i, input: 1000, output: 3000 },
   { match: /gpt-3\.5/i, input: 50, output: 150 },
 ];

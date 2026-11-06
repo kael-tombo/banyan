@@ -88,7 +88,7 @@ describe("model tiers", () => {
   it("refuses a same-model critic in production (ADR-007 decision 4)", () => {
     // Development keeps the warning…
     expect(() => modelTiers({ AGENT_MODEL_STRONG: "a/b" }, { production: false })).not.toThrow();
-    // …production refuses: the critic must be a different model from the writers'.
+    // …production refuses: the critic must be from another family than the agents it checks.
     expect(() => modelTiers({ AGENT_MODEL_STRONG: "a/b" }, { production: true })).toThrow(/AGENT_MODEL_CRITIC/);
     expect(() =>
       modelTiers({ AGENT_MODEL_STRONG: "a/b", AGENT_MODEL_FAST: "a/c", AGENT_MODEL_CRITIC: "a/c" }, { production: true })
@@ -97,5 +97,34 @@ describe("model tiers", () => {
     expect(
       modelTiers({ AGENT_MODEL_STRONG: "a/b", AGENT_MODEL_FAST: "a/c", AGENT_MODEL_CRITIC: "d/e" }, { production: true }).warnings
     ).toEqual([]);
+  });
+
+  it("compares model families, not exact names", () => {
+    // Different models, same vendor: exact-name comparison used to pass this.
+    expect(() =>
+      modelTiers({ AGENT_MODEL_STRONG: "anthropic/claude-sonnet-5-5", AGENT_MODEL_FAST: "anthropic/claude-haiku-5-5", AGENT_MODEL_CRITIC: "anthropic/claude-opus-5-5" }, { production: true })
+    ).toThrow(/different model family/);
+    expect(
+      modelTiers({ AGENT_MODEL_STRONG: "anthropic/claude-sonnet-5-5", AGENT_MODEL_FAST: "anthropic/claude-haiku-5-5", AGENT_MODEL_CRITIC: "anthropic/claude-opus-5-5" }).warnings
+    ).toHaveLength(1);
+  });
+
+  it("checks the critic against the strategist too, including when it falls back to strong", () => {
+    // FAST differs, CRITIC is empty and falls back to STRONG: it would review its own model's strategy.
+    expect(() => modelTiers({ AGENT_MODEL_STRONG: "a/b", AGENT_MODEL_FAST: "d/e" }, { production: true })).toThrow(/AGENT_MODEL_CRITIC/);
+  });
+
+  it("refuses OpenCode's hosted inference in production, whichever tier asks for it", () => {
+    for (const hosted of ["opencode-go/glm-5.3-flash", "opencode/deepseek-v4.1-flash-free"]) {
+      expect(() => modelTiers({ AGENT_MODEL_STRONG: "a/b", AGENT_MODEL_FAST: hosted, AGENT_MODEL_CRITIC: "d/e" }, { production: true })).toThrow(/internal use/);
+      expect(() => modelTiers({ AGENT_MODEL_STRONG: "a/b", AGENT_MODEL_FAST: hosted, AGENT_MODEL_CRITIC: "d/e" })).not.toThrow();
+    }
+  });
+});
+
+describe("planner", () => {
+  it("can deliver the plan the design says it produces", () => {
+    expect(toolsFor("planner", { webResearch: false })).toContain("banyan_propose_plan");
+    expect(AGENT_TOOLS.banyan_propose_plan.kind).toBe("propose");
   });
 });

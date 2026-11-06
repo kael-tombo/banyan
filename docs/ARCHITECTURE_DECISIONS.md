@@ -157,8 +157,11 @@ quietly break a documented promise once real runs exist:
 3. **Run pricing is honest.** `priceRunUsage()` sums known prices only; `recordAgentRun()` writes a non-zero cost
    only when *every* model in the run is priced — otherwise tokens with cost 0 and a structured warning
    (`agent_run_cost_incomplete`) naming the unpriced models. A partial sum is never presented as a total.
-4. **Critic independence is enforced in production.** `critic === fast` is a configuration error when
-   `NODE_ENV=production`; a warning in development (`modelTiers` in `src/lib/agents/runtime/roster.ts`).
+4. **Critic independence is enforced in production.** A critic from the same model family as the writers or
+   the strategist is a configuration error when `NODE_ENV=production` and a warning in development
+   (`modelTiers` in `src/lib/agents/runtime/roster.ts`, called at boot from `env.ts`). *Amended 2026-11-06: this
+   originally compared exact model names, which let two models from one vendor pass, and nothing called it. The
+   same check refuses OpenCode's hosted inference in production, which its terms limit to internal use.*
 5. **Runtime selection is explicit.** `resolveRuntimeSelection()` (`src/lib/agents/runtime/select.ts`) encodes
    ADR-006's fallback rule: until the embedded runtime exists (R2), `AGENT_RUNTIME=opencode` resolves to
    `direct` *with a labelled reason* — never silently, never a crash.

@@ -22,9 +22,11 @@ it produces, and its **Recommendations**.
 
 One central runtime (`src/lib/agents/orchestrator.ts`) advances every workflow:
 
-1. **Crash recovery** — running tasks hold a 5-minute lease; expired leases are
-   requeued and their runs are recorded as such. Handlers adopt prior partial
-   work (via stored outputs and unique dedupe keys) instead of duplicating it.
+1. **Crash recovery** — running tasks hold a 5-minute lease, renewed while the
+   handler works; expired leases are requeued and their runs are recorded as such.
+   Handlers adopt prior partial work (via stored outputs and unique dedupe keys)
+   instead of duplicating it. An outcome applies only if the attempt still owns the
+   task, so a late result cannot overwrite a cancel or a takeover.
 2. **Dependency resolution** — pending tasks are promoted when all
    dependencies completed. Observer tasks (`measure`, `evaluate`,
    `recommend`) are also promoted when dependencies ended *blocked* — their
@@ -68,9 +70,12 @@ providers — the runtime never sees vendor types or credentials.
   subscription.
 - **User-provided keys** are an explicitly disabled future feature
   (`USER_MODEL_KEYS_ENABLED`); the resolver slot exists and is documented.
-- **Quotas**: live calls are counted per workspace per UTC day against
-  `MODEL_MAX_CALLS_PER_DAY` (default 500). When the quota is hit, workflows
-  continue with the labeled template fallback — never silently degraded.
+- **Quotas**: successful live calls are counted per workspace per UTC day against
+  `MODEL_MAX_CALLS_PER_DAY` (default 500); a failed call uses none. When the quota
+  is hit, workflows continue with the labeled template fallback — never silently
+  degraded.
+- **Retries**: a transient provider failure gets one more try on the spot, unless the
+  first was already slow. Only then does the labeled template serve.
 - **Usage ledger**: every call — live, fallback, or failed — is recorded in
   `ModelCall` with tokens, latency, and estimated cost in micro-USD (zero for
   models without a known price; costs are never guessed). Inspect it via
