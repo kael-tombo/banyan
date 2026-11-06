@@ -30,8 +30,6 @@
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
-    "@opencode/plugin": "2.2.5",
-    "@opencode/sdk": "2.2.5",
     "@prisma/client": "^6.10.0",
     "bcryptjs": "^3.0.2",
     "bullmq": "^5.81.5",
