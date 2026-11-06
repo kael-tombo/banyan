@@ -597,3 +597,65 @@ built the smallest honest version of that cycle over the existing goal runtime.
 - Known limitation: the context-built fallback is grounded and usable, but it is
   still a deterministic skeleton; a live model produces stronger voice. Real
   publishing still needs a verified Postiz connection.
+
+---
+
+## 2026-11-04 — Model governance before R2 (ADR-007)
+
+**Starting point.** A review of the vision/philosophy against the OpenCode brain and
+model architecture found the ADR-006 design well-aligned but three governance seams
+undefined — each would quietly break a documented promise once real agent runs exist.
+Drafted as [ADR-007](docs/ARCHITECTURE_DECISIONS.md) and implemented in the
+config/pure layer, so R2 consumes tested modules instead of inventing governance
+mid-build. No behaviour change for the direct path.
+
+### One run = one quota unit = one ledger row
+
+`MODEL_MAX_CALLS_PER_DAY` counted single-shot calls only, while one agentic run is a
+tree of model calls. Now a run is gated by the same per-workspace daily quota,
+checked *before* the session starts (`checkRunQuota`), and on completion recorded as
+a single live `ModelCall` row with the session tree's aggregate usage
+(`recordAgentRun`, `src/lib/model/router.ts`). Because runs land in the same ledger,
+the existing count covers them — no second counter. The pure math
+(`evaluateRunQuota`, `priceRunUsage`, `RUN_QUOTA_UNITS`) lives in
+`src/lib/model/agent-run.ts`; the router's private count became the exported
+`countLiveModelActionsToday`, one definition for both paths.
+
+### Honest run pricing
+
+A run spans several tier models, some unpriced. `priceRunUsage` sums known prices
+only, and a non-zero `estCostMicros` is always a true total: when any model in the
+run lacks a price, the row records tokens with cost 0 and a structured warning
+(`agent_run_cost_incomplete`) names the unpriced models. A partial sum is never
+presented as a total. `modelPriceKnown()` exported from `src/lib/model/quota.ts`.
+
+### Tiers validate at the boundary
+
+`AGENT_RUNTIME` (`direct` | `opencode`, default `direct`) and
+`AGENT_MODEL_STRONG/FAST/CRITIC` joined the zod env schema (philosophy #7): a
+non-empty value must look like `provider/model`, and a missing strong model fails
+startup only when `AGENT_RUNTIME=opencode` — builds and direct deployments stay
+green. Documented in `.env.example`. In production, `modelTiers` now **refuses** a
+critic that names the writers' model (it was a warning only); development keeps the
+warning. `resolveRuntimeSelection()` (`src/lib/agents/runtime/select.ts`) encodes
+ADR-006's fallback rule: until R2 builds the embedded runtime, `opencode` resolves
+to `direct` with a labelled reason — never silently, never a crash.
+
+### Disambiguation
+
+The dev-only "OpenCode brain" (`scripts/opencode-brain.mjs`,
+`OpenCodeSessionProvider`) now states in both places that it is a V1 text-in/text-out
+gateway, **not** the ADR-006 runtime, and retires when R2 ships.
+
+### Verification
+
+- `npm run typecheck` clean; **848/848 unit tests** (74 files), including 23 new:
+  `tests/agent-run-ledger.test.ts` (pricing + run-quota math),
+  `tests/runtime-select.test.ts` (every selection branch), `tests/env.test.ts`
+  (7 new tier-validation cases), `tests/agent-runtime-roster.test.ts` (production
+  critic rule).
+- Docs kept in step: ADR-007, `AGENT_ORCHESTRATION.md` §5/§8/roadmap,
+  `AGENTIC_RUNTIME.md` (run metering bullet), `CHANGELOG.md`.
+- Known limitation: `recordAgentRun`/`checkRunQuota` have no caller yet — they are
+  R2's contract, unit-tested at the pure layer; the DB wrappers follow the router's
+  existing "the ledger must never break the workflow" pattern.

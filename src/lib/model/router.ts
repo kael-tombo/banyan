@@ -1,7 +1,9 @@
 import { AIError, TemplateFallbackProvider, type AIProvider, type GenResult, type UsageMeta, getAIProvider } from "@/lib/ai/provider";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
-import { estimateCostMicros, evaluateQuota, startOfUtcDay } from "@/lib/model/quota";
+import { log } from "@/lib/log";
+import { evaluateRunQuota, priceRunUsage, type AgentRunRecord } from "@/lib/model/agent-run";
+import { estimateCostMicros, evaluateQuota, startOfUtcDay, type QuotaDecision } from "@/lib/model/quota";
 import { hasPrompt, promptKey, type PromptRef } from "@/lib/ai/prompts/registry";
 
 /**
@@ -94,7 +96,12 @@ export function resolveProviderChain(workspaceId: string): ProviderResolution[] 
   return [resolveUserProvider(workspaceId), resolveManagedProvider()];
 }
 
-async function countLiveCallsToday(workspaceId: string): Promise<number> {
+/**
+ * Live model actions used against the daily quota: single-shot calls recorded
+ * here plus completed agentic runs (ADR-007 — one run = one unit, same
+ * ledger, same counter).
+ */
+export async function countLiveModelActionsToday(workspaceId: string): Promise<number> {
   return prisma.modelCall.count({
     where: {
       workspaceId,
@@ -103,6 +110,8 @@ async function countLiveCallsToday(workspaceId: string): Promise<number> {
     },
   });
 }
+
+const countLiveCallsToday = countLiveModelActionsToday;
 
 export async function routeComplete(req: ModelRouteRequest): Promise<ModelRouteResult> {
   const started = Date.now();
@@ -210,6 +219,71 @@ export async function recordSchemaResult(modelCallId: string | null, schemaValid
     await prisma.modelCall.update({ where: { id: modelCallId }, data: { schemaValid } });
   } catch {
     /* never break the workflow */
+  }
+}
+
+// --- Agentic runs (ADR-007): one run = one quota unit = one ledger row ---
+
+/**
+ * Pre-session gate for the agent runtime: may this workspace start one more
+ * agentic run today? Counts the same ledger rows as the single-shot quota —
+ * completed runs are recorded as live calls by `recordAgentRun`, so no second
+ * counter exists. When refused, the handler degrades to the labeled template
+ * path exactly as an over-quota single-shot call does.
+ */
+export async function checkRunQuota(workspaceId: string): Promise<QuotaDecision> {
+  return evaluateRunQuota({
+    liveModelActionsToday: await countLiveModelActionsToday(workspaceId),
+    limitPerDay: env.MODEL_MAX_CALLS_PER_DAY,
+  });
+}
+
+/**
+ * Write one agentic run's aggregate usage to the ledger: a single live
+ * `ModelCall` row (counts as one quota unit) with the session tree's tokens
+ * and an honest cost — a true total when every model is priced, otherwise 0
+ * with the unpriced models named in a structured warning (prices are never
+ * guessed, and a partial sum is never presented as a total). The ledger must
+ * never break the runtime it observes, so failures return null.
+ */
+export async function recordAgentRun(run: AgentRunRecord): Promise<string | null> {
+  const price = priceRunUsage(run.perModel);
+  if (price.unpricedModels.length > 0) {
+    log(
+      "warn",
+      "agent_run_cost_incomplete",
+      {
+        purpose: run.purpose,
+        runtime: run.runtime,
+        workspaceId: run.workspaceId,
+        unpricedModels: price.unpricedModels,
+        detail: "recording tokens with cost 0 (prices are never guessed)",
+      },
+      "worker"
+    );
+  }
+  try {
+    const models = [...new Set(run.perModel.map((m) => m.model))].sort();
+    const row = await prisma.modelCall.create({
+      data: {
+        workspaceId: run.workspaceId,
+        purpose: run.purpose,
+        provider: run.runtime === "opencode" ? "opencode-runtime" : "direct-runtime",
+        model: models.length > 0 ? models.join("+") : "none",
+        isFallback: false,
+        promptTokens: price.inputTokens,
+        completionTokens: price.outputTokens,
+        estCostMicros: price.estCostMicros,
+        latencyMs: run.latencyMs,
+        ok: run.ok,
+        error: run.ok ? null : ((run.error ?? "Agent run failed.").slice(0, 500)),
+        attempt: run.attempt ?? 1,
+      },
+      select: { id: true },
+    });
+    return row.id;
+  } catch {
+    return null;
   }
 }
 

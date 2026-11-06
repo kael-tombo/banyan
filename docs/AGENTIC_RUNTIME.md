@@ -75,6 +75,11 @@ providers — the runtime never sees vendor types or credentials.
   `ModelCall` with tokens, latency, and estimated cost in micro-USD (zero for
   models without a known price; costs are never guessed). Inspect it via
   `GET /api/usage` or the Settings page.
+- **Agentic run metering (ADR-007)**: one agent run consumes one unit of the
+  same daily quota (checked before the session starts) and records one ledger
+  row with the session tree's aggregate usage. A run's cost is a true total or
+  0 when any model it used has no known price — a partial sum is never
+  recorded as the total.
 - **Extensibility**: adding a hosted or local provider means adding one
   resolver entry; no workflow code changes.
 

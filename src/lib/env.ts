@@ -3,6 +3,10 @@ import { resolveDatabaseUrl } from "@/lib/db-url";
 
 const hex64 = z.string().regex(/^[0-9a-fA-F]{64}$/, "APP_SECRET must be 64 hex chars (32 bytes)");
 
+/** A model reference ("provider/model") or empty; mirrors roster.modelTiers' rule (ADR-007). */
+const MODEL_REF = /^$|^[^/\s]+\/[^\s]+$/;
+const AGENT_MODEL_MSG = (name: string) => `${name} must look like "provider/model" (e.g. anthropic/claude-sonnet-5-5), or be empty.`;
+
 /**
  * Well-known development default for WORKER_SECRET. Production deployments
  * must override it: POST /api/worker/tick is Bearer-authenticated with this
@@ -41,8 +45,20 @@ const envSchema = z.object({
   EMAIL_FROM: z.string().default("Banyan <no-reply@localhost>"),
   WORKER_SECRET: z.string().default(DEV_WORKER_SECRET),
   // Daily cap on live managed-model calls per workspace (quota applies to live
-  // calls only; the labeled template fallback is never quota-limited).
+  // calls only; the labeled template fallback is never quota-limited). One
+  // agentic run consumes one unit of the same quota (ADR-007).
   MODEL_MAX_CALLS_PER_DAY: z.coerce.number().int().min(1).max(1_000_000).default(500),
+  // Agentic runtime selection (ADR-006/007). "direct" = one model call per
+  // task (default, always available). "opencode" = the embedded OpenCode host
+  // with tools and subagents; until roadmap R2 builds it, selection resolves
+  // to "direct" with a labelled reason (src/lib/agents/runtime/select.ts).
+  AGENT_RUNTIME: z.enum(["direct", "opencode"]).default("direct"),
+  // Model tiers for the opencode runtime, each "provider/model". STRONG is
+  // required when AGENT_RUNTIME=opencode; FAST and CRITIC fall back to STRONG.
+  // In production CRITIC must differ from FAST (roster.modelTiers enforces it).
+  AGENT_MODEL_STRONG: z.string().regex(MODEL_REF, AGENT_MODEL_MSG("AGENT_MODEL_STRONG")).default(""),
+  AGENT_MODEL_FAST: z.string().regex(MODEL_REF, AGENT_MODEL_MSG("AGENT_MODEL_FAST")).default(""),
+  AGENT_MODEL_CRITIC: z.string().regex(MODEL_REF, AGENT_MODEL_MSG("AGENT_MODEL_CRITIC")).default(""),
   SEED_USER_EMAIL: z.string().default("founder@banyan.ai"),
   SEED_USER_PASSWORD: z.string().default("banyan-demopass"),
   // Sign-in providers (SSO). A provider is offered only when both its client
@@ -96,6 +112,14 @@ function readEnv() {
   ) {
     throw new Error(
       "Invalid environment configuration — WORKER_SECRET: set a strong unique value in production (it guards POST /api/worker/tick); the development default and empty values are not allowed."
+    );
+  }
+  // ADR-007: the opencode runtime cannot boot without its strong tier. Only
+  // enforced when that runtime is selected, so builds and direct-runtime
+  // deployments stay green; also skipped during the build phase.
+  if (data.AGENT_RUNTIME === "opencode" && !isBuildPhase && !data.AGENT_MODEL_STRONG) {
+    throw new Error(
+      'Invalid environment configuration — AGENT_MODEL_STRONG: required when AGENT_RUNTIME=opencode, as "provider/model" (FAST and CRITIC fall back to it).'
     );
   }
   return data;

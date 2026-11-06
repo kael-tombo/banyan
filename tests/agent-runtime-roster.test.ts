@@ -84,4 +84,18 @@ describe("model tiers", () => {
     expect(warnings).toHaveLength(1);
     expect(modelTiers({ AGENT_MODEL_STRONG: "a/b", AGENT_MODEL_FAST: "a/c", AGENT_MODEL_CRITIC: "d/e" }).warnings).toEqual([]);
   });
+
+  it("refuses a same-model critic in production (ADR-007 decision 4)", () => {
+    // Development keeps the warning…
+    expect(() => modelTiers({ AGENT_MODEL_STRONG: "a/b" }, { production: false })).not.toThrow();
+    // …production refuses: the critic must be a different model from the writers'.
+    expect(() => modelTiers({ AGENT_MODEL_STRONG: "a/b" }, { production: true })).toThrow(/AGENT_MODEL_CRITIC/);
+    expect(() =>
+      modelTiers({ AGENT_MODEL_STRONG: "a/b", AGENT_MODEL_FAST: "a/c", AGENT_MODEL_CRITIC: "a/c" }, { production: true })
+    ).toThrow(/different model/);
+    // An independent critic passes.
+    expect(
+      modelTiers({ AGENT_MODEL_STRONG: "a/b", AGENT_MODEL_FAST: "a/c", AGENT_MODEL_CRITIC: "d/e" }, { production: true }).warnings
+    ).toEqual([]);
+  });
 });

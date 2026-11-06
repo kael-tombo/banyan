@@ -1,6 +1,6 @@
 # Agent orchestration: Banyan, OpenCode and SocialFlow Lite
 
-Written 2026-11-03. Decision record: [ADR-006](../ARCHITECTURE_DECISIONS.md#adr-006--opencode-as-the-agent-runtime-banyan-as-the-control-plane).
+Written 2026-11-03, governance update 2026-11-04. Decision records: [ADR-006](../ARCHITECTURE_DECISIONS.md#adr-006--opencode-as-the-agent-runtime-banyan-as-the-control-plane), [ADR-007](../ARCHITECTURE_DECISIONS.md#adr-007--model-governance-for-the-agentic-runtime-one-ledger-one-quota-validated-tiers).
 Read with [AGENTIC_RUNTIME.md](../AGENTIC_RUNTIME.md) (today's runtime) and
 [AGENTIC_PHILOSOPHY.md](../vision/AGENTIC_PHILOSOPHY.md) (what the agents may do and why).
 
@@ -139,13 +139,20 @@ no agent can reach a tool that changes state outside proposals.
 - Prompt injection can at worst produce a bad proposal. It still faces the claims guard, the critic, the draft checks,
   the autonomy policy, spot checks and the founder, and the agent has no tool with a side effect.
 
-### 5. Budget, metering, credits
+### 5. Budget, metering, credits (ADR-007)
 
-- Per run: `steps` per agent, plus a token budget enforced by a plugin hook on each model request; over budget, the run
-  ends `budget_exhausted` and keeps its proposals.
-- After each run: `sessions.stats` (the whole tree) is written to `ModelCall` with Banyan's own price table, and the
-  credit hold is settled, as for direct calls today.
-- Per cycle (Level 3 prerequisite): a cycle budget in credits that Banyan checks before starting each task.
+- **Daily quota**: one run consumes **one unit** of the same per-workspace `MODEL_MAX_CALLS_PER_DAY` quota as a
+  single-shot call, checked *before* the session starts (`checkRunQuota` in `src/lib/model/router.ts`). Completed runs
+  are recorded in the same `ModelCall` ledger, so the existing count covers them; no second counter exists. When
+  refused, the task degrades to the labeled template path, exactly like an over-quota single-shot call.
+- **Per run**: `steps` per agent (the bound until R4), plus a token budget enforced by a plugin hook on each model
+  request; over budget, the run ends `budget_exhausted` and keeps its proposals.
+- **After each run**: `recordAgentRun` writes **one** `ModelCall` row with the session tree's aggregate usage
+  (`sessions.stats`, broken down per model) and Banyan's own price table. A non-zero cost is a true total: when any
+  model in the run has no known price, the row records tokens with cost 0 and a structured warning names the
+  unpriced models — prices are never guessed and a partial sum is never presented as a total. The credit hold is
+  settled as for direct calls today.
+- **Per cycle** (Level 3 prerequisite): a cycle budget in credits that Banyan checks before starting each task.
 
 ### 6. Durability
 
@@ -176,6 +183,14 @@ One source of truth: Banyan's env, injected into the OpenCode config.
 
 The template fallback still exists and is still labelled. OpenCode Go's terms limit it to the founder's own internal use.
 
+Tiers are validated at the env boundary (ADR-007): `AGENT_RUNTIME` and `AGENT_MODEL_STRONG/FAST/CRITIC` join the zod
+schema in `src/lib/env.ts` (a non-empty value must look like `provider/model`; a missing strong model fails startup
+only when `AGENT_RUNTIME=opencode`). In production, `modelTiers` **refuses** a critic that names the same model as the
+writers — the different-family check the autonomy policy relies on is a configuration error, not a warning. Until the
+embedded runtime exists (R2), `resolveRuntimeSelection` (`src/lib/agents/runtime/select.ts`) resolves
+`AGENT_RUNTIME=opencode` to `direct` with a labelled reason — never silently, never a crash. The development-only
+"OpenCode brain" (`scripts/opencode-brain.mjs`) is a separate, V1 text-in/text-out gateway and retires when R2 ships.
+
 ### The generated roster, checked in real OpenCode (2026-11-03)
 
 `buildOpenCodeConfig` (`src/lib/agents/runtime/roster.ts`) was exported and loaded into the embedded host with stub
@@ -189,7 +204,7 @@ match wins, the subagent permission's resource is the agent id) and this run con
 
 | Step | What | Done when |
 | --- | --- | --- |
-| **R1 · Seam** | `AgentRuntime` interface, `direct` runtime wrapping today's handlers, agent-config builder and tool catalogue as pure, tested modules | No behaviour change; tests pin "no agent can reach a side-effect tool". **Partly done 2026-11-03**: `src/lib/agents/runtime/{types,tools,roster}.ts` and `tests/agent-runtime-roster.test.ts`; the `direct` runtime adapter is next |
+| **R1 · Seam** | `AgentRuntime` interface, `direct` runtime wrapping today's handlers, agent-config builder and tool catalogue as pure, tested modules | No behaviour change; tests pin "no agent can reach a side-effect tool". **Partly done 2026-11-03/04**: `src/lib/agents/runtime/{types,tools,roster,select}.ts`, the ADR-007 governance modules (`src/lib/model/agent-run.ts`, `checkRunQuota`/`recordAgentRun` in the router, validated `AGENT_*` env) and their tests; the `direct` runtime adapter is next |
 | **R2 · Worker on Node 24** | Worker image to `node:24-alpine`, pin `@opencode/sdk@2.2.5`, the OpenCode runtime behind `AGENT_RUNTIME=opencode`, first task type: `research` | A research task runs through OpenCode in a throwaway workspace, its notes carry provenance, usage lands in `ModelCall`, killing the worker mid-run duplicates nothing |
 | **R3 · Creator team** | `creator`, `writer` and `critic` agents; critic flags feed the autonomy policy | One draft per channel, critic flags visible on the draft, supervised approval unchanged |
 | **R4 · Ask and budgets** | `banyan_ask_founder` with `waiting_input`, per-run token budgets, per-cycle credit budgets, an incident log | A run that needs an answer pauses and resumes in the same session; an over-budget run stops cleanly |

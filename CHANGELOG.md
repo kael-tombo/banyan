@@ -8,6 +8,27 @@ follow [Keep a Changelog](https://keepachangelog.com); commit hashes refer to
 
 ## [Unreleased]
 
+### Added
+- **Model governance for the agentic runtime (ADR-007)** (2026-11-04) — the
+  three seams ADR-006 left open before roadmap R2, closed as tested modules:
+  (1) *one run = one quota unit = one ledger row*: an agentic run is gated by
+  the same per-workspace daily quota, checked before the session starts
+  (`checkRunQuota`), and recorded as a single `ModelCall` row with the session
+  tree's aggregate usage (`recordAgentRun`), so the existing live-call count
+  covers runs and no second counter exists; (2) *tiers validate at the
+  boundary*: `AGENT_RUNTIME` and `AGENT_MODEL_STRONG/FAST/CRITIC` join the zod
+  env schema (a non-empty value must look like `provider/model`; a missing
+  strong model fails startup only when the opencode runtime is selected), and
+  in production a critic that names the writers' model is now a configuration
+  error, not a warning; (3) *honest run pricing*: a run's cost is a true total
+  or 0 — when any model in it has no known price, tokens are recorded with
+  cost 0 and a structured warning names the unpriced models. Plus
+  `resolveRuntimeSelection()`, which encodes ADR-006's fallback rule: until R2
+  builds the embedded runtime, `AGENT_RUNTIME=opencode` resolves to `direct`
+  with a labelled reason, never silently. The dev-only "OpenCode brain" script
+  and provider now state they are not the ADR-006 runtime and retire at R2.
+  23 focused tests across four files; no behaviour change for the direct path.
+
 ### Fixed
 - **Short-form video generation no longer blocks the cycle on malformed model
   output** (2026-10-30) — the video path required JSON and threw when the

@@ -54,3 +54,12 @@ export function estimateCostMicros(model: string, promptTokens: number, completi
   }
   return 0;
 }
+
+/**
+ * True when the model has an entry in the known-price table. Prices are never
+ * guessed, so unpriced models record tokens with cost 0 — agent-run metering
+ * (ADR-007) uses this to keep a run's cost total honest instead of partial.
+ */
+export function modelPriceKnown(model: string): boolean {
+  return MICRO_USD_PER_1K_TOKENS.some((p) => p.match.test(model));
+}

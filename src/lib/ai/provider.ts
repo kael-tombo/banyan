@@ -152,6 +152,9 @@ async function fetchJSONWithTimeout(
  * tool disabled (text in, text out), then deletes it. OpenCode retries failed
  * upstream calls indefinitely, so a hard timeout aborts the session and the
  * router degrades to the labeled template fallback instead of hanging.
+ *
+ * Not the ADR-006 agent runtime — this is the V1 HTTP gateway for single-shot
+ * calls; the embedded V2 runtime (roadmap R2) replaces it.
  */
 const OPENCODE_DISABLED_TOOLS = Object.fromEntries(
   [

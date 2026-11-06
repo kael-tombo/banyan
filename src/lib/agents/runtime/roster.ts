@@ -152,14 +152,26 @@ export function buildOpenCodeConfig(models: ModelTiers, opts: RosterOptions): Op
 /**
  * Model tiers from settings. A tier left empty falls back to the strong model;
  * the critic should be a different family from the writer, so a shared model
- * is reported to the caller instead of silently accepted.
+ * is reported to the caller instead of silently accepted — and refused
+ * outright in production (ADR-007 decision 4), where a same-model critic
+ * would hollow out the evidence-first check the autonomy policy relies on.
  */
-export function modelTiers(env: { AGENT_MODEL_STRONG?: string; AGENT_MODEL_FAST?: string; AGENT_MODEL_CRITIC?: string }): { tiers: ModelTiers; warnings: string[] } {
+export function modelTiers(
+  env: { AGENT_MODEL_STRONG?: string; AGENT_MODEL_FAST?: string; AGENT_MODEL_CRITIC?: string },
+  opts: { production?: boolean } = {}
+): { tiers: ModelTiers; warnings: string[] } {
   const valid = (m?: string) => (m && /^[^/\s]+\/[^\s]+$/.test(m.trim()) ? m.trim() : "");
   const strong = valid(env.AGENT_MODEL_STRONG);
   if (!strong) throw new Error('AGENT_MODEL_STRONG must look like "provider/model".');
   const tiers: ModelTiers = { strong, fast: valid(env.AGENT_MODEL_FAST) || strong, critic: valid(env.AGENT_MODEL_CRITIC) || strong };
   const warnings: string[] = [];
-  if (tiers.critic === tiers.fast) warnings.push("The critic uses the same model as the writers; a different model family catches more of their mistakes.");
+  if (tiers.critic === tiers.fast) {
+    if (opts.production) {
+      throw new Error(
+        `AGENT_MODEL_CRITIC must name a different model from the writers' (${tiers.fast}) in production: a critic from another family catches more of their mistakes, and the autonomy policy relies on the check.`
+      );
+    }
+    warnings.push("The critic uses the same model as the writers; a different model family catches more of their mistakes.");
+  }
   return { tiers, warnings };
 }

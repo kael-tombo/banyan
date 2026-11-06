@@ -128,3 +128,43 @@ tool never offered to the model, even when the prompt asked for it.
 **Consequences.** The worker moves to Node 24 (the SDK uses `await using`). The SDK is pinned and isolated behind the
 seam because its API is days old. Production agents need direct provider keys (OpenCode Go is internal-use only).
 Full design and roadmap: [docs/architecture/AGENT_ORCHESTRATION.md](architecture/AGENT_ORCHESTRATION.md).
+
+## ADR-007 — Model governance for the agentic runtime: one ledger, one quota, validated tiers
+
+**Date:** 2026-11-04 · **Status:** Accepted; implemented in the config/pure layer, consumed by R2
+
+**Context.** ADR-006 embeds OpenCode as the agent runtime but left three governance seams undefined. Each would
+quietly break a documented promise once real runs exist:
+
+1. `MODEL_MAX_CALLS_PER_DAY` counts single-shot calls in the router, while one agentic run is a tree of model
+   calls (steps × subagents) — runs would bypass the workspace quota or burn it unpredictably.
+2. `AGENT_RUNTIME` / `AGENT_MODEL_*` were read ad hoc, not through the zod env boundary (philosophy #7), so a bad
+   tier value failed mid-run instead of at boot.
+3. A run's cost spans several tier models, some without known prices — a partial sum recorded as a total violates
+   "costs are never guessed" (`ModelCall.estCostMicros`), and critic independence ("a different family from the
+   writer") was a warning only.
+
+**Decision.**
+
+1. **One run = one quota unit = one ledger row.** An agentic run is gated by the same per-workspace daily quota,
+   checked *before* the session starts (`checkRunQuota`, `src/lib/model/agent-run.ts`). On completion the runtime
+   writes a single `ModelCall` row with the session tree's aggregate usage (`recordAgentRun`). Because runs land
+   in the same ledger as live calls, the existing count covers them; no second counter exists. Spend *inside* a
+   run is bounded by the roster's `steps` caps (today) and the per-run token budget (R4) — not by the daily quota.
+2. **Tiers validate at the boundary.** `AGENT_RUNTIME` and `AGENT_MODEL_STRONG/FAST/CRITIC` join the env schema;
+   a non-empty model value must look like `provider/model`. A missing strong model fails startup only when
+   `AGENT_RUNTIME=opencode`, so builds and direct-runtime deployments stay green.
+3. **Run pricing is honest.** `priceRunUsage()` sums known prices only; `recordAgentRun()` writes a non-zero cost
+   only when *every* model in the run is priced — otherwise tokens with cost 0 and a structured warning
+   (`agent_run_cost_incomplete`) naming the unpriced models. A partial sum is never presented as a total.
+4. **Critic independence is enforced in production.** `critic === fast` is a configuration error when
+   `NODE_ENV=production`; a warning in development (`modelTiers` in `src/lib/agents/runtime/roster.ts`).
+5. **Runtime selection is explicit.** `resolveRuntimeSelection()` (`src/lib/agents/runtime/select.ts`) encodes
+   ADR-006's fallback rule: until the embedded runtime exists (R2), `AGENT_RUNTIME=opencode` resolves to
+   `direct` *with a labelled reason* — never silently, never a crash.
+6. The development-only "OpenCode brain" (`scripts/opencode-brain.mjs`, V1 HTTP text-in/text-out gateway) is
+   **not** the ADR-006 runtime; it retires when R2 ships.
+
+**Consequences.** The daily quota stays meaningful for founders ("500 model actions a day" counts runs too); the
+usage ledger's invariant holds (a non-zero cost is a true total); tier misconfiguration fails at boot with a
+readable message; and R2 consumes tested pure modules instead of inventing governance mid-implementation.

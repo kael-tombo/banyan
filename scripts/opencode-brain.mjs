@@ -2,6 +2,11 @@
 // Experimental, development-only: start a local OpenCode server for Banyan to
 // use as a temporary brain while no OPENAI_API_KEY is configured.
 //
+// This is NOT the ADR-006 agent runtime (docs/architecture/AGENT_ORCHESTRATION.md):
+// it is a text-in/text-out gateway over OpenCode's V1 HTTP API. The embedded
+// V2 runtime (@opencode/sdk, tools + subagents) arrives with roadmap R2 and
+// retires this script. Do not grow features on this seam.
+//
 //   npm run brain:opencode
 //
 // Reads OPENCODE_URL / OPENCODE_PASSWORD / OPENCODE_MODEL from .env when set,
