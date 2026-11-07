@@ -235,6 +235,8 @@ req POST /api/agent-activity/pause "$JAR3" '{"paused":true}'
                                        check "$STATUS" 200 "second user pauses agents to drive each step by hand"
 req GET "/api/product/analyze/$ANALYSIS_ID" "$JAR3"
                                        check "$STATUS" 404 "cross-workspace analysis access denied (404)"
+req POST "/api/product/analyze/$ANALYSIS_ID/research" "$JAR3" '{}'
+                                       check "$STATUS" 404 "cross-workspace market scan refused (404)"
 
 # US-023: a profile drafted from the website needs approval before strategy work.
 req POST /api/product/analyze "$JAR3" '{"url":"example.com"}'

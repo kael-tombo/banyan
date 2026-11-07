@@ -752,6 +752,9 @@ model ProductAnalysis {
   // JSON array of instruction-like passages found on the pages (US-024)
   flags         String    @default("[]")
   promptVersion String?
+  // Onboarding 360: JSON of the market scan (src/lib/research/types.ts), and its state: running | ready | failed
+  research       String?
+  researchStatus String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

@@ -170,7 +170,7 @@ const SOCIALS: [string, RegExp][] = [
 // A price is a currency amount with a billing period or plan word, or a stated
 // free plan. "$10K MRR" and "10M+ calls per month" are not prices.
 const CURRENCY = /[$€£]\s?\d[\d,.]*(?![\d,.]|\s?[kmb]\b|\+)|\b\d[\d,.]*\s?(usd|eur|gbp)\b/i;
-const PERIOD = /\bper (month|year|user|seat|member)\b|\/\s?(mo|month|yr|year|user|seat)\b|\bmonthly\b|\byearly\b|\bannual(ly)?\b|\bbilled\b|\bone-time\b|\blifetime\b|\bplan\b/i;
+const PERIOD = /\bper (month|year|user|seat|member)\b|\/\s?(mo|month|yr|year|user|seat)\b|\bmonthly\b|\byearly\b|\bbilled\b|\bannually\b(?! saving)|\bone-time\b|\blifetime\b|\bplan\b/i;
 const FREE_PLAN = /\bfree (plan|tier|forever)\b|\bfree for (individuals|everyone|personal|one|up to|\d)|\b\d+-day free trial\b/i;
 const PROOF =
   /(\btrusted by\b|\bloved by\b|\bjoin(ed)? (over |more than )?\d|\b\d[\d,.]*\s?(k|\+)?\s?(customers|users|teams|companies|founders|developers|creators|businesses|downloads|reviews)\b|\brated \d|\b\d(\.\d)?\s?\/\s?5\b|\b\d(\.\d)? stars? on\b|\bproduct hunt\b.*\b(#\d|of the (day|week))|\bbacked by\b|\bas seen (in|on)\b)/i;

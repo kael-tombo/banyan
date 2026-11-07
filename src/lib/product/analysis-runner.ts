@@ -106,6 +106,8 @@ export async function getAnalysis(workspaceId: string, analysisId: string) {
     result: a.result ? JSON.parse(a.result) : null,
     flags: JSON.parse(a.flags) as { label: string; excerpt: string; page: string }[],
     promptVersion: a.promptVersion,
+    research: a.research ? JSON.parse(a.research) : null,
+    researchStatus: a.researchStatus,
     createdAt: a.createdAt,
     updatedAt: a.updatedAt,
   };
