@@ -71,7 +71,7 @@ case "$FIRST" in
   *) bad "a new founder opening the app is sent to the first cycle" "got [${FIRST: -300}]" ;;
 esac
 req GET /onboarding "$JAR1";           check "$STATUS" 200 "onboarding page loads"
-                                       contains "$BODY" "Your first cycle starts with one link" "onboarding opens on the first cycle"
+                                       contains "$BODY" "Your product and its market, in one read" "onboarding opens on the 360 read"
 
 # US-018 / US-019: onboarding progress across the nine stages.
 req GET /api/onboarding/progress "$JAR1"
