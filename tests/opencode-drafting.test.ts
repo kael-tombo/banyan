@@ -169,11 +169,11 @@ describe("draftWithAgents", () => {
     runs.results = [
       async () => {
         await proposeDraft("ws_1", task, { body: POST });
-        return { ...completed(), status: "budget_exhausted" };
+        return { ...completed(), status: "failed", stopped: null };
       },
     ];
     const r = await draftWithAgents(args);
-    expect(r).toEqual({ ok: false, reason: expect.stringMatching(/budget_exhausted/), itemId: "item_1" });
+    expect(r).toEqual({ ok: false, reason: expect.stringMatching(/failed/), itemId: "item_1", stopped: false });
     expect(runs.calls).toHaveLength(1);
   });
 
@@ -203,5 +203,32 @@ describe("the research brief from an agent", () => {
     expect(out.questions).toHaveLength(10);
     expect(out.hypothesisAngles).toHaveLength(6);
     expect(clampLists("not json")).toBe("not json");
+  });
+});
+
+describe("a writer stopped at its limit (R4)", () => {
+  const args = { workspaceId: "ws_1", taskId: "task_1", attempt: 1, channel: "linkedin", format: "insight", campaignId: null, context: "ctx" };
+  const stopped = { status: "budget_exhausted", stopped: "budget", perModel: [{ model: "m" }], usage: { steps: 9 }, summary: "", tokens: 90000 };
+  const done = { status: "completed", stopped: null, perModel: [{ model: "m" }], usage: { steps: 2 }, summary: "Reviewed.", tokens: 100 };
+
+  it("without a draft, says it stopped, so the handler writes the template instead of paying again", async () => {
+    runs.results = [stopped];
+    const r = await draftWithAgents(args);
+    expect(r).toMatchObject({ ok: false, itemId: null, stopped: true });
+    expect(runs.calls).toHaveLength(1);
+  });
+
+  it("with a draft saved, still has the critic review it, and says the writer stopped", async () => {
+    runs.results = [
+      async () => {
+        await proposeDraft("ws_1", task, { body: POST });
+        return stopped;
+      },
+      done,
+    ];
+    const r = await draftWithAgents(args);
+    expect(r).toMatchObject({ ok: true, reviewed: true });
+    expect(r.ok && r.label).toMatch(/stopped at its limit/);
+    expect(runs.calls.map((c) => c.agent)).toEqual(["writer", "critic"]);
   });
 });

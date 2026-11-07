@@ -182,7 +182,7 @@ export async function handleResearch(ctx: import("@/lib/agents/types").HandlerCo
     agent = await researchWithAgent({ workspaceId: ctx.workspaceId, taskId: ctx.task.id, attempt: ctx.task.attempts, context: user, schema: RESEARCH_OUTPUT }).catch(
       (err: Error) => {
         log("error", "agent_run_failed", { purpose: "research", taskId: ctx.task.id, error: err.message.slice(0, 500) }, "worker");
-        return { ok: false as const, reason: `The agent runtime failed: ${err.message.slice(0, 200)}` };
+        return { ok: false as const, reason: `The agent runtime failed: ${err.message.slice(0, 200)}`, stopped: false };
       }
     );
     const failed = agent.ok ? null : agent.reason;
@@ -190,9 +190,13 @@ export async function handleResearch(ctx: import("@/lib/agents/types").HandlerCo
   } else if (env.AGENT_RUNTIME === "opencode") {
     agentNote = ` ${selection.reason}`;
   }
+  const stopped = agent !== null && !agent.ok && agent.stopped;
   const { data, label, isFallback } = agent?.ok
     ? { data: agent.data, label: agent.label, isFallback: false }
-    : await routedStructured({
+    : stopped
+      ? // R4: the agent stopped at its budget or deadline. Nothing more is spent; its notes are kept.
+        { data: templateResearchBrief(biz, goal), label: "Template brief: the research agent stopped at its limit, so nothing more was spent. Its notes are kept. Edit before use.", isFallback: true }
+      : await routedStructured({
         workspaceId: ctx.workspaceId,
         purpose: "research",
         system,

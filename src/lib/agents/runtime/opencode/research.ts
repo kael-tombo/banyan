@@ -13,7 +13,7 @@ import { modelsOf, runAgentTask } from "./agent-task";
  * call, labelled. A run that spent anything is recorded in the ledger either way.
  */
 
-export type AgentResearch<T> = { ok: true; data: T; label: string; notes: number; sessionRef: string | null } | { ok: false; reason: string };
+export type AgentResearch<T> = { ok: true; data: T; label: string; notes: number; sessionRef: string | null } | { ok: false; reason: string; stopped: boolean };
 
 export function researchBrief(context: string): string {
   return [
@@ -29,9 +29,17 @@ export function researchBrief(context: string): string {
 
 export async function researchWithAgent<S extends ZodTypeAny>(args: { workspaceId: string; taskId: string; attempt: number; context: string; schema: S }): Promise<AgentResearch<z.output<S>>> {
   const quota = await checkRunQuota(args.workspaceId);
-  if (!quota.allowed) return { ok: false, reason: quota.reason ?? "Daily model quota reached." };
+  if (!quota.allowed) return { ok: false, reason: quota.reason ?? "Daily model quota reached.", stopped: false };
 
-  const parse = (summary: string) => args.schema.safeParse(clampLists(extractJSON(summary)));
+  const parse = (summary: string) => {
+    let json: unknown;
+    try {
+      json = extractJSON(summary);
+    } catch {
+      json = undefined; // prose instead of JSON: an unusable answer, not a runtime failure
+    }
+    return args.schema.safeParse(clampLists(json));
+  };
   const result = await runAgentTask({
     workspaceId: args.workspaceId,
     taskId: args.taskId,
@@ -47,7 +55,8 @@ export async function researchWithAgent<S extends ZodTypeAny>(args: { workspaceI
   if (!parsed?.success) {
     const error = result.status !== "completed" ? `Agent run ${result.status}: ${result.summary.slice(0, 200)}` : "The agent's final answer was not the research brief.";
     log("warn", "agent_run_fallback", { purpose: "research", status: result.status, error, answer: result.summary.slice(0, 300), sessionRef: result.sessionRef }, "worker");
-    return { ok: false, reason: error };
+    // A run stopped at its budget or deadline must not lead to another paid call: the caller uses the template.
+    return { ok: false, reason: error, stopped: result.stopped !== null };
   }
   return { ok: true, data: parsed.data as z.output<S>, label: `OpenCode researcher agent (${modelsOf(result)})`, notes: result.proposals.length, sessionRef: result.sessionRef };
 }

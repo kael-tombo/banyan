@@ -257,6 +257,22 @@ second product. How R2 answers the review:
 - **Not done:** the critic in these real runs used the same model family as the writer, because only Go models were
   available. Production requires another family and refuses otherwise.
 
+## R4 so far (2026-11-07): budgets that stop cleanly, and an incident log
+
+- **Per-run limits** (`AGENT_RUN_MAX_TOKENS`, `AGENT_RUN_TIMEOUT_MS`, from R2) now stop *cleanly*: a run stopped at
+  either limit leads to no further paid call. Research completes with the free template brief and keeps the agent's
+  notes. A writer that saved a draft has it reviewed by the critic; one that saved nothing gets the free template draft.
+  Both are labelled with the real reason. (Before, a stopped run fell back to another model call.)
+- **Incident log:** every agent run that does not complete (budget, deadline, unusable answer, or a runtime that could
+  not start) is an `agent_incident` activity with the numbers, shown wherever activity is.
+- **Verified:** unit tests, and the end-to-end check's budget scenario: a writer looping under a 1,000-token budget is
+  interrupted at 1,280 tokens, one incident is recorded, and the draft comes from the template with no further model call.
+- **Deferred, on purpose:**
+  - `banyan_ask_founder` and `waiting_input`. Only the planner and strategist may ask, and neither runs as an agent yet,
+    so a pause-and-resume flow would have no user. Build it with the first of them.
+  - Per-cycle credit budgets. Workflow drafts are not charged credits today, so this needs a pricing decision, and the
+    design already places it as a Level 3 prerequisite (R5).
+
 ## Roadmap
 
 | Step | What | Done when |
@@ -264,7 +280,7 @@ second product. How R2 answers the review:
 | **R1 · Seam** | `AgentRuntime` interface, `direct` runtime wrapping today's handlers, agent-config builder and tool catalogue as pure, tested modules | No behaviour change; tests pin "no agent can reach a side-effect tool". **Partly done 2026-11-03/04**: `src/lib/agents/runtime/{types,tools,roster,select}.ts`, the ADR-007 governance modules (`src/lib/model/agent-run.ts`, `checkRunQuota`/`recordAgentRun` in the router, validated `AGENT_*` env) and their tests; the `direct` runtime adapter is next |
 | **R2 · Worker on Node 24** | Worker image to `node:24-alpine`, pin `@opencode/sdk@2.2.6`, the OpenCode runtime behind `AGENT_RUNTIME=opencode`, first task type: `research` | A research task runs through OpenCode in a throwaway workspace, its notes carry provenance, usage lands in `ModelCall`, killing the worker mid-run duplicates nothing. **Built 2026-11-07; verified with a scripted model (including the kill) and once with a real Go model** |
 | **R3 · Creator team** | `writer` and `critic` agents per draft task (no `creator`: the workflow fans out); critic flags feed the autonomy policy | One draft per channel, critic flags visible on the draft, supervised approval unchanged. **Built 2026-11-07, LinkedIn and X; verified with a scripted model and twice with a real Go model** |
-| **R4 · Ask and budgets** | `banyan_ask_founder` with `waiting_input`, per-run token budgets, per-cycle credit budgets, an incident log | A run that needs an answer pauses and resumes in the same session; an over-budget run stops cleanly |
+| **R4 · Ask and budgets** | `banyan_ask_founder` with `waiting_input`, per-run token budgets, per-cycle credit budgets, an incident log | A run that needs an answer pauses and resumes in the same session; an over-budget run stops cleanly. **Clean stops and the incident log built 2026-11-07; asking waits for the planner or strategist agent, credit budgets for a pricing decision** |
 | **R5 · Level 3** | Continuous cycles started by Banyan's scheduler inside the cycle budget, with sampling (spot checks, built) and incident review | Several measured cycles in one workspace without a founder prompt, every one inside its budget and policy |
 | **R6 · Command center** | The founder's chat as an OpenCode session with read and propose tools | Questions about the product, its results and its drafts answered from recorded data |
 

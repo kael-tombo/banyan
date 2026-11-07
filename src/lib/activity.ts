@@ -34,7 +34,9 @@ export type ActivityType =
   // The founder's after-the-fact verdict on a draft the policy approved (spot check)
   | "autonomy_spotcheck"
   // Organizations and products (ADR-005)
-  | "organization";
+  | "organization"
+  // An agent run that stopped before finishing: its budget, its deadline, or a failure (R4)
+  | "agent_incident";
 
 export async function recordActivity(input: {
   workspaceId: string;

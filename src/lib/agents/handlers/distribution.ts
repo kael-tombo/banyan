@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { recordActivity } from "@/lib/activity";
 import { attemptPublication } from "@/lib/publishing/publish";
 import { generateContent } from "@/lib/ai/generate";
+import { TemplateFallbackProvider } from "@/lib/ai/provider";
 import { isFormatFor, isChannel, isManualChannel, type Channel } from "@/lib/formats";
 import { DEFAULT_CHANNEL_FORMATS, contentSpecsForChannels } from "@/lib/agents/workflow-template";
 import { createTasksFromSpecs, loadBusinessContext, makeLogger, safeJSON } from "@/lib/agents/handlers/common";
@@ -151,7 +152,7 @@ export async function handleContentDraft(ctx: HandlerContext): Promise<HandlerRe
     agentDraft = await draftWithAgents({ workspaceId: ctx.workspaceId, taskId: ctx.task.id, attempt: ctx.task.attempts, channel, format, campaignId: campaign?.id ?? null, context: contextBlock(biz) }).catch(
       (err: Error): AgentDraft => {
         logEvent("error", "agent_run_failed", { purpose: "content_draft", taskId: ctx.task.id, error: err.message.slice(0, 500) }, "worker");
-        return { ok: false, reason: `The agent runtime failed: ${err.message.slice(0, 200)}`, itemId: null };
+        return { ok: false, reason: `The agent runtime failed: ${err.message.slice(0, 200)}`, itemId: null, stopped: false };
       }
     );
     if (agentDraft.ok) {
@@ -195,7 +196,8 @@ export async function handleContentDraft(ctx: HandlerContext): Promise<HandlerRe
   const result = await generateContent({
     channel,
     format,
-    provider: routedProvider({ workspaceId: ctx.workspaceId, purpose: "content_draft" }),
+    // R4: when the writer stopped at its limit without a draft, nothing more is spent: the template writes it.
+    provider: agentDraft && !agentDraft.ok && agentDraft.stopped ? new TemplateFallbackProvider() : routedProvider({ workspaceId: ctx.workspaceId, purpose: "content_draft" }),
     // The loop compounds: drafts are written with the workspace's concluded
     // experiments in view, not as if every campaign were the first.
     learning: priorLearningLines(biz.experiments, 4),
@@ -218,6 +220,10 @@ export async function handleContentDraft(ctx: HandlerContext): Promise<HandlerRe
     },
     brandVoice: voice,
   });
+  if (agentDraft && !agentDraft.ok && agentDraft.stopped) {
+    // The template's own label blames missing credentials; the real reason is the agent's limit.
+    result.label = "Template draft: the writer agent stopped at its limit, so nothing more was spent. Edit before use.";
+  }
   log.push("generated", result.label);
 
   const item = partialId

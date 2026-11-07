@@ -46,7 +46,7 @@ if (role === "child") {
 
 // ---- Parent: a scripted model, two workspaces, and the checks ----
 
-type Call = { product: string; toolTurns: number; aborted: boolean };
+type Call = { product: string; toolTurns: number; aborted: boolean; model: string };
 const calls: Call[] = [];
 let hangProduct: string | null = null;
 
@@ -63,14 +63,17 @@ async function model(req: IncomingMessage, res: ServerResponse) {
   const all = JSON.stringify(messages);
   const product = /CheckCo-[a-z0-9]+/.exec(all)?.[0] ?? "none";
   const toolTurns = messages.filter((m) => m.role === "tool").length;
-  const call: Call = { product, toolTurns, aborted: false };
+  const call: Call = { product, toolTurns, aborted: false, model: String(body.model ?? "") };
   calls.push(call);
   res.on("close", () => {
     if (!res.writableEnded) call.aborted = true;
   });
   const chunk = (delta: unknown, finish: string | null = null) => res.write(`data: ${JSON.stringify({ id: "c", object: "chat.completion.chunk", created: 1, model: body.model, choices: [{ index: 0, delta, finish_reason: finish }] })}\n\n`);
+  // A CheckCo-loop writer never saves and reports large prompts, so only its token budget stops it.
+  const looping = product.startsWith("CheckCo-loop");
   const end = () => {
-    res.write(`data: ${JSON.stringify({ id: "c", object: "chat.completion.chunk", created: 1, model: body.model, choices: [], usage: { prompt_tokens: 200, completion_tokens: 40, total_tokens: 240 } })}\n\n`);
+    const prompt = looping ? 600 : 200;
+    res.write(`data: ${JSON.stringify({ id: "c", object: "chat.completion.chunk", created: 1, model: body.model, choices: [], usage: { prompt_tokens: prompt, completion_tokens: 40, total_tokens: prompt + 40 } })}\n\n`);
     res.end("data: [DONE]\n\n");
   };
   res.writeHead(200, { "content-type": "text/event-stream" });
@@ -83,6 +86,10 @@ async function model(req: IncomingMessage, res: ServerResponse) {
     chunk({}, "tool_calls");
     end();
   };
+  if (looping && all.includes("You are Banyan's writer")) {
+    await sleep(700);
+    return tool("banyan_channel_rules", {});
+  }
   if (all.includes("You are Banyan's writer")) {
     if (toolTurns === 0) return tool("banyan_channel_rules", {});
     if (toolTurns === 1) return tool("banyan_propose_draft", { body: `${product} turns a messy weekly schedule into a plan your team can follow. Try it this week.` });
@@ -143,8 +150,8 @@ const childEnv = {
   ...realEnv,
 };
 
-function worker(workspaceId: string, taskId: string, type = "research") {
-  const child = spawn(process.execPath, ["--import", "tsx", "scripts/agent-runtime-check.mts", "child", workspaceId, taskId, type], { env: childEnv, stdio: ["ignore", "pipe", "pipe"] });
+function worker(workspaceId: string, taskId: string, type = "research", extraEnv: Record<string, string> = {}) {
+  const child = spawn(process.execPath, ["--import", "tsx", "scripts/agent-runtime-check.mts", "child", workspaceId, taskId, type], { env: { ...childEnv, ...extraEnv }, stdio: ["ignore", "pipe", "pipe"] });
   let out = "";
   let err = "";
   child.stdout.on("data", (d) => (out += d));
@@ -209,6 +216,21 @@ try {
     console.log(JSON.stringify({ brief: outA?.data, notes: notesA.map((n) => n.value), draft: item?.body, criticFlags: criticFlags.map((f: { message: string }) => f.message) }, null, 2));
     throw new Error("__real_done__");
   }
+
+  // ---- A writer that never finishes: its token budget stops it, and nothing more is spent (R4)
+  const productD = `CheckCo-loop${randomBytes(3).toString("hex")}`;
+  const wsD = await makeWorkspace(productD);
+  const d = await worker(wsD, `task_${randomBytes(4).toString("hex")}`, "content_draft", { AGENT_RUN_MAX_TOKENS: "1000" }).done;
+  const outD = d.result?.output;
+  const callsD = calls.filter((c) => c.product === productD);
+  const incidents = await prisma.activityEvent.findMany({ where: { workspaceId: wsD, type: "agent_incident" } });
+  const itemsD = await prisma.contentItem.findMany({ where: { workspaceId: wsD } });
+  check("A writer over its token budget is stopped, and the incident is recorded", incidents.length === 1 && /token budget/.test(incidents[0]!.summary), { incidents: incidents.map((i) => i.summary), logs: d.result ? undefined : d.err });
+  check(
+    "Nothing more is spent: the draft comes from the free template, not another model call",
+    callsD.every((c) => c.model !== "fallback-model") && itemsD.length === 1 && outD?.isFallback === true && itemsD[0]!.status === "ready_for_review",
+    { modelCalls: callsD.length, label: outD?.generatedLabel, items: itemsD.length }
+  );
 
   // ---- Kill the worker mid-run, start it again
   const productB = `CheckCo-${randomBytes(3).toString("hex")}`;

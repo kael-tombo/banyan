@@ -118,6 +118,7 @@ describe("OpenCodeAgentRuntime", () => {
     const r = await runtime(host).run(spec());
     expect(calls.interrupt).toBe(1);
     expect(r.status).toBe("budget_exhausted");
+    expect(r.stopped).toBe("budget");
   });
 
   it("interrupts a run past its deadline and reports it as failed", async () => {
@@ -126,6 +127,7 @@ describe("OpenCodeAgentRuntime", () => {
     expect(calls.interrupt).toBe(1);
     expect(r.status).toBe("failed");
     expect(r.summary).toMatch(/Stopped after/);
+    expect(r.stopped).toBe("timeout");
   });
 
   it("reports failure when the session did not succeed, or ended without an answer", async () => {

@@ -15,7 +15,7 @@ import { modelsOf, runAgentTask } from "./agent-task";
 
 export type AgentDraft =
   | { ok: true; itemId: string; label: string; model: string; criticFlags: number; reviewed: boolean }
-  | { ok: false; reason: string; itemId: string | null };
+  | { ok: false; reason: string; itemId: string | null; stopped: boolean };
 
 export function writerBrief(context: string, channel: string, format: string): string {
   return [
@@ -46,7 +46,7 @@ export function criticBrief(context: string, draft: string): string {
 export async function draftWithAgents(args: { workspaceId: string; taskId: string; attempt: number; channel: string; format: string; campaignId: string | null; context: string }): Promise<AgentDraft> {
   // Two runs, two quota units: check both are available before starting either.
   const quota = await checkRunQuota(args.workspaceId);
-  if (!quota.allowed || quota.remaining < 1) return { ok: false, reason: quota.reason ?? "Daily model quota reached.", itemId: null };
+  if (!quota.allowed || quota.remaining < 1) return { ok: false, reason: quota.reason ?? "Daily model quota reached.", itemId: null, stopped: false };
 
   const context = { channel: args.channel, format: args.format, ...(args.campaignId ? { campaignId: args.campaignId } : {}) };
   const writer = await runAgentTask({
@@ -60,8 +60,10 @@ export async function draftWithAgents(args: { workspaceId: string; taskId: strin
     context,
   });
   const draft = await findTaskDraft(args.workspaceId, args.taskId);
-  if (!draft) return { ok: false, reason: `The writer did not save a draft (${writer.status}).`, itemId: null };
-  if (writer.status !== "completed") return { ok: false, reason: `The writer run ${writer.status}.`, itemId: draft.id };
+  // R4: a writer stopped at its limit spends nothing more. With a saved draft the critic still reviews it;
+  // without one, the caller uses the free template.
+  if (!draft) return { ok: false, reason: `The writer did not save a draft (${writer.status}).`, itemId: null, stopped: writer.stopped !== null };
+  if (writer.status !== "completed" && writer.stopped === null) return { ok: false, reason: `The writer run ${writer.status}.`, itemId: draft.id, stopped: false };
 
   let reviewed = false;
   let criticModels = "";
@@ -97,6 +99,6 @@ export async function draftWithAgents(args: { workspaceId: string; taskId: strin
       return 0;
     }
   })();
-  const label = `OpenCode writer agent (${modelsOf(writer)})${reviewed ? `, checked by the critic (${criticModels})` : ", not checked: the critic failed"}`;
+  const label = `OpenCode writer agent (${modelsOf(writer)}${writer.stopped ? ", stopped at its limit" : ""})${reviewed ? `, checked by the critic (${criticModels})` : ", not checked: the critic failed"}`;
   return { ok: true, itemId: draft.id, label, model: modelsOf(writer), criticFlags: flags, reviewed };
 }

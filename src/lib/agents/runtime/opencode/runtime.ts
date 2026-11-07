@@ -40,7 +40,9 @@ export interface OpenCodeHost {
   experimental: { session: { wait(input: { sessionID: string }): Promise<unknown> } };
 }
 
-export type OpenCodeRunResult = AgentRunResult & { perModel: RunModelUsage[]; costUsd: number; latencyMs: number };
+/** Why a run was stopped from outside: OpenCode enforces neither limit itself. */
+export type StopReason = "budget" | "timeout";
+export type OpenCodeRunResult = AgentRunResult & { perModel: RunModelUsage[]; costUsd: number; latencyMs: number; stopped: StopReason | null; tokens: number };
 
 type Options = {
   host: () => Promise<OpenCodeHost>;
@@ -184,6 +186,8 @@ export class OpenCodeAgentRuntime implements AgentRuntime {
       perModel,
       costUsd,
       latencyMs: Date.now() - started,
+      stopped: stop === "idle" ? null : stop,
+      tokens: perModel.reduce((s, m) => s + m.inputTokens + m.outputTokens, 0),
     };
   }
 }
