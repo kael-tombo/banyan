@@ -229,7 +229,10 @@ second product. How R2 answers the review:
   `AGENT_OPENCODE_PROVIDERS` (JSON, no keys allowed).
 - **Verified:** unit tests, and `scripts/agent-runtime-check.mts`, which runs the research handler through the real host,
   tools and database with a scripted model, including killing the worker mid-run (one note, one ledger row, the session
-  reused). It runs in CI. **Not yet verified with a real model.**
+  reused). It runs in CI. **Real model, 2026-11-07:** one run on `opencode-go/glm-5.3-flash` (internal testing, Go key)
+  produced the research brief and five notes, all labelled hypothesis with the task as source, and one ledger row
+  (3,381 input and 877 output tokens). Reproduce with `AGENT_CHECK_REAL_MODEL=opencode-go/glm-5.3-flash`; the kill
+  scenario runs only against the scripted model.
 - **Not built in R2:** the other tools (`channel_rules`, `results`, proposal tools) and the other agents; research
   only. `banyan_web_search` stays unregistered until a web provider is verified.
 
@@ -238,7 +241,7 @@ second product. How R2 answers the review:
 | Step | What | Done when |
 | --- | --- | --- |
 | **R1 · Seam** | `AgentRuntime` interface, `direct` runtime wrapping today's handlers, agent-config builder and tool catalogue as pure, tested modules | No behaviour change; tests pin "no agent can reach a side-effect tool". **Partly done 2026-11-03/04**: `src/lib/agents/runtime/{types,tools,roster,select}.ts`, the ADR-007 governance modules (`src/lib/model/agent-run.ts`, `checkRunQuota`/`recordAgentRun` in the router, validated `AGENT_*` env) and their tests; the `direct` runtime adapter is next |
-| **R2 · Worker on Node 24** | Worker image to `node:24-alpine`, pin `@opencode/sdk@2.2.6`, the OpenCode runtime behind `AGENT_RUNTIME=opencode`, first task type: `research` | A research task runs through OpenCode in a throwaway workspace, its notes carry provenance, usage lands in `ModelCall`, killing the worker mid-run duplicates nothing. **Built 2026-11-07; verified with a scripted model, not yet a real one** |
+| **R2 · Worker on Node 24** | Worker image to `node:24-alpine`, pin `@opencode/sdk@2.2.6`, the OpenCode runtime behind `AGENT_RUNTIME=opencode`, first task type: `research` | A research task runs through OpenCode in a throwaway workspace, its notes carry provenance, usage lands in `ModelCall`, killing the worker mid-run duplicates nothing. **Built 2026-11-07; verified with a scripted model (including the kill) and once with a real Go model** |
 | **R3 · Creator team** | `creator`, `writer` and `critic` agents; critic flags feed the autonomy policy | One draft per channel, critic flags visible on the draft, supervised approval unchanged |
 | **R4 · Ask and budgets** | `banyan_ask_founder` with `waiting_input`, per-run token budgets, per-cycle credit budgets, an incident log | A run that needs an answer pauses and resumes in the same session; an over-budget run stops cleanly |
 | **R5 · Level 3** | Continuous cycles started by Banyan's scheduler inside the cycle budget, with sampling (spot checks, built) and incident review | Several measured cycles in one workspace without a founder prompt, every one inside its budget and policy |

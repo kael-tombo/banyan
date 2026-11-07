@@ -6,10 +6,16 @@
  *   AGENT_CHECK_THROWAWAY_DB=1 DATABASE_URL=postgresql://…/throwaway npx tsx scripts/agent-runtime-check.mts
  *
  * Needs Node 24 and a migrated database it may write to. It refuses otherwise.
+ *
+ * AGENT_CHECK_REAL_MODEL=opencode-go/glm-5.3-flash runs the normal scenario once against that real model instead,
+ * spending a little of the key. The key comes from OPENCODE_API_KEY, or from .env when OPENAI_BASE_URL there is
+ * OpenCode Go. Internal testing only: the subscription terms forbid customer work.
  */
 import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { createRequire } from "node:module";
+const require = createRequire(import.meta.url);
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
@@ -93,6 +99,15 @@ await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
 const port = (server.address() as AddressInfo).port;
 
 const box = mkdtempSync(join(tmpdir(), "banyan-agent-check-"));
+const REAL = process.env.AGENT_CHECK_REAL_MODEL ?? "";
+function realKey(): string {
+  if (process.env.OPENCODE_API_KEY) return process.env.OPENCODE_API_KEY;
+  const { parse } = require("dotenv") as typeof import("dotenv");
+  const file = parse(readFileSync(".env"));
+  if (!/opencode\.ai/.test(file.OPENAI_BASE_URL ?? "") || !file.OPENAI_API_KEY) throw new Error("No OpenCode key: set OPENCODE_API_KEY.");
+  return file.OPENAI_API_KEY;
+}
+const realEnv = REAL ? { AGENT_MODEL_STRONG: REAL, AGENT_MODEL_FAST: REAL, AGENT_MODEL_CRITIC: REAL, OPENCODE_API_KEY: realKey() } : {};
 const childEnv = {
   ...process.env,
   // The direct fallback must not reach a real model either: it goes to the scripted one too.
@@ -113,6 +128,7 @@ const childEnv = {
   XDG_DATA_HOME: join(box, "data"),
   XDG_STATE_HOME: join(box, "state"),
   XDG_CACHE_HOME: join(box, "cache"),
+  ...realEnv,
 };
 
 function worker(workspaceId: string, taskId: string) {
@@ -157,9 +173,15 @@ try {
   check("The research handler ran through the OpenCode researcher agent", /OpenCode researcher agent/.test(outA?.generatedLabel ?? ""), { label: outA?.generatedLabel, isFallback: outA?.isFallback, code: a.code, logs: a.err });
   check("Its output is the same research brief downstream tasks expect", Array.isArray(outA?.data?.hypothesisAngles) && outA.data.labelledAs === "hypothesis");
   const notesA = await notesFor(wsA);
-  check("The agent's note is stored with hypothesis provenance and the task as source", notesA.length === 1 && notesA[0]!.provenance === "hypothesis" && /task:/.test(notesA[0]!.source ?? ""), notesA.map((n) => ({ provenance: n.provenance, source: n.source })));
+  check("The agent's note is stored with hypothesis provenance and the task as source", (REAL ? notesA.length >= 1 : notesA.length === 1) && notesA[0]!.provenance === "hypothesis" && /task:/.test(notesA[0]!.source ?? ""), notesA.map((n) => ({ provenance: n.provenance, source: n.source })));
   const ledgerA = await ledgerFor(wsA);
   check("One ledger row records the run's usage", ledgerA.length === 1 && ledgerA[0]!.provider === "opencode-runtime" && ledgerA[0]!.promptTokens > 0 && ledgerA[0]!.ok, ledgerA.map((l) => ({ provider: l.provider, model: l.model, promptTokens: l.promptTokens, completionTokens: l.completionTokens, ok: l.ok })));
+
+  if (REAL) {
+    console.log("\nReal-model output, for a person to read:");
+    console.log(JSON.stringify({ brief: outA?.data, notes: notesA.map((n) => n.value) }, null, 2));
+    throw new Error("__real_done__");
+  }
 
   // ---- Kill the worker mid-run, start it again
   const productB = `CheckCo-${randomBytes(3).toString("hex")}`;
@@ -182,6 +204,8 @@ try {
   check("The restart reused the session rather than starting the work again", callsB.length - callsBefore <= 2, { modelCallsBeforeKill: callsBefore, modelCallsAfter: callsB.length - callsBefore });
   const ledgerB = await ledgerFor(wsB);
   check("One ledger row for the task, written by the run that finished", ledgerB.length === 1 && ledgerB[0]!.provider === "opencode-runtime", ledgerB.map((l) => ({ provider: l.provider, ok: l.ok })));
+} catch (err) {
+  if ((err as Error).message !== "__real_done__") throw err;
 } finally {
   server.closeAllConnections();
   server.close();
