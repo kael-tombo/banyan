@@ -39,7 +39,7 @@ export default async function PublishingPage() {
     <>
       <PageHeader
         title="Publishing"
-        description="Where approved content goes live. Nothing publishes without your approval, and a publication counts as confirmed only when SocialFlow.ai confirms it or you record the live URL."
+        description="Where approved posts go live. Nothing publishes without your approval, and a post counts as published only when SocialFlow confirms it or you record its live link."
       />
 
       <ConnectionManager
@@ -55,61 +55,54 @@ export default async function PublishingPage() {
         }))}
       />
 
+      {/* How each channel goes out today: one row per channel, one status per row, read at a glance. */}
       <Card className="mt-6">
-        <h2 className="mb-3 font-medium text-charcoal">Channel capabilities</h2>
-        <ul className="space-y-3 text-sm">
-          {CHANNELS.map((channel) => (
-            <li key={channel} className="flex flex-wrap items-start justify-between gap-2">
-              <span className="max-w-xl">
-                <span className="block font-medium text-charcoal">{CHANNEL_META[channel].label}</span>
-                <span className="block text-charcoal-soft">{CHANNEL_META[channel].capability}</span>
-              </span>
-              <span className="flex items-center gap-2">
-                {selected.includes(channel) ? (
-                  <Badge variant="forest">selected</Badge>
-                ) : (
-                  <Badge variant="warm">not selected</Badge>
-                )}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </Card>
-
-      <Card className="mt-6">
-        <h2 className="mb-3 font-medium text-charcoal">Connector status</h2>
-        <ul className="space-y-2 text-sm">
-          <li className="flex flex-wrap items-center justify-between gap-2">
-            <span>
-              <span className="block font-medium text-charcoal">SocialFlow.ai</span>
-              <span className="block text-charcoal-soft">
-                {socialflow.state === "available"
-                  ? "Banyan's distribution provider, verified on this deployment. Approved posts publish to your connected LinkedIn and X accounts."
-                  : socialflow.state === "verifying"
-                    ? "Banyan's distribution provider is set up here and waiting on its live test with real accounts. Automated publishing turns on once a real post goes out and reads back as published."
-                    : "Banyan's distribution provider is not set up on this deployment, so automated publishing is off."}
-              </span>
-            </span>
-            <Badge variant={socialflow.state === "available" ? "forest" : "warm"}>{socialflow.label}</Badge>
-          </li>
-          <li className="flex flex-wrap items-center justify-between gap-2">
-            <span>
-              <span className="block font-medium text-charcoal">Export mode</span>
-              <span className="block text-charcoal-soft">
-                Export any approved post as a ready-to-publish package, publish it yourself in any tool, then record the live
-                URL. It is stored as a manual publication, never as a provider confirmation.
-              </span>
-            </span>
-            <Badge variant="moss">available</Badge>
-          </li>
-          <li className="flex flex-wrap items-center justify-between gap-2">
-            <span>
-              <span className="block font-medium text-charcoal">Manual recording</span>
-              <span className="block text-charcoal-soft">Publish anything yourself (natively, from any tool), then record the live URL as a user-confirmed manual publication.</span>
-            </span>
-            <Badge variant="moss">always available</Badge>
-          </li>
-        </ul>
+        <h2 className="font-medium text-charcoal">How each channel goes out</h2>
+        <p className="mt-1 text-[13px] text-charcoal-soft">
+          {socialflow.state === "available"
+            ? "SocialFlow is verified here: approved LinkedIn and X posts publish to your connected accounts."
+            : socialflow.state === "verifying"
+              ? "SocialFlow is set up and waiting on its live test with real accounts. Until it passes, posts go out by export."
+              : "SocialFlow isn't set up on this deployment, so posts go out by export: you publish, then record the live link."}
+        </p>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[520px] text-sm">
+            <thead>
+              <tr className="border-b border-bark/10 text-left text-[13px] text-muted">
+                <th className="py-2 pr-4 font-normal">Channel</th>
+                <th className="py-2 pr-4 font-normal">In your strategy</th>
+                <th className="py-2 font-normal">How it goes out today</th>
+              </tr>
+            </thead>
+            <tbody>
+              {CHANNELS.map((channel) => {
+                const auto = channel !== "shortvideo" && socialflow.state === "available";
+                const how =
+                  channel === "shortvideo"
+                    ? "Script and manual handoff: you record and post it"
+                    : auto
+                      ? "Published through SocialFlow, confirmed on read-back"
+                      : "Export: you publish it, then record the live link";
+                return (
+                  <tr key={channel} className="border-b border-bark/[0.06] last:border-0">
+                    <td className="py-3 pr-4 font-medium text-charcoal">{CHANNEL_META[channel].label}</td>
+                    <td className="py-3 pr-4 text-charcoal-soft">{selected.includes(channel) ? "Yes" : "No"}</td>
+                    <td className="py-3 text-charcoal-soft">
+                      <span className="inline-flex items-center gap-2">
+                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${auto ? "bg-forest" : "bg-bark/40"}`} aria-hidden="true" />
+                        {how}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-4 border-t border-bark/10 pt-3 text-[13px] text-muted">
+          Export and manual recording always work: a link you record is stored as a manual publication, never as a
+          provider confirmation.
+        </p>
       </Card>
 
       <Card className="mt-6">

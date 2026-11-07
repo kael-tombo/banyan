@@ -302,6 +302,10 @@ export default async function DashboardPage() {
   // not a wall of zeros and five competing buttons.
   const dayZero = !profile && goals.length === 0;
 
+  // One primary action per screen: while the launch path has a current step, that step's button is the primary
+  // one, and the screen's other ways to start a cycle step back to secondary.
+  const launchStepOpen = journey.some((s) => s.state === "current");
+
   return (
     <>
       {/* ————— Head ————— */}
@@ -320,7 +324,7 @@ export default async function DashboardPage() {
           <LinkButton href="/app/experiments" variant="secondary">
             <FlaskConical size={16} aria-hidden="true" /> New experiment
           </LinkButton>
-          <LinkButton href="/app/cycles/new">
+          <LinkButton href="/app/cycles/new" variant={launchStepOpen ? "secondary" : "primary"}>
             <RefreshCw size={16} aria-hidden="true" /> Start a cycle
           </LinkButton>
         </div>
@@ -482,7 +486,7 @@ export default async function DashboardPage() {
               Paste your product URL, correct the snapshot and approve one plan. You get three channel-native assets,
               publishing, measured results and a proposed next move. Nothing publishes without your approval.
             </p>
-            <LinkButton href="/app/cycles/new" className="mt-auto self-start">
+            <LinkButton href="/app/cycles/new" variant={launchStepOpen ? "secondary" : "primary"} className="mt-auto self-start">
               Start a cycle <ArrowRight size={16} aria-hidden="true" />
             </LinkButton>
           </Card>

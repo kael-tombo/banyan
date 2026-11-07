@@ -6,14 +6,16 @@ import { CycleWalkthrough } from "@/components/landing/CycleWalkthrough";
 import { CycleRecord } from "@/components/landing/CycleRecord";
 import { BuildPlanForm } from "@/components/landing/BuildPlanForm";
 import { BanyanMark } from "@/components/BanyanMark";
-import { DistributionLandscape } from "@/components/landing/landscape/DistributionLandscape";
+import { HeroCycle } from "@/components/landing/HeroCycle";
 import { FragmentedDistribution } from "@/components/landing/landscape/FragmentedDistribution";
-import { ArrowDown, ArrowRight, BarChart3, CheckCircle2, PenLine, Plug, ShieldCheck } from "lucide-react";
+import { ArrowDown, ArrowRight, BarChart3, PenLine, Plug, ShieldCheck } from "lucide-react";
 
+// Approved execution is the honest claim (STRATEGY.md §12): Banyan's agents do the work between the founder's
+// decisions, and nothing goes out without one. "Autonomous" stays off the page until Level 3 is real.
 export const metadata: Metadata = {
-  title: { absolute: "Banyan.ai — The autonomous, agentic distribution operating system" },
+  title: { absolute: "Banyan.ai: distribution cycles for founders, approved by you" },
   description:
-    "Banyan is an autonomous, agentic distribution operating system. Its agents run a complete distribution cycle for your product end to end: research, strategy, content, publishing and measurement. You approve everything that goes out, and results are measured in clicks and signups.",
+    "Banyan turns each product update into a strategy and channel-native drafts for LinkedIn and X, waits for your approval, publishes, and measures what came back in first-party visits and signups.",
 };
 
 const SIGNUP = "/signup?next=%2Fapp%2Fcycles%2Fnew";
@@ -65,117 +67,111 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
   return <span className="block text-sm font-medium text-forest">{children}</span>;
 }
 
+/** The section opening used across the page: the heading leads, the paragraph sits beside it on wide screens. */
+function SectionHead({ eyebrow, title, children }: { eyebrow: string; title: string; children: React.ReactNode }) {
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1fr_0.85fr] lg:items-end lg:gap-12">
+      <div>
+        <Reveal as="p"><Eyebrow>{eyebrow}</Eyebrow></Reveal>
+        <Reveal as="h2" delay={80} className="mt-3 max-w-2xl font-serif text-[2rem] leading-[1.12] text-forest-deep md:text-[2.75rem]">
+          {title}
+        </Reveal>
+      </div>
+      <Reveal as="p" delay={140} className="text-base leading-relaxed text-charcoal-soft md:text-lg">
+        {children}
+      </Reveal>
+    </div>
+  );
+}
+
 const PRIMARY_CTA =
-  "inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-forest-deep px-6 text-[15px] font-medium text-white transition-[background-color,transform] duration-150 hover:bg-forest active:scale-[0.98]";
+  "inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-forest-deep px-6 text-[15px] font-medium text-ivory transition-[background-color,transform] duration-150 hover:bg-forest active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-forest/25";
 const SECONDARY_CTA =
-  "inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-[#E1E4E7] bg-white px-6 text-[15px] font-medium text-charcoal transition-[border-color,transform] duration-150 hover:border-[#C9CED3] active:scale-[0.98]";
+  "inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-bark/15 bg-paper px-6 text-[15px] font-medium text-charcoal transition-[border-color,transform] duration-150 hover:border-bark/30 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-forest/25";
 
 export default function LandingPage() {
   return (
-    <div className="landing min-h-screen bg-white">
-      <SiteNav cta="Start distributing" ctaHref={SIGNUP} />
+    <div className="landing min-h-screen bg-paper">
+      <SiteNav cta="Start a cycle" ctaHref={SIGNUP} />
 
       <main>
-        {/* ————— Hero: the message, with the internet flowing behind it. ————— */}
-        <section className="relative isolate flex min-h-[640px] items-center overflow-hidden bg-white [height:calc(100svh-4rem)] max-h-[980px]">
-          <DistributionLandscape variant="hero" />
+        {/* ————— Hero: the promise on the left, the product stopped at the founder's gate on the right. ————— */}
+        <section className="relative overflow-hidden border-b border-bark/10 bg-ivory">
+          <div className="mx-auto grid min-h-[calc(100svh-4rem)] max-w-6xl items-center gap-12 px-4 py-16 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.95fr)] lg:gap-16 lg:py-20">
+            <div>
+              <p className="text-sm font-medium text-forest sm:text-[15px]">Distribution for founders who ship</p>
+              <h1 className="mt-5 font-serif text-[2.75rem] leading-[1.04] text-forest-deep sm:text-[3.5rem] lg:text-[3.75rem] xl:text-[4.25rem]">
+                <span className="block">You build it.</span>
+                <span className="block lg:whitespace-nowrap">Banyan gets it out.</span>
+              </h1>
+              <p className="mt-6 max-w-[34rem] text-[17px] leading-[1.6] text-charcoal-soft sm:text-lg">
+                Each update becomes a strategy and channel-native drafts for LinkedIn and X. You approve them, Banyan
+                publishes, then measures what came back in visits and signups and proposes the next move.
+              </p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Link href={SIGNUP} className={PRIMARY_CTA}>
+                  Start a cycle <ArrowRight size={16} aria-hidden="true" />
+                </Link>
+                <Link href="#how-it-works" className={SECONDARY_CTA}>
+                  See how it works <ArrowDown size={16} aria-hidden="true" />
+                </Link>
+              </div>
+              <p className="mt-6 flex items-center gap-2 text-[13px] text-muted">
+                <span className="h-2 w-2 rounded-full bg-fig" aria-hidden="true" />
+                Nothing is published without your approval
+              </p>
+            </div>
 
-          {/* A clearing in the landscape where the message sits. White only, never an opaque panel. */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute left-1/2 top-[46%] h-[min(640px,92%)] w-[min(1360px,160%)] -translate-x-1/2 -translate-y-1/2 bg-[radial-gradient(closest-side,rgba(255,255,255,0.98)_0%,rgba(255,255,255,0.94)_62%,rgba(255,255,255,0)_100%)]"
-          />
-
-          <div className="relative mx-auto w-full max-w-6xl px-4 pb-[6vh] text-center">
-            <p className="mb-5 text-sm font-medium text-forest sm:text-[15px]">The autonomous, agentic distribution operating system</p>
-            <h1 className="mx-auto max-w-[15ch] text-[2.5rem] font-medium leading-[1.06] tracking-[-0.03em] text-forest-deep sm:max-w-none sm:text-[3rem] lg:text-[3.5rem]">
-              <span className="block">Build your product.</span>
-              <span className="block">Banyan orchestrates its distribution.</span>
-            </h1>
-            <p className="mx-auto mt-6 max-w-[36rem] text-[17px] leading-[1.6] text-charcoal-soft sm:text-lg">
-              From strategy and content to coordinated distribution, Banyan helps turn what you build into a system
-              designed to reach the people who need it.
-            </p>
-            <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
-              <Link href={SIGNUP} className={PRIMARY_CTA}>
-                Start distributing <ArrowRight size={16} aria-hidden="true" />
-              </Link>
-              <Link href="#how-it-works" className={SECONDARY_CTA}>
-                See how it works <ArrowDown size={16} aria-hidden="true" />
-              </Link>
+            <div className="lg:pl-4">
+              <HeroCycle />
             </div>
           </div>
         </section>
 
-        {/* ————— One plain sentence about what is live today. ————— */}
-        <section className="border-y border-[#EEF0F2] bg-[#F7F8F8] py-4" aria-label="What Banyan connects today">
-          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-8 gap-y-2 px-4 text-center text-[13px] text-charcoal-soft">
-            <span className="flex items-center gap-2">
-              <CheckCircle2 size={16} className="text-forest" aria-hidden="true" />
-              You publish approved posts; Banyan records where they went live
-            </span>
-            <span className="flex items-center gap-2">
-              <PenLine size={16} className="text-muted" aria-hidden="true" />
-              Short video is a scripted manual handoff
-            </span>
-            <span className="flex items-center gap-2">
-              <BarChart3 size={16} className="text-muted" aria-hidden="true" />
-              Results are first-party clicks and signups
-            </span>
-          </div>
+        {/* ————— What is live today, in one plain line each. ————— */}
+        <section className="border-b border-bark/10 bg-paper py-4" aria-label="What Banyan publishes to today">
+          <ul className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-8 gap-y-2 px-4 text-center text-[13px] text-charcoal-soft">
+            <li>LinkedIn and X: drafted, approved, then published or exported with the live link recorded</li>
+            <li className="text-muted">Short video: a script and a manual handoff</li>
+            <li className="text-muted">Results: first-party clicks and signups</li>
+          </ul>
         </section>
 
         {/* ————— The problem: distribution in fragments. ————— */}
-        <section id="problem" className="bg-white py-20 md:py-28">
+        <section id="problem" className="bg-paper py-20 md:py-28">
           <div className="mx-auto max-w-6xl px-4">
-            <div className="grid gap-6 lg:grid-cols-[1fr_0.85fr] lg:items-end lg:gap-12">
-              <div>
-                <Reveal as="p"><Eyebrow>The real problem</Eyebrow></Reveal>
-                <Reveal as="h2" delay={80} className="mt-3 max-w-2xl text-3xl font-medium tracking-[-0.025em] text-forest-deep md:text-[2.5rem] md:leading-[1.1]">
-                  The job you never applied for
-                </Reveal>
-              </div>
-              <Reveal as="p" delay={140} className="text-base leading-relaxed text-charcoal-soft md:text-lg">
-                Distribution has become a second full-time job: learn each platform, write every format, publish
-                consistently, and prove it worked. The product gets the leftover time.
-              </Reveal>
-            </div>
+            <SectionHead eyebrow="The real problem" title="The job you never applied for">
+              Distribution has become a second full-time job: learn each platform, write every format, publish
+              consistently, and prove it worked. The product gets the leftover time.
+            </SectionHead>
 
             <Reveal delay={120} className="mt-12">
               <FragmentedDistribution />
             </Reveal>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <ol className="mt-10 border-t border-bark/10">
               {problems.map((problem, i) => (
-                <Reveal key={problem.q} delay={i * 60}>
-                  <figure className="flex h-full flex-col rounded-2xl border border-[#E6E8EA] bg-white p-6">
-                    <span className="num font-mono text-xs text-muted">{i + 1}</span>
-                    <h3 className="mt-3 font-serif text-[22px] leading-snug text-forest-deep">{problem.q}</h3>
-                    <p className="mt-3 flex-1 text-sm leading-relaxed text-charcoal-soft">{problem.body}</p>
-                    <p className="mt-6 border-t border-[#EEF0F2] pt-3 text-[13px] font-medium text-clay">{problem.truth}</p>
-                  </figure>
+                <Reveal as="li" key={problem.q} delay={i * 60}>
+                  <div className="grid gap-3 border-b border-bark/10 py-6 md:grid-cols-[3rem_minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.7fr)] md:gap-8">
+                    <span className="num font-mono text-xs text-muted md:pt-1.5">0{i + 1}</span>
+                    <h3 className="font-serif text-[21px] leading-snug text-forest-deep">{problem.q}</h3>
+                    <p className="text-sm leading-relaxed text-charcoal-soft">{problem.body}</p>
+                    <p className="text-[13px] font-medium text-clay md:pt-1">{problem.truth}</p>
+                  </div>
                 </Reveal>
               ))}
-            </div>
+            </ol>
           </div>
         </section>
 
         {/* ————— How it works: one cycle, stage by stage. ————— */}
-        <section id="how-it-works" className="border-y border-[#EEF0F2] bg-[#F7F8F8] py-20 md:py-28">
+        <section id="how-it-works" className="border-y border-bark/10 bg-mist py-20 md:py-28">
           <div className="mx-auto max-w-6xl px-4">
-            <div className="grid gap-6 lg:grid-cols-[1fr_0.85fr] lg:items-end lg:gap-12">
-              <div>
-                <Reveal as="p"><Eyebrow>How it works</Eyebrow></Reveal>
-                <Reveal as="h2" delay={80} className="mt-3 max-w-2xl text-3xl font-medium tracking-[-0.025em] text-forest-deep md:text-[2.5rem] md:leading-[1.1]">
-                  Seven stages, two of them yours
-                </Reveal>
-              </div>
-              <Reveal as="p" delay={140} className="text-base leading-relaxed text-charcoal-soft md:text-lg">
-                The scattered week above becomes one cycle with a shared plan. You bring the product and make the
-                call; Banyan's autonomous agents run the research, the strategy, the writing, the publishing
-                and the measurement in between, and stop at the gates that are yours.
-              </Reveal>
-            </div>
+            <SectionHead eyebrow="How it works" title="Seven stages, two of them yours">
+              The scattered week above becomes one cycle with a shared plan. You bring the product and make the call;
+              Banyan&apos;s agents do the research, the strategy, the writing, the publishing and the measurement in
+              between, and stop at the gates that are yours.
+            </SectionHead>
 
             <Reveal delay={120} className="mt-12">
               <CycleWalkthrough />
@@ -184,28 +180,20 @@ export default function LandingPage() {
         </section>
 
         {/* ————— The result: cycles that build on each other. ————— */}
-        <section id="result" className="bg-white py-20 md:py-28">
+        <section id="result" className="bg-paper py-20 md:py-28">
           <div className="mx-auto max-w-6xl px-4">
-            <div className="grid gap-6 lg:grid-cols-[1fr_0.85fr] lg:items-end lg:gap-12">
-              <div>
-                <Reveal as="p"><Eyebrow>The result</Eyebrow></Reveal>
-                <Reveal as="h2" delay={80} className="mt-3 max-w-2xl text-3xl font-medium tracking-[-0.025em] text-forest-deep md:text-[2.5rem] md:leading-[1.1]">
-                  A repeatable cycle, not a lucky post
-                </Reveal>
-              </div>
-              <Reveal as="p" delay={140} className="text-base leading-relaxed text-charcoal-soft md:text-lg">
-                One post can get lucky. A cycle ends with a verdict, even when the verdict is &ldquo;not enough
-                data&rdquo;, and whatever it learned becomes the starting point of the next one.
-              </Reveal>
-            </div>
+            <SectionHead eyebrow="The result" title="A repeatable cycle, not a lucky post">
+              One post can get lucky. A cycle ends with a verdict, even when the verdict is &ldquo;not enough
+              data&rdquo;, and whatever it learned becomes the starting point of the next one.
+            </SectionHead>
 
             <div className="mt-12 grid items-start gap-10 lg:grid-cols-[minmax(0,0.42fr)_minmax(0,1fr)] lg:gap-12">
               <div className="lg:sticky lg:top-24">
                 <p className="text-[13px] text-muted">Every cycle leaves</p>
-                <ul className="mt-4 divide-y divide-[#EEF0F2] border-y border-[#EEF0F2]">
+                <ul className="mt-4 divide-y divide-bark/10 border-y border-bark/10">
                   {outcomes.map((outcome) => (
                     <li key={outcome.title} className="flex gap-4 py-5">
-                      <outcome.icon size={20} className="mt-0.5 shrink-0 text-forest" aria-hidden="true" />
+                      <outcome.icon size={18} strokeWidth={1.5} className="mt-0.5 shrink-0 text-forest" aria-hidden="true" />
                       <div>
                         <h3 className="text-base font-medium text-forest-deep">{outcome.title}</h3>
                         <p className="mt-1 text-sm leading-relaxed text-charcoal-soft">{outcome.body}</p>
@@ -221,29 +209,29 @@ export default function LandingPage() {
             </div>
 
             <p className="mt-8 text-[13px] text-muted">
-              Ledgerline and every post in the landscape are fictional and illustrative. The live app starts from empty
-              states and shows only recorded numbers.
+              Ledgerline and its posts are fictional and illustrative. The live app starts from empty states and shows
+              only recorded numbers.
             </p>
           </div>
         </section>
 
         {/* ————— The boundary: the trust case, in three lines. ————— */}
-        <section id="trust" className="border-y border-[#EEF0F2] bg-[#F7F8F8] py-20 md:py-24">
+        <section id="trust" className="border-y border-bark/10 bg-ivory py-20 md:py-24">
           <div className="mx-auto max-w-6xl px-4">
             <div className="max-w-2xl">
               <Eyebrow>The boundary</Eyebrow>
-              <h2 className="mt-3 text-3xl font-medium tracking-[-0.025em] text-forest-deep md:text-[2.5rem] md:leading-[1.1]">
+              <h2 className="mt-3 font-serif text-[2rem] leading-[1.12] text-forest-deep md:text-[2.75rem]">
                 Simple on purpose, honest by design
               </h2>
               <p className="mt-4 text-base leading-relaxed text-charcoal-soft md:text-lg">
-                Autonomy without evidence is just risk. These are the rules the product actually enforces.
+                Agents without evidence are just risk. These are the rules the product actually enforces.
               </p>
             </div>
 
-            <div className="mt-12 grid gap-8 border-t border-[#E6E8EA] pt-8 md:grid-cols-3 md:gap-8">
+            <div className="mt-12 grid gap-8 border-t border-bark/15 pt-8 md:grid-cols-3">
               {boundaries.map((boundary) => (
                 <div key={boundary.title}>
-                  <boundary.icon size={20} className="text-forest" aria-hidden="true" />
+                  <boundary.icon size={18} strokeWidth={1.5} className="text-forest" aria-hidden="true" />
                   <h3 className="mt-4 text-base font-medium text-forest-deep">{boundary.title}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-charcoal-soft">{boundary.body}</p>
                 </div>
@@ -252,38 +240,34 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ————— The ask: back to the landscape, richer. ————— */}
-        <section id="start" className="relative isolate overflow-hidden bg-white py-28 md:py-40">
-          <DistributionLandscape variant="closing" />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute left-1/2 top-1/2 h-[min(900px,115%)] w-[min(1100px,160%)] -translate-x-1/2 -translate-y-1/2 bg-[radial-gradient(closest-side,rgba(255,255,255,0.98)_0%,rgba(255,255,255,0.95)_68%,rgba(255,255,255,0)_100%)]"
-          />
-
-          <div className="relative mx-auto max-w-2xl px-4 text-center">
-            <h2 className="text-4xl font-medium leading-[1.08] tracking-[-0.03em] text-forest-deep md:text-[3.25rem]">
-              <span className="block">You built it.</span>
-              <span className="block">Banyan gets it out.</span>
+        {/* ————— The ask: one action, or start straight from the product URL. ————— */}
+        <section id="start" className="bg-forest-deep py-24 md:py-32">
+          <div className="mx-auto max-w-2xl px-4 text-center">
+            <h2 className="font-serif text-[2.5rem] leading-[1.08] text-ivory md:text-[3.25rem]">
+              Bring one product and one objective
             </h2>
-            <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-charcoal-soft md:text-lg">
-              Bring one product and one objective. Banyan drafts the strategy and three assets, then waits for your
-              approval. No content calendar, no platform homework, no virality guarantees.
+            <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-rail-ink md:text-lg">
+              Banyan drafts the strategy and three assets, then waits for your approval. No content calendar, no
+              platform homework, no virality guarantees.
             </p>
-            <div className="mt-8 flex justify-center">
-              <Link href={SIGNUP} className={PRIMARY_CTA}>
-                Start distributing <ArrowRight size={16} aria-hidden="true" />
+            <div className="mx-auto mt-10 max-w-xl rounded-2xl bg-paper p-5 text-left sm:p-6">
+              <p className="text-[13px] text-muted">Start from your product URL</p>
+              <div className="mt-3">
+                <BuildPlanForm />
+              </div>
+            </div>
+            <p className="mt-6 text-[13px] text-rail-muted">
+              Or{" "}
+              <Link href={SIGNUP} className="text-ivory underline decoration-rail-muted underline-offset-4 hover:decoration-ivory">
+                create an account first
               </Link>
-            </div>
-            <p className="mt-8 text-[13px] text-muted">Or start from your product URL</p>
-            <div className="mx-auto mt-3 max-w-xl text-left">
-              <BuildPlanForm />
-            </div>
+            </p>
           </div>
         </section>
       </main>
 
       {/* ————— Footer: the same facts, no extra surface. ————— */}
-      <footer className="border-t border-[#EEF0F2] bg-white py-12">
+      <footer className="border-t border-bark/10 bg-paper py-12">
         <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
             <span className="flex items-center gap-2.5">
@@ -293,7 +277,8 @@ export default function LandingPage() {
               </span>
             </span>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-charcoal-soft">
-              The autonomous, agentic distribution operating system for founders. You build it, Banyan&apos;s agents get it out.
+              Distribution cycles for founders. You build it and approve it; Banyan&apos;s agents get it out and measure
+              what came back.
             </p>
           </div>
 
@@ -304,7 +289,7 @@ export default function LandingPage() {
                 <li><Link href="/#how-it-works" className="text-charcoal-soft hover:text-forest-deep">How it works</Link></li>
                 <li><Link href="/#result" className="text-charcoal-soft hover:text-forest-deep">The result</Link></li>
                 <li><Link href="/#trust" className="text-charcoal-soft hover:text-forest-deep">Trust</Link></li>
-                <li><Link href={SIGNUP} className="text-charcoal-soft hover:text-forest-deep">Start distributing</Link></li>
+                <li><Link href={SIGNUP} className="text-charcoal-soft hover:text-forest-deep">Start a cycle</Link></li>
                 <li><Link href="/login" className="text-charcoal-soft hover:text-forest-deep">Sign in</Link></li>
               </ul>
             </div>
