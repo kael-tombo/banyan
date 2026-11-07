@@ -1,3 +1,4 @@
+import { getBalance } from "@/lib/credits/service";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireWorkspaceServer } from "@/lib/workspace";
@@ -6,6 +7,13 @@ import {
   ArrowRight, CheckCircle2, FileCheck2, Flag, FlaskConical, Lightbulb,
   ListChecks, Sparkles, TriangleAlert,
 } from "lucide-react";
+
+import { strategyView } from "@/lib/strategy/service";
+import { diffStrategies, pickCurrent } from "@/lib/strategy/review";
+import type { StrategyBody } from "@/lib/strategy/generate";
+import { approvalState } from "@/lib/product/profile-review";
+import { canApprove } from "@/lib/permissions";
+import { StrategyReview } from "./strategy-review";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Growth strategy" };
@@ -61,6 +69,23 @@ export default async function GrowthStrategyPage() {
     prisma.experiment.findMany({ where: { workspaceId: wid }, select: { status: true, createdAt: true } }),
   ]);
 
+  // ————— Distribution strategy (US-042/043) —————
+  const strategies = await prisma.strategy.findMany({ where: { workspaceId: wid }, orderBy: { version: "desc" }, take: 12 });
+  const current = pickCurrent(strategies);
+  const currentView = current ? await strategyView(current) : null;
+  const previous = current ? strategies.find((x) => x.version < current.version) : null;
+  const strategyChanges = current && previous ? diffStrategies(JSON.parse(previous.body) as StrategyBody, JSON.parse(current.body) as StrategyBody) : [];
+  const profileGate = { exists: Boolean(ctx.profile), needsApproval: approvalState(ctx.profile).needsApproval };
+  const agentRun = await prisma.agentTask.findFirst({
+    where: { workspaceId: wid, type: { in: ["autopilot_strategy", "autopilot_drafts"] }, status: { in: ["running", "failed"] } },
+    orderBy: { updatedAt: "desc" },
+    select: { type: true, status: true, title: true, lastError: true, updatedAt: true },
+  });
+  // A failed run is shown only while it is recent; an old failure is noise.
+  const agentWork = agentRun && (agentRun.status === "running" || Date.now() - agentRun.updatedAt.getTime() < 15 * 60_000)
+    ? { kind: agentRun.type === "autopilot_strategy" ? ("strategy" as const) : ("drafts" as const), running: agentRun.status === "running", title: agentRun.title, error: agentRun.lastError }
+    : null;
+
   const activeGoal = goals.find((g) => g.status === "active") ?? goals[0] ?? null;
   const plan = activeGoal?.plan ?? null;
   const planMeta = plan ? (JSON.parse(plan.generatedMeta || "{}") as { label?: string; isFallback?: boolean }) : null;
@@ -99,6 +124,16 @@ export default async function GrowthStrategyPage() {
             <LinkButton href="/app/goals" variant="secondary">Create a goal</LinkButton>
           )
         }
+      />
+
+      <StrategyReview
+        initial={currentView}
+        versions={strategies.map((x) => ({ id: x.id, version: x.version, status: x.status, method: x.method, createdAt: x.createdAt.toISOString() }))}
+        changes={strategyChanges}
+        profile={profileGate}
+        canApprove={canApprove(ctx.membership.role)}
+        agentWork={agentWork}
+        creditsAvailable={(await getBalance(wid).catch(() => null))?.available ?? null}
       />
 
       {/* ————— Goal & constraints ————— */}

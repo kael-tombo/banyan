@@ -17,19 +17,19 @@ describe("isRetryableFailure", () => {
   });
 
   it("trusts the adapter's explicit retryable flag", () => {
-    expect(isRetryableFailure(failed({ error: "Postiz responded 400: bad payload", retryable: true }))).toBe(true);
+    expect(isRetryableFailure(failed({ error: "Provider responded 400: bad payload", retryable: true }))).toBe(true);
   });
 
   it("treats network failures, timeouts and rate limits as transient", () => {
-    expect(isRetryableFailure(failed({ error: "Postiz request timed out." }))).toBe(true);
-    expect(isRetryableFailure(failed({ error: "Postiz responded 429: rate limit exceeded" }))).toBe(true);
-    expect(isRetryableFailure(failed({ error: "Postiz responded 503: service unavailable" }))).toBe(true);
-    expect(isRetryableFailure(failed({ error: "Could not reach Postiz: ECONNREFUSED" }))).toBe(true);
+    expect(isRetryableFailure(failed({ error: "Provider request timed out." }))).toBe(true);
+    expect(isRetryableFailure(failed({ error: "Provider responded 429: rate limit exceeded" }))).toBe(true);
+    expect(isRetryableFailure(failed({ error: "Provider responded 503: service unavailable" }))).toBe(true);
+    expect(isRetryableFailure(failed({ error: "Could not reach provider: ECONNREFUSED" }))).toBe(true);
   });
 
   it("treats validation and auth errors as permanent", () => {
-    expect(isRetryableFailure(failed({ error: "Postiz responded 401: unauthorized" }))).toBe(false);
-    expect(isRetryableFailure(failed({ error: "Postiz responded 422: validation failed" }))).toBe(false);
+    expect(isRetryableFailure(failed({ error: "Provider responded 401: unauthorized" }))).toBe(false);
+    expect(isRetryableFailure(failed({ error: "Provider responded 422: validation failed" }))).toBe(false);
     expect(isRetryableFailure(failed({}))).toBe(false);
   });
 

@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { requireWorkspaceServer } from "@/lib/workspace";
-import { PageHeader, Card, Badge, StatusBadge } from "@/components/ui";
+import { PageHeader, Card, Badge } from "@/components/ui";
+import { PublicationState } from "@/components/PublicationState";
 import { CHANNEL_META, CHANNELS, isChannel } from "@/lib/formats";
 import { ConnectionManager } from "./connections";
+import { enabledProviderIds, providerFor } from "@/lib/distribution/providers";
 
 export const metadata: Metadata = { title: "Publishing" };
 
@@ -26,15 +28,22 @@ export default async function PublishingPage() {
   ]);
 
   const selected = (JSON.parse(profile?.channels || "[]") as string[]).filter(isChannel);
+  // Three honest states: verified and enabled, configured but not yet live-tested, or not set up.
+  const socialflow: { state: "available" | "verifying" | "off"; label: string } = enabledProviderIds().includes("socialflow")
+    ? { state: "available", label: "available" }
+    : process.env.SOCIALFLOW_API_URL
+      ? { state: "verifying", label: "awaiting live test" }
+      : { state: "off", label: "not set up" };
 
   return (
     <>
       <PageHeader
         title="Publishing"
-        description="Connect a real provider to publish X and LinkedIn. Content only publishes after human approval, and a publication is recorded as confirmed only when the provider confirms it."
+        description="Where approved posts go live. Nothing publishes without your approval, and a post counts as published only when SocialFlow confirms it or you record its live link."
       />
 
       <ConnectionManager
+        providers={enabledProviderIds().map((id) => ({ id, label: providerFor(id)?.label ?? id }))}
         initial={connections.map((c) => ({
           id: c.id,
           channel: c.channel,
@@ -46,58 +55,54 @@ export default async function PublishingPage() {
         }))}
       />
 
+      {/* How each channel goes out today: one row per channel, one status per row, read at a glance. */}
       <Card className="mt-6">
-        <h2 className="mb-3 font-medium text-charcoal">Channel capabilities</h2>
-        <ul className="space-y-3 text-sm">
-          {CHANNELS.map((channel) => (
-            <li key={channel} className="flex flex-wrap items-start justify-between gap-2">
-              <span className="max-w-xl">
-                <span className="block font-medium text-charcoal">{CHANNEL_META[channel].label}</span>
-                <span className="block text-charcoal-soft">{CHANNEL_META[channel].capability}</span>
-              </span>
-              <span className="flex items-center gap-2">
-                {selected.includes(channel) ? (
-                  <Badge variant="forest">selected</Badge>
-                ) : (
-                  <Badge variant="warm">not selected</Badge>
-                )}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </Card>
-
-      <Card className="mt-6">
-        <h2 className="mb-3 font-medium text-charcoal">Connector status</h2>
-        <ul className="space-y-2 text-sm">
-          <li className="flex flex-wrap items-center justify-between gap-2">
-            <span>
-              <span className="block font-medium text-charcoal">Postiz</span>
-              <span className="block text-charcoal-soft">Verified against the Postiz public API (list integrations, create posts, schedule). Self-hosted or cloud.</span>
-            </span>
-            <Badge variant="forest">available now</Badge>
-          </li>
-          <li className="flex flex-wrap items-center justify-between gap-2">
-            <span>
-              <span className="block font-medium text-charcoal">SocialFlow.ai</span>
-              <span className="block text-charcoal-soft">
-                No verifiable API exists yet — socialflow.ai is a parked domain (checked October 2026), with no developer
-                documentation, auth model, or endpoints. Banyan does not fabricate integrations. Until a real API appears,
-                use the <strong>SocialFlow.ai handoff</strong> on any content item: copy the formatted package, execute it
-                in SocialFlow.ai, then record the live URL as a manual publication. The adapter slot, required capability
-                list and activation checklist are ready in <code>docs/SOCIALFLOW_INTEGRATION.md</code>.
-              </span>
-            </span>
-            <Badge variant="warm">manual handoff only</Badge>
-          </li>
-          <li className="flex flex-wrap items-center justify-between gap-2">
-            <span>
-              <span className="block font-medium text-charcoal">Manual recording</span>
-              <span className="block text-charcoal-soft">Publish anything yourself (natively, from any tool), then record the live URL as a user-confirmed manual publication.</span>
-            </span>
-            <Badge variant="moss">always available</Badge>
-          </li>
-        </ul>
+        <h2 className="font-medium text-charcoal">How each channel goes out</h2>
+        <p className="mt-1 text-[13px] text-charcoal-soft">
+          {socialflow.state === "available"
+            ? "SocialFlow is verified here: approved LinkedIn and X posts publish to your connected accounts."
+            : socialflow.state === "verifying"
+              ? "SocialFlow is set up and waiting on its live test with real accounts. Until it passes, posts go out by export."
+              : "SocialFlow isn't set up on this deployment, so posts go out by export: you publish, then record the live link."}
+        </p>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full min-w-[520px] text-sm">
+            <thead>
+              <tr className="border-b border-bark/10 text-left text-[13px] text-muted">
+                <th className="py-2 pr-4 font-normal">Channel</th>
+                <th className="py-2 pr-4 font-normal">In your strategy</th>
+                <th className="py-2 font-normal">How it goes out today</th>
+              </tr>
+            </thead>
+            <tbody>
+              {CHANNELS.map((channel) => {
+                const auto = channel !== "shortvideo" && socialflow.state === "available";
+                const how =
+                  channel === "shortvideo"
+                    ? "Script and manual handoff: you record and post it"
+                    : auto
+                      ? "Published through SocialFlow, confirmed on read-back"
+                      : "Export: you publish it, then record the live link";
+                return (
+                  <tr key={channel} className="border-b border-bark/[0.06] last:border-0">
+                    <td className="py-3 pr-4 font-medium text-charcoal">{CHANNEL_META[channel].label}</td>
+                    <td className="py-3 pr-4 text-charcoal-soft">{selected.includes(channel) ? "Yes" : "No"}</td>
+                    <td className="py-3 text-charcoal-soft">
+                      <span className="inline-flex items-center gap-2">
+                        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${auto ? "bg-forest" : "bg-bark/40"}`} aria-hidden="true" />
+                        {how}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-4 border-t border-bark/10 pt-3 text-[13px] text-muted">
+          Export and manual recording always work: a link you record is stored as a manual publication, never as a
+          provider confirmation.
+        </p>
       </Card>
 
       <Card className="mt-6">
@@ -115,12 +120,7 @@ export default async function PublishingPage() {
                 </Link>
                 <span className="flex items-center gap-2">
                   <Badge variant="charcoal">{p.manual ? "manual" : p.provider}</Badge>
-                  <StatusBadge status={p.status} />
-                  {p.externalUrl && (
-                    <a href={p.externalUrl} target="_blank" rel="noreferrer noopener" className="text-xs text-forest underline">
-                      view
-                    </a>
-                  )}
+                  <PublicationState publication={p} compact />
                 </span>
               </li>
             ))}

@@ -1,3 +1,5 @@
+import { requireRole } from "@/lib/permissions";
+import { syncCampaignLifecycle } from "@/lib/campaign/lifecycle-service";
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { isChannel, contentBodySchema } from "@/lib/formats";
@@ -16,7 +18,7 @@ const videoExtrasSchema = z
     caption: z.string().max(1000).optional(),
     cta: z.string().max(500).optional(),
     // Platform adaptations: channel → copy. Keys are validated against real channels below.
-    adaptations: z.record(z.string().max(6000)).optional(),
+    adaptations: z.record(z.string(), z.string().max(6000)).optional(),
   })
   .strict()
   .optional();
@@ -49,6 +51,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (csrf) return csrf;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
+  const forbidden = requireRole(ctx.membership.role, "write");
+  if (forbidden) return apiError(forbidden, 403);
   const { id } = await params;
   const item = await load(id, ctx.workspace.id);
   if (!item) return apiError("Content not found.", 404);
@@ -63,7 +67,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   // Users may only edit while the item is draft/rejected to preserve approved copy;
   // if it is scheduled/approved (downstream confirmed), edits restart review.
-  const restartFlow = ["approved", "scheduled"].includes(item.status);
+  // Failed content still carries its approval (a retry may publish it), so editing it restarts review too.
+  const restartFlow = ["approved", "scheduled", "failed"].includes(item.status);
 
   const channel = item.channel;
   if (!isChannel(channel)) return apiError(`Unsupported channel "${channel}".`, 400);
@@ -127,5 +132,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     },
   });
 
+  await syncCampaignLifecycle(updated.campaignId);
   return json({ item: updated, flowRestarted: restartFlow });
 }

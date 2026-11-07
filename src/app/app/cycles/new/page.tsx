@@ -2,13 +2,12 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { requireWorkspaceServer } from "@/lib/workspace";
 import { Badge, PageHeader } from "@/components/ui";
-import type { ProductSnapshot, ProductStage } from "@/lib/product/intake";
+import { intakeFromSavedProfile } from "@/lib/product/intake-profile";
+import { savedScan } from "@/lib/research/runner";
 import CycleIntakeForm from "./cycle-intake-form";
 
 export const metadata: Metadata = { title: "New cycle" };
 export const dynamic = "force-dynamic";
-
-const STAGES: ProductStage[] = ["idea", "building", "private_beta", "public_beta", "launched", "growth"];
 
 export default async function NewCyclePage({
   searchParams,
@@ -18,6 +17,7 @@ export default async function NewCyclePage({
   const { url } = await searchParams;
   const ctx = await requireWorkspaceServer();
   const profile = await prisma.productProfile.findUnique({ where: { workspaceId: ctx.workspace.id } });
+  const scan = await savedScan(ctx.workspace.id, profile?.lastAnalysisId);
 
   const hasUsableProfile =
     profile &&
@@ -26,31 +26,18 @@ export default async function NewCyclePage({
     profile.problem.trim().length > 0 &&
     profile.valueProp.trim().length > 0;
 
-  const initialProfile: ProductSnapshot | null = hasUsableProfile
-    ? {
-        name: profile.name,
-        description: profile.description,
-        website: profile.website ?? "",
-        stage: STAGES.includes(profile.stage as ProductStage) ? (profile.stage as ProductStage) : "launched",
-        problem: profile.problem,
-        valueProp: profile.valueProp,
-        audience: profile.audience ?? "",
-        audiencePain: profile.audiencePain ?? "",
-        audienceOutcome: profile.audienceOutcome ?? "",
-        observedFields: [],
-      }
-    : null;
-
   return (
     <>
       <PageHeader
         eyebrow="Complete cycle"
         title="One update. One full cycle."
-        description="Banyan reads the product, drafts the strategy and three channel-native assets, waits for your approval, publishes what you approved, measures what happened, and proposes the next move."
+        description="Banyan reads your site, drafts the strategy and three channel-native posts, waits for your approval, publishes what you approved, measures what happened, and proposes the next move."
         actions={<Badge variant="warm">Level 1 · human-approved</Badge>}
       />
       <CycleIntakeForm
-        initialProfile={initialProfile}
+        initialProfile={hasUsableProfile ? intakeFromSavedProfile(profile) : null}
+        initialAnalysisId={scan.analysisId}
+        initialResearch={scan.research}
         initialUrl={url && /^https?:\/\//i.test(url) ? url : ""}
       />
     </>

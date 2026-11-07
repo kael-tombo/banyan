@@ -22,12 +22,12 @@
  *  - The full approval, status, idempotency and audit machinery around it
  *    (see docs/SOCIALFLOW_INTEGRATION.md for the status mapping).
  *
- * WHEN A REAL API EXISTS: implement a `SocialFlowAdapter` behind
- * `PublishingAdapter` (src/lib/publishing/types.ts), register it in
- * `adapters` (src/lib/publishing/publish.ts), allow the adapter id in the
- * connections API zod enum, and flip the capability registry status — the
- * activation checklist in docs/SOCIALFLOW_INTEGRATION.md covers it. No
- * workflow, model or UI changes should be required beyond the connector UI.
+ * WHEN A REAL API EXISTS: the SocialFlow adapter implements
+ * DistributionProvider (src/lib/distribution/types.ts) against the contract in
+ * docs/SOCIALFLOW_INTEGRATION_AUDIT.md §3, registers in
+ * src/lib/distribution/providers.ts, and stays disabled until its live smoke
+ * test passes (US-030, US-031, US-037). No workflow, model or UI changes
+ * should be required beyond the connector UI.
  */
 
 import type { PublishingCapabilities } from "@/lib/publishing/types";
@@ -98,7 +98,7 @@ export function parseVideoExtras(raw: string | null | undefined): Record<string,
 export function buildSocialFlowHandoff(input: HandoffInput): SocialFlowHandoff {
   const checklist = [
     "1. Confirm the item is approved in Banyan (this package is generated from the approved copy).",
-    "2. Paste the content below into SocialFlow.ai (or publish natively with any tool).",
+    "2. Publish the content below yourself, natively or with any tool (SocialFlow.ai once its integration is available).",
     "3. Attach/create any media it references — Banyan does not deliver media files.",
     ...(input.scheduledFor
       ? ["4. Schedule it for the suggested time shown below."]

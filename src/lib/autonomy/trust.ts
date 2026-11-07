@@ -1,0 +1,164 @@
+import type { AutonomyChannel, AutonomyPolicy } from "@/lib/autonomy/policy";
+
+/**
+ * Earned autonomy: the bridge from Level 1 to Level 2, channel by channel.
+ *
+ * Banyan reads its own track record on a channel (drafts the founder approved
+ * as written, edited, rejected; claims it flagged; posts that went live or
+ * failed). When the evidence clears the bar, it PROPOSES adding the channel
+ * to the supervised policy, showing the evidence. It never grants itself
+ * autonomy: only the founder changes the policy (policy.ts invariant).
+ *
+ * Only decisions a human made count. Drafts approved by the policy itself are
+ * excluded, otherwise autonomy would vouch for itself, except the ones the
+ * founder spot-checked afterwards: their verdict is a human decision, so a
+ * supervised channel keeps earning (or losing) trust instead of freezing.
+ */
+
+/**
+ * Spot checks: the first draft the policy approves on a channel, then one in
+ * every SPOT_CHECK_EVERY, goes back to the founder after the fact.
+ */
+export const SPOT_CHECK_EVERY = 3;
+
+/** `priorAutoApprovals`: drafts the policy approved on this channel before this one. */
+export function spotCheckDue(priorAutoApprovals: number): boolean {
+  return priorAutoApprovals % SPOT_CHECK_EVERY === 0;
+}
+
+export const SPOT_CHECK_VERDICTS = ["as_written", "would_edit", "stop"] as const;
+export type SpotCheckVerdict = (typeof SPOT_CHECK_VERDICTS)[number];
+
+export type ReviewedDraft = {
+  channel: string;
+  /** approved | scheduled | publishing | published | rejected | failed */
+  status: string;
+  /** The founder changed the copy before approving it. */
+  edited: boolean;
+  /** Approved by the supervised policy, not by a person. */
+  approvedByPolicy: boolean;
+  /** The claims guard flagged something on the approved version. */
+  flagged: boolean;
+  /** Provider-confirmed publications (not manual records) and failed attempts. */
+  publishedLive: boolean;
+  failed: boolean;
+  /** The founder's spot-check verdict on a policy-approved draft. */
+  spotCheck?: SpotCheckVerdict;
+};
+
+export type TrustRecord = {
+  channel: AutonomyChannel;
+  reviewed: number;
+  approvedAsWritten: number;
+  edited: number;
+  rejected: number;
+  flagged: number;
+  publishedLive: number;
+  failed: number;
+};
+
+/** The bar a channel must clear before Banyan proposes supervising it. Deliberately strict. */
+export const TRUST_BAR = {
+  window: 10, // the latest decisions that count
+  minReviewed: 5,
+  minAsWrittenShare: 0.8,
+  maxRejected: 0,
+  maxFlagged: 0,
+  minPublishedLive: 2,
+  maxFailed: 0,
+} as const;
+
+export function trustRecord(channel: AutonomyChannel, drafts: ReviewedDraft[]): TrustRecord {
+  const human = drafts.filter((d) => d.channel === channel && (!d.approvedByPolicy || d.spotCheck)).slice(0, TRUST_BAR.window);
+  const rejected = (d: ReviewedDraft) => d.status === "rejected" || d.spotCheck === "stop";
+  const edited = (d: ReviewedDraft) => d.edited || d.spotCheck === "would_edit";
+  const approved = human.filter((d) => !rejected(d));
+  return {
+    channel,
+    reviewed: human.length,
+    approvedAsWritten: approved.filter((d) => !edited(d)).length,
+    edited: approved.filter(edited).length,
+    rejected: human.filter(rejected).length,
+    flagged: approved.filter((d) => d.flagged).length,
+    publishedLive: human.filter((d) => d.publishedLive).length,
+    failed: human.filter((d) => d.failed).length,
+  };
+}
+
+/** "history": not enough evidence yet. "quality": the evidence shows a problem. */
+export type TrustCheck = { label: string; met: boolean; kind: "history" | "quality" };
+export type TrustVerdict = {
+  channel: AutonomyChannel;
+  record: TrustRecord;
+  checks: TrustCheck[];
+  /** supervised and holding | supervised but the record slipped | ready to propose | keep approving each */
+  state: "supervised" | "slipping" | "ready" | "not_yet";
+  summary: string;
+};
+
+const NAME: Record<AutonomyChannel, string> = { linkedin: "LinkedIn", x: "X" };
+
+export function trustVerdict(record: TrustRecord, policy: AutonomyPolicy): TrustVerdict {
+  const share = record.reviewed ? record.approvedAsWritten / record.reviewed : 0;
+  const checks: TrustCheck[] = [
+    { label: `${record.reviewed} of ${TRUST_BAR.minReviewed} drafts reviewed by you`, met: record.reviewed >= TRUST_BAR.minReviewed, kind: "history" },
+    { label: `${Math.round(share * 100)}% approved as written (needs ${TRUST_BAR.minAsWrittenShare * 100}%)`, met: record.reviewed > 0 && share >= TRUST_BAR.minAsWrittenShare, kind: record.reviewed === 0 ? "history" : "quality" },
+    { label: record.rejected ? `${record.rejected} rejected recently` : "None rejected recently", met: record.rejected <= TRUST_BAR.maxRejected, kind: "quality" },
+    { label: record.flagged ? `${record.flagged} approved with a flagged claim` : "No flagged claims approved", met: record.flagged <= TRUST_BAR.maxFlagged, kind: "quality" },
+    { label: `${record.publishedLive} of ${TRUST_BAR.minPublishedLive} posts confirmed live`, met: record.publishedLive >= TRUST_BAR.minPublishedLive, kind: "history" },
+    { label: record.failed ? `${record.failed} failed to publish` : "No failed posts", met: record.failed <= TRUST_BAR.maxFailed, kind: "quality" },
+  ];
+  const name = NAME[record.channel];
+  if (policy.level === "supervised" && policy.channels.includes(record.channel)) {
+    // Earned autonomy can be lost: a problem in the recent record (not a lack of history) is flagged.
+    const problems = checks.filter((c) => !c.met && c.kind === "quality");
+    if (problems.length) {
+      return {
+        channel: record.channel,
+        record,
+        checks,
+        state: "slipping",
+        summary: `${name} is supervised, but its recent record slipped (${problems.map((p) => p.label.toLowerCase()).join("; ")}). Banyan suggests going back to approving each ${name} draft until it is clean again.`,
+      };
+    }
+    return { channel: record.channel, record, checks, state: "supervised", summary: `${name} is supervised and its record holds: Banyan approves routine drafts within your policy.` };
+  }
+  if (checks.every((c) => c.met)) {
+    return {
+      channel: record.channel,
+      record,
+      checks,
+      state: "ready",
+      summary: `You approved ${record.approvedAsWritten} of your last ${record.reviewed} ${name} drafts as written, and ${record.publishedLive} went live without a failure. Banyan could approve routine ${name} drafts within your policy; anything unusual would still come to you.`,
+    };
+  }
+  const missing = checks.filter((c) => !c.met).length;
+  return { channel: record.channel, record, checks, state: "not_yet", summary: `Keep approving each ${name} draft: ${missing} of ${checks.length} conditions are not met yet.` };
+}
+
+/** The policy after taking a channel back (record slipped): the same policy, minus this channel. */
+export function narrowedPolicy(policy: AutonomyPolicy, channel: AutonomyChannel) {
+  const channels = policy.channels.filter((c) => c !== channel);
+  return {
+    level: channels.length ? ("supervised" as const) : ("approve_each" as const),
+    channels,
+    maxPerDay: policy.maxPerDay,
+    quietHours: policy.quietHours,
+    blackoutDates: policy.blackoutDates,
+    autoPublish: channels.length ? policy.autoPublish : false,
+    escalateTopics: policy.escalateTopics,
+  };
+}
+
+/** The policy the founder would apply by accepting a proposal: the same policy, plus this channel. */
+export function proposedPolicy(policy: AutonomyPolicy, channel: AutonomyChannel) {
+  return {
+    level: "supervised" as const,
+    channels: [...new Set([...(policy.level === "supervised" ? policy.channels : []), channel])],
+    maxPerDay: policy.maxPerDay,
+    quietHours: policy.quietHours,
+    blackoutDates: policy.blackoutDates,
+    autoPublish: policy.level === "supervised" ? policy.autoPublish : false,
+    escalateTopics: policy.escalateTopics,
+  };
+}

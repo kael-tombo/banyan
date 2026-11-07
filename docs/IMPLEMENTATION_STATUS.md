@@ -1,0 +1,44 @@
+# Implementation status (multi-product brief)
+
+Master progress file required by the brief (§20). Backlog: [user-stories/MULTI_PRODUCT_BACKLOG.md](user-stories/MULTI_PRODUCT_BACKLOG.md)
+· Phase 0: [architecture/MULTI_PRODUCT_PHASE0.md](architecture/MULTI_PRODUCT_PHASE0.md) · Decision: ADR-005 in
+[ARCHITECTURE_DECISIONS.md](ARCHITECTURE_DECISIONS.md).
+
+**Backlog totals:** 72 stories — 24 DONE · 12 REVIEW · 6 IN_PROGRESS · 20 READY · 10 BLOCKED (external: email,
+payments, SocialFlow media and analytics, research provider, real social accounts).
+
+## 2026-11-02 — Integration validation, status sync and cancel
+
+| Story | Status | Files | Database | API | Tests and results | Remaining |
+| --- | --- | --- | --- | --- | --- | --- |
+| BOS-027 Publication status sync | REVIEW | `src/lib/publishing/status-sync.ts`, `src/lib/publishing/publish.ts`, `src/lib/maintenance.ts` | uses existing `Publication.externalId/externalUrl` | worker: an accepted-but-unconfirmed post keeps its SocialFlow id and is reconciled by status (C7) instead of resent; the sweep fills missing live URLs | `tests/publication-status-sync.test.ts` (4); `scripts/publication-sync-check.ts` 12/12 against Postgres (in CI) | live run on real accounts |
+| BOS-029 Cancel a scheduled post | REVIEW | Lite: `DELETE /v1/posts/{id}` + MCP `cancel_post` (commit eeac896 on socialflow-lite); Banyan: contract C8, adapter `cancelScheduled`, MCP mapping, `src/app/api/content/[id]/schedule/route.ts` | — | cancel cancels in SocialFlow first when it already holds the post; a refusal (already published) leaves Banyan unchanged with 409 | Lite tests; Banyan unit tests; DB check; cross-repo check | UI copy for the 409 case |
+| Banyan ↔ SocialFlow Lite integration | DONE (stand-in platforms) | `scripts/socialflow-integration-check.ts`, `scripts/fixtures/fake-social-providers.mjs`, CI job `socialflow` | — | Lite built from source; real adapter over REST and MCP | 27/27 locally and in CI: connect via redirects, publish, replay without duplicates, X thread, status, schedule→cancel, no analytics, platform-side post counts | real LinkedIn/X developer apps |
+
+Fixed on the way: automated publications never saved the live URL SocialFlow returned (pages showed no link); a second
+publish after a failed or cancelled attempt reused the unique idempotency key and crashed; a replay answering
+"cancelled" was retried forever. Full suite 61 files, 736 tests; CI green on checks, database and socialflow jobs.
+
+## 2026-11-01 — Phase 1/2 foundation (commit ef3a257)
+
+| Story | Status | Files | Database | API | Tests and results | Remaining |
+| --- | --- | --- | --- | --- | --- | --- |
+| BOS-001 Organization | REVIEW | `src/lib/organizations.ts`, `src/lib/auth/accounts.ts`, `src/lib/bootstrap/seed-demo.ts` | `Organization`, `OrganizationMember`, `Workspace.organizationId/productType/status`; migration `20261102000000_organizations` with lossless backfill (8 workspaces → 8 orgs → 8 owners, 0 orphans; `prisma migrate diff`: no difference) | signup creates org + first product in one transaction | `scripts/multi-product-check.ts` 13/13; `tests/organizations.test.ts` | HTTP signup not yet exercised on a restarted dev server |
+| BOS-003 Organization roles | REVIEW | `src/lib/organizations.ts` (`orgCan`) | — | enforced on product creation | policy table, every role × action (7 tests) | members/roles screen (with invitations; BOS-004 blocked on email) |
+| BOS-008 Create products | REVIEW | `src/app/api/products/route.ts`, `src/components/ProductSwitcher.tsx` | product + membership in one transaction | `POST /api/products`: org from server context, OWNER/ADMIN only, rate-limited | isolation script; typecheck | browser check |
+| BOS-009 Switch product | REVIEW | `src/lib/products.ts`, `src/lib/api-utils.ts`, `src/lib/workspace.ts`, `src/app/app/layout.tsx`, `src/app/onboarding/page.tsx`, `src/app/api/session/product/route.ts`, `src/lib/product-cookie.ts` | — | `POST /api/session/product` (404 for both missing and forbidden) | `tests/products.test.ts` (4); isolation script (forged preferences fall back) | browser check |
+| BOS-010 Product authorization | REVIEW | `src/lib/permissions.ts` (PRODUCT_ADMIN, MARKETING_MANAGER, CONTENT_EDITOR, ANALYST, VIEWER; legacy owner/member/viewer mapped 1:1), `src/lib/products.ts`, 22 API route files | — | role guards added to 18 mutating routes that had none (write: audience, campaigns, content, experiments, links, metrics, profile, recommendations; control: publish, schedule, export; manage: connections and accounts) | `tests/product-roles.test.ts` (8): every role × capability, legacy mapping, org roles grant nothing | product members screen to assign roles |
+| BOS-011 List and search products | REVIEW | `src/app/api/products/route.ts` (GET), `ProductSwitcher` search | — | `GET /api/products` | — | browser check |
+| BOS-014 Founder command center | REVIEW | `src/lib/org-overview.ts`, `src/app/app/organization/page.tsx`, `open-product.tsx`, nav "All products" | — | server page (period 7/14/30 days) | `tests/org-overview.test.ts` (4); isolation script: per-product rows, not-measured kept, member sees only their product | browser check (dev server restart) |
+| BOS-066 Cross-tenant security suite | IN_PROGRESS | `scripts/multi-product-check.ts` | — | — | 19/19 against Postgres (adds starter-credit and command-center checks) | run in CI; HTTP-level IDOR cases per endpoint |
+
+Full unit suite: 56 files, 646 tests passing; typecheck clean. Existing DB checks (`scripts/autonomy-check.ts`,
+`scripts/credits-concurrency.ts`) still pass after the change, and leave no rows behind.
+
+**Operator note:** after pulling, run `npx prisma migrate deploy` and restart running dev servers. Their in-memory
+Prisma client predates the `Organization` and `ApiToken` models, so product creation and tokens fail until restarted.
+
+## Next in dependency order
+
+BOS-014 founder command center → BOS-010 named product roles → BOS-012/013 product settings and archive → BOS-005
+organization settings → BOS-061 organization credit ledger → BOS-046/048 agent registry and tool permissions.

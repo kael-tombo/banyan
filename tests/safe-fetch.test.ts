@@ -76,7 +76,7 @@ describe("parseFetchableUrl", () => {
   });
 
   it("accepts public https URLs and public IP literals", () => {
-    expect(parseFetchableUrl("https://api.postiz.com/public/v1/integrations").hostname).toBe("api.postiz.com");
+    expect(parseFetchableUrl("https://api.example-provider.com/v1/accounts").hostname).toBe("api.example-provider.com");
     expect(parseFetchableUrl("http://8.8.8.8/dns-query").hostname).toBe("8.8.8.8");
   });
 });

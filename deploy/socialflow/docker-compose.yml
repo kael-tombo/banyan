@@ -1,0 +1,43 @@
+# SocialFlow Lite on its own small server, for Banyan hosted on Vercel (docs/LAUNCH_SETUP.md).
+#
+#   cd deploy/socialflow && cp env.example .env && (fill it in) && docker compose up -d --build
+#
+# Caddy gets the HTTPS certificate itself. Banyan (on Vercel) calls the API over HTTPS with its API key; the
+# founder's browser uses the connect page and the OAuth callbacks on the same hostname.
+name: socialflow
+
+services:
+  socialflow:
+    build: https://github.com/kael-tombo/socialFlow.git#socialflow-lite
+    image: socialflow-lite:local
+    restart: unless-stopped
+    environment:
+      PUBLIC_URL: https://${SFL_DOMAIN:?set SFL_DOMAIN in .env}
+      ENCRYPTION_KEY: ${SFL_ENCRYPTION_KEY:?set SFL_ENCRYPTION_KEY in .env (openssl rand -hex 32)}
+      LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID:-}
+      LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET:-}
+      X_CONSUMER_KEY: ${X_CONSUMER_KEY:-}
+      X_CONSUMER_SECRET: ${X_CONSUMER_SECRET:-}
+    volumes:
+      - sfldata:/data
+    stop_grace_period: 30s
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "5" } }
+
+  caddy:
+    image: caddy:2.8.4-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      SFL_DOMAIN: ${SFL_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [socialflow]
+    logging: { driver: json-file, options: { max-size: "10m", max-file: "5" } }
+
+volumes:
+  sfldata:      # SocialFlow Lite's database: connected accounts and post records. Back it up.
+  caddy_data:
+  caddy_config:

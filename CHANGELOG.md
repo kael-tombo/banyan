@@ -8,6 +8,86 @@ follow [Keep a Changelog](https://keepachangelog.com); commit hashes refer to
 
 ## [Unreleased]
 
+### Added
+- **Onboarding 360°** (2026-11-07): onboarding reads the founder's site and maps the market around it, then
+  starts the first cycle from that context. Full reference, including limits: [docs/ONBOARDING_360.md](docs/ONBOARDING_360.md).
+  - **Whole-site read:** up to 5 pages in parallel (home, pricing, about, features, customers), structured
+    data, meta tags, hero, buttons, prices, proof, audience and pain phrases, stage hints, socials and logo;
+    `www.`/bare-domain fallback; JavaScript-only pages read from their meta tags. Prompt `product-analysis` v2
+    adds tagline, category, stage, pain, outcome, positioning, pricing, proof, call to action, tone and
+    alternatives. Live: 15 of 15 fields on cal.com and linear.app with a model; 8–10 of 15 without one.
+  - **Market scan:** competitors verified by reading their own sites; Hacker News and Stack Overflow threads;
+    public posts where someone wants an alternative, complains, compares or asks; 3–5 opportunities, each
+    citing its evidence (uncited ones are dropped). Prompts `market-scan` v1 and `market-opportunities` v1.
+  - **360 report UI:** product and market halves with a chapter nav, snapshot tiles, a source tag on every
+    field, editable competitors and search terms with "Rescan with my changes", Keep and "Make this my first
+    cycle" on each opportunity, and a cycle goal suggested from the site's main button.
+  - **Saved for the agents:** `ProductProfile.pricing` and `proofPoints` feed strategy facts and the claims
+    check; kept competitors become `competitor` facts with provenance; kept opportunities become open
+    recommendations. Migrations `20261107200000_product_profile_pricing_proof` and
+    `20261107210000_product_analysis_research`.
+  - **What's trending (trend radar):** platform by platform. Read live where an official API allows it —
+    YouTube, Reddit and Bluesky with server credentials (`YOUTUBE_API_KEY`, `REDDIT_CLIENT_*`, `BLUESKY_*`),
+    Hacker News and DEV without — and one-click research where none exists: TikTok (search, hashtags,
+    Creative Center), Instagram, Facebook (search, groups, Meta Ad Library per competitor), LinkedIn (posts,
+    Ad Library), X, Pinterest (Trends). Interest over 12 months from Wikipedia page views and a Google Trends
+    comparison; hashtags per platform; native content ideas (prompt `content-ideas` v1) that cite a post
+    from the same platform or say they're a suggestion; "Make this my first cycle" on any idea.
+  - **Four-step onboarding** (redesign): Your site → Confirm ("Is this you?": four essentials, everything else
+    collapsed, the market filling in beside it) → Your market (four headline findings, then tabs; pick an angle)
+    → First cycle (angle, goal, channels). A segmented progress bar, one sticky footer per step, and a slim
+    `/onboarding` frame replace the single 10-chapter page.
+  - **Known limits:** the trend radar reads none of TikTok, Instagram, Facebook, LinkedIn, X or Pinterest (no
+    public API; never scraped), and YouTube, Reddit and Bluesky only with credentials (TD-26 to TD-28). The
+    market scan uses two public sources only (weak for consumer and non-English products), sparse buying
+    signals by design, English-only patterns, prompts not yet evaluated on the production model, the scan is
+    not refreshed and its threads and signals are shown only during onboarding (TD-20 to TD-25).
+
+### Fixed
+- **Plain-language intake errors** (2026-11-07): an address with no website behind it said "Blocked: host could
+  not be resolved."; it now says the address doesn't point to a website yet and what to try.
+- **Provider blips no longer become template drafts** (2026-11-06): the router retries a
+  transient failure once on the spot. It used to swallow every provider error, so a single 429
+  gave the founder a template. Failures are told apart from "no provider configured".
+- **An outage no longer uses up the daily quota**: only calls that worked count against it.
+- **Status can't claim a live model while templates serve**: `describeLiveModel` now uses the
+  same rules as `getAIProvider`.
+- **A late task result can't overwrite a founder's cancel, or another worker's takeover**: task
+  completion checks the attempt still owns the task, and a running task renews its lease.
+- **The dev OpenCode brain denies tools by wildcard**, not only by a fixed list that a new tool
+  would slip past.
+
+### Changed
+- **Production refuses OpenCode's hosted inference**, whose terms limit it to internal use:
+  `AGENT_MODEL_*` fails at boot, and `OPENAI_BASE_URL` on opencode.ai degrades to the labeled
+  template with the reason in the label.
+- **The critic must be from another model family** than both the writers and the strategist. The
+  check compared exact model names, so two models from one vendor passed. It now runs at boot,
+  as ADR-007 promised; before, nothing called it.
+
+### Added
+- `banyan_propose_plan`: the planner had no way to deliver the plan the design says it produces.
+- `recordAgentRun` prefers a cost the provider reports over the price table.
+- **Model governance for the agentic runtime (ADR-007)** (2026-11-04) — the
+  three seams ADR-006 left open before roadmap R2, closed as tested modules:
+  (1) *one run = one quota unit = one ledger row*: an agentic run is gated by
+  the same per-workspace daily quota, checked before the session starts
+  (`checkRunQuota`), and recorded as a single `ModelCall` row with the session
+  tree's aggregate usage (`recordAgentRun`), so the existing live-call count
+  covers runs and no second counter exists; (2) *tiers validate at the
+  boundary*: `AGENT_RUNTIME` and `AGENT_MODEL_STRONG/FAST/CRITIC` join the zod
+  env schema (a non-empty value must look like `provider/model`; a missing
+  strong model fails startup only when the opencode runtime is selected), and
+  in production a critic that names the writers' model is now a configuration
+  error, not a warning; (3) *honest run pricing*: a run's cost is a true total
+  or 0 — when any model in it has no known price, tokens are recorded with
+  cost 0 and a structured warning names the unpriced models. Plus
+  `resolveRuntimeSelection()`, which encodes ADR-006's fallback rule: until R2
+  builds the embedded runtime, `AGENT_RUNTIME=opencode` resolves to `direct`
+  with a labelled reason, never silently. The dev-only "OpenCode brain" script
+  and provider now state they are not the ADR-006 runtime and retire at R2.
+  23 focused tests across four files; no behaviour change for the direct path.
+
 ### Fixed
 - **Short-form video generation no longer blocks the cycle on malformed model
   output** (2026-10-30) — the video path required JSON and threw when the

@@ -14,9 +14,24 @@ import type { PrismaClient } from "@prisma/client";
  * distribute itself. It intentionally contains NO fabricated results — no
  * impressions, clicks, signups, publications or metrics are invented here.
  */
+export const DEFAULT_SEED_PASSWORD = "banyan-demopass";
+
+/**
+ * Production refuses the published default (or a weak) seed password: anyone who
+ * read the README could otherwise sign in as the seeded founder. Blocker 10.
+ */
+export function seedPasswordProblem(password: string | undefined, nodeEnv = process.env.NODE_ENV): string | null {
+  if (nodeEnv !== "production") return null;
+  if (!password || password === DEFAULT_SEED_PASSWORD) return "SEED_USER_PASSWORD: set a unique value in production; the published default is refused.";
+  if (password.length < 12) return "SEED_USER_PASSWORD: use at least 12 characters in production.";
+  return null;
+}
+
 export async function seedDemoDatabase(prisma: PrismaClient): Promise<{ email: string }> {
   const email = (process.env.SEED_USER_EMAIL || "founder@banyan.ai").toLowerCase();
-  const password = process.env.SEED_USER_PASSWORD || "banyan-demopass";
+  const problem = seedPasswordProblem(process.env.SEED_USER_PASSWORD);
+  if (problem) throw new Error(problem);
+  const password = process.env.SEED_USER_PASSWORD || DEFAULT_SEED_PASSWORD;
 
   const user = await prisma.user.upsert({
     where: { email },
@@ -31,10 +46,21 @@ export async function seedDemoDatabase(prisma: PrismaClient): Promise<{ email: s
     },
   });
 
+  // Reuse the organization the seeded product already belongs to (an existing database was backfilled
+  // one organization per workspace); create "Banyan" only on a fresh database.
+  const existingProduct = await prisma.workspace.findUnique({ where: { slug: "banyan-ai" }, select: { organizationId: true } });
+  const organization = existingProduct
+    ? await prisma.organization.findUniqueOrThrow({ where: { id: existingProduct.organizationId } })
+    : await prisma.organization.upsert({ where: { slug: "banyan" }, update: { name: "Banyan" }, create: { name: "Banyan", slug: "banyan" } });
+  await prisma.organizationMember.upsert({
+    where: { organizationId_userId: { organizationId: organization.id, userId: user.id } },
+    update: { role: "OWNER" },
+    create: { organizationId: organization.id, userId: user.id, role: "OWNER" },
+  });
   const workspace = await prisma.workspace.upsert({
     where: { slug: "banyan-ai" },
     update: { name: "Banyan.ai", isSelf: true },
-    create: { name: "Banyan.ai", slug: "banyan-ai", isSelf: true },
+    create: { name: "Banyan.ai", slug: "banyan-ai", isSelf: true, organizationId: organization.id, productType: "saas" },
   });
 
   await prisma.membership.upsert({

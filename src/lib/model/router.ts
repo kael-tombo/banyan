@@ -1,7 +1,10 @@
 import { AIError, TemplateFallbackProvider, type AIProvider, type GenResult, type UsageMeta, getAIProvider } from "@/lib/ai/provider";
 import { prisma } from "@/lib/db";
 import { env } from "@/lib/env";
-import { estimateCostMicros, evaluateQuota, startOfUtcDay } from "@/lib/model/quota";
+import { log } from "@/lib/log";
+import { evaluateRunQuota, priceRunUsage, type AgentRunRecord } from "@/lib/model/agent-run";
+import { estimateCostMicros, evaluateQuota, startOfUtcDay, type QuotaDecision } from "@/lib/model/quota";
+import { hasPrompt, promptKey, type PromptRef } from "@/lib/ai/prompts/registry";
 
 /**
  * Model router — the single boundary between the agent runtime / business
@@ -28,7 +31,8 @@ export type ModelPurpose =
   | "content_draft"
   | "evaluation"
   | "recommendation"
-  | "chat";
+  | "chat"
+  | "product_analysis";
 
 export type ModelRouteRequest = {
   workspaceId: string;
@@ -37,9 +41,15 @@ export type ModelRouteRequest = {
   user: string;
   maxTokens: number;
   temperature?: number;
+  /** The registered prompt that produced system/user (US-045). */
+  prompt?: PromptRef;
+  /** 1 for the first try; the workflow passes 2+ on its retries. */
+  attempt?: number;
 };
 
 export type ModelRouteResult = {
+  /** The ledger row for the call that served this result, when it was recorded. */
+  modelCallId: string | null;
   text: string;
   usage: UsageMeta;
   latencyMs: number;
@@ -86,18 +96,34 @@ export function resolveProviderChain(workspaceId: string): ProviderResolution[] 
   return [resolveUserProvider(workspaceId), resolveManagedProvider()];
 }
 
-async function countLiveCallsToday(workspaceId: string): Promise<number> {
+/**
+ * Live model actions used against the daily quota: single-shot calls recorded
+ * here plus completed agentic runs (ADR-007 — one run = one unit, same
+ * ledger, same counter).
+ */
+export async function countLiveModelActionsToday(workspaceId: string): Promise<number> {
   return prisma.modelCall.count({
     where: {
       workspaceId,
       isFallback: false,
+      ok: true,
       createdAt: { gte: startOfUtcDay() },
     },
   });
 }
 
+const countLiveCallsToday = countLiveModelActionsToday;
+
+/** A failed call does not use the allowance: an outage should not eat a founder's daily quota. */
+export const ROUTER_RETRY = { attempts: 2, delayMs: 800, withinMs: 30_000 };
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export async function routeComplete(req: ModelRouteRequest): Promise<ModelRouteResult> {
   const started = Date.now();
+  // A versioned prompt must exist: an unregistered version would make the
+  // ledger point at instructions nobody can find.
+  if (req.prompt && !hasPrompt(req.prompt)) throw new Error(`Unknown prompt ${promptKey(req.prompt)}`);
 
   // 1. Quota gate on live usage for this workspace.
   const liveToday = await countLiveCallsToday(req.workspaceId);
@@ -108,35 +134,52 @@ export async function routeComplete(req: ModelRouteRequest): Promise<ModelRouteR
   }
 
   // 2. Resolve the provider chain in order; first available live provider wins.
+  // A blip (429, 5xx, a dropped connection) gets one more try on the spot: without it,
+  // a single 429 hands the founder a template draft. Slow failures don't retry, so a
+  // request is never held for two full timeouts.
   const chain = resolveProviderChain(req.workspaceId);
+  let lastError: string | undefined;
   for (const link of chain) {
     if (!link.provider || !link.usage) continue;
-    try {
-      const result: GenResult = await link.provider.complete({
-        system: req.system,
-        user: req.user,
-        maxTokens: req.maxTokens,
-        temperature: req.temperature,
-      });
-      const latencyMs = Date.now() - started;
-      await recordCall(req, result.usage, latencyMs, true);
-      return {
-        text: result.text,
-        usage: result.usage,
-        latencyMs,
-        quotaDeferred: false,
-      };
-    } catch (err) {
-      const message = err instanceof AIError || err instanceof Error ? err.message : String(err);
-      // Record the failure, then try the next link (eventually the fallback).
-      await recordCall(req, link.usage, Date.now() - started, false, message.slice(0, 500));
-      continue;
+    for (let attempt = 1; attempt <= ROUTER_RETRY.attempts; attempt++) {
+      const ledgerReq = { ...req, attempt: (req.attempt ?? 1) + attempt - 1 };
+      try {
+        const result: GenResult = await link.provider.complete({
+          system: req.system,
+          user: req.user,
+          maxTokens: req.maxTokens,
+          temperature: req.temperature,
+        });
+        const latencyMs = Date.now() - started;
+        const modelCallId = await recordCall(ledgerReq, result.usage, latencyMs, true);
+        return {
+          modelCallId,
+          text: result.text,
+          usage: result.usage,
+          latencyMs,
+          quotaDeferred: false,
+        };
+      } catch (err) {
+        const message = err instanceof AIError || err instanceof Error ? err.message : String(err);
+        lastError = message.slice(0, 500);
+        // Record the failure, then retry a blip or try the next link (eventually the fallback).
+        await recordCall(ledgerReq, link.usage, Date.now() - started, false, lastError);
+        const retryable = err instanceof AIError && err.retryable;
+        if (!retryable || attempt >= ROUTER_RETRY.attempts || Date.now() - started >= ROUTER_RETRY.withinMs) break;
+        await sleep(ROUTER_RETRY.delayMs);
+      }
     }
   }
 
-  // 3. No live provider available — labeled fallback.
+  // 3. No live provider served this. Say which it was: nothing configured is a setup
+  // question, a failing provider is an incident. The provider's own words stay in the
+  // ledger and in providerError, out of the label a founder reads.
+  if (lastError !== undefined) {
+    const res = await serveFallback(req, started, "The live model failed, so this draft is a template.");
+    return { ...res, quotaDeferred: false, providerError: lastError };
+  }
   const res = await serveFallback(req, started, "No live model provider available.");
-  return { ...res, quotaDeferred: false, providerError: "No live model provider available." };
+  return { ...res, quotaDeferred: false };
 }
 
 async function serveFallback(req: ModelRouteRequest, started: number, note?: string): Promise<ModelRouteResult> {
@@ -146,8 +189,8 @@ async function serveFallback(req: ModelRouteRequest, started: number, note?: str
     ? { ...result.usage, label: `${result.usage.label}${note ? ` — ${note}` : ""}` }
     : result.usage;
   const latencyMs = Date.now() - started;
-  await recordCall(req, usage, latencyMs, true);
-  return { text: result.text, usage, latencyMs, quotaDeferred: false };
+  const modelCallId = await recordCall(req, usage, latencyMs, true);
+  return { modelCallId, text: result.text, usage, latencyMs, quotaDeferred: false };
 }
 
 async function recordCall(
@@ -156,9 +199,9 @@ async function recordCall(
   latencyMs: number,
   ok: boolean,
   error?: string
-): Promise<void> {
+): Promise<string | null> {
   try {
-    await prisma.modelCall.create({
+    const row = await prisma.modelCall.create({
       data: {
         workspaceId: req.workspaceId,
         purpose: req.purpose,
@@ -169,15 +212,118 @@ async function recordCall(
         completionTokens: usage.completionTokens ?? 0,
         estCostMicros: usage.isFallback
           ? 0
-          : estimateCostMicros(usage.model, usage.promptTokens ?? 0, usage.completionTokens ?? 0),
+          : usage.reportedCostUsd !== undefined
+            ? Math.round(usage.reportedCostUsd * 1_000_000)
+            : estimateCostMicros(usage.model, usage.promptTokens ?? 0, usage.completionTokens ?? 0),
         latencyMs,
         ok,
         error: error ?? null,
+        promptName: req.prompt?.name ?? null,
+        promptVersion: req.prompt?.version ?? null,
+        attempt: req.attempt ?? 1,
       },
+      select: { id: true },
     });
+    return row.id;
   } catch {
     // The ledger must never break the workflow it observes.
+    return null;
   }
+}
+
+/**
+ * Record whether the output of a call passed the workflow schema (US-045).
+ * Calls nobody validates (chat) keep schemaValid null.
+ */
+export async function recordSchemaResult(modelCallId: string | null, schemaValid: boolean): Promise<void> {
+  if (!modelCallId) return;
+  try {
+    await prisma.modelCall.update({ where: { id: modelCallId }, data: { schemaValid } });
+  } catch {
+    /* never break the workflow */
+  }
+}
+
+// --- Agentic runs (ADR-007): one run = one quota unit = one ledger row ---
+
+/**
+ * Pre-session gate for the agent runtime: may this workspace start one more
+ * agentic run today? Counts the same ledger rows as the single-shot quota —
+ * completed runs are recorded as live calls by `recordAgentRun`, so no second
+ * counter exists. When refused, the handler degrades to the labeled template
+ * path exactly as an over-quota single-shot call does.
+ */
+export async function checkRunQuota(workspaceId: string): Promise<QuotaDecision> {
+  return evaluateRunQuota({
+    liveModelActionsToday: await countLiveModelActionsToday(workspaceId),
+    limitPerDay: env.MODEL_MAX_CALLS_PER_DAY,
+  });
+}
+
+/**
+ * Write one agentic run's aggregate usage to the ledger: a single live
+ * `ModelCall` row (counts as one quota unit) with the session tree's tokens
+ * and an honest cost — a true total when every model is priced, otherwise 0
+ * with the unpriced models named in a structured warning (prices are never
+ * guessed, and a partial sum is never presented as a total). The ledger must
+ * never break the runtime it observes, so failures return null.
+ */
+export async function recordAgentRun(run: AgentRunRecord): Promise<string | null> {
+  const price = priceRunUsage(run.perModel);
+  const reportedMicros = run.reportedCostUsd && run.reportedCostUsd > 0 ? Math.round(run.reportedCostUsd * 1_000_000) : null;
+  if (reportedMicros === null && price.unpricedModels.length > 0) {
+    log(
+      "warn",
+      "agent_run_cost_incomplete",
+      {
+        purpose: run.purpose,
+        runtime: run.runtime,
+        workspaceId: run.workspaceId,
+        unpricedModels: price.unpricedModels,
+        detail: "recording tokens with cost 0 (prices are never guessed)",
+      },
+      "worker"
+    );
+  }
+  try {
+    const models = [...new Set(run.perModel.map((m) => m.model))].sort();
+    const row = await prisma.modelCall.create({
+      data: {
+        workspaceId: run.workspaceId,
+        purpose: run.purpose,
+        provider: run.runtime === "opencode" ? "opencode-runtime" : "direct-runtime",
+        model: models.length > 0 ? models.join("+") : "none",
+        isFallback: false,
+        promptTokens: price.inputTokens,
+        completionTokens: price.outputTokens,
+        // Same rule as single-shot calls: what the provider reported beats our table.
+        estCostMicros: reportedMicros ?? price.estCostMicros,
+        latencyMs: run.latencyMs,
+        ok: run.ok,
+        error: run.ok ? null : ((run.error ?? "Agent run failed.").slice(0, 500)),
+        attempt: run.attempt ?? 1,
+      },
+      select: { id: true },
+    });
+    return row.id;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * An AIProvider that goes through the router: quota, usage ledger and the
+ * labelled fallback. Hand it to code written against AIProvider (the content
+ * generators) so their calls are counted like every other model call.
+ */
+export function routedProvider(opts: { workspaceId: string; purpose: ModelPurpose; prompt?: PromptRef }): AIProvider {
+  return {
+    name: "routed",
+    async complete(req) {
+      const res = await routeComplete({ ...opts, system: req.system, user: req.user, maxTokens: req.maxTokens, temperature: req.temperature });
+      return { text: res.text, usage: res.usage };
+    },
+  };
 }
 
 /** Aggregate usage for a workspace (settings/usage UI). */

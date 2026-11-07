@@ -136,17 +136,17 @@ describe("dataHealthRows", () => {
   it("maps connection states honestly", () => {
     const rows = dataHealthRows({
       connections: [
-        { label: "Postiz", status: "verified", lastCheckedAt: new Date() },
-        { label: "Postiz 2", status: "configured", lastCheckedAt: null },
-        { label: "Postiz 3", status: "error", lastCheckedAt: new Date() },
+        { label: "SocialFlow", status: "verified", lastCheckedAt: new Date() },
+        { label: "SocialFlow 2", status: "configured", lastCheckedAt: null },
+        { label: "SocialFlow 3", status: "error", lastCheckedAt: new Date() },
       ],
       attributionPct: 72,
       unattributedSignups: 14,
       activationSharePct: 26,
     });
-    expect(rows.find((r) => r.key === "conn-Postiz")?.status).toBe("connected");
-    expect(rows.find((r) => r.key === "conn-Postiz 2")?.status).toBe("degraded");
-    expect(rows.find((r) => r.key === "conn-Postiz 3")?.status).toBe("degraded");
+    expect(rows.find((r) => r.key === "conn-SocialFlow")?.status).toBe("connected");
+    expect(rows.find((r) => r.key === "conn-SocialFlow 2")?.status).toBe("degraded");
+    expect(rows.find((r) => r.key === "conn-SocialFlow 3")?.status).toBe("degraded");
   });
 
   it("says coverage is unknown with no signups, degraded with gaps", () => {

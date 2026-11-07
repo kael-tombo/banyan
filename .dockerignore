@@ -1,7 +1,9 @@
 node_modules
 .next
+dist
 .git
 .github
+.shipstudio
 *.db
 *.db-journal
 db/
@@ -10,7 +12,7 @@ db/
 !.env.example
 npm-debug.log*
 tests/
-scripts/
 docs/
 Dockerfile
 .dockerignore
+docker-compose*.yml

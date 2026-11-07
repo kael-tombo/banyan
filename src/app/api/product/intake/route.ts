@@ -4,6 +4,7 @@ import { apiError, assertSameOrigin, guardRate, json, readJson, requireWorkspace
 import { requireRole } from "@/lib/permissions";
 import { safeFetch, SafeFetchError } from "@/lib/net/safe-fetch";
 import { extractProductSnapshot, normalizeProductUrl } from "@/lib/product/intake";
+import { classifyFetchError } from "@/lib/product/analyze";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,7 +22,7 @@ const schema = z.object({
 export async function POST(req: NextRequest) {
   const csrf = assertSameOrigin(req);
   if (csrf) return csrf;
-  const limited = guardRate(req, "product-intake", 8, 60_000);
+  const limited = await guardRate(req, "product-intake", 8, 60_000);
   if (limited) return limited;
 
   const ctx = await requireWorkspace();
@@ -76,7 +77,15 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     if (err instanceof SafeFetchError) {
-      return apiError(err.message, 400);
+      // Show the founder what happened and what to do, not the fetcher's internals.
+      if (/could not be resolved/i.test(err.message)) {
+        return apiError(
+          `${url.hostname} doesn't point to a website yet. Check the spelling, try the address with or without www., or enter it manually.`,
+          422,
+        );
+      }
+      const mapped = classifyFetchError(err);
+      return apiError(mapped.message, mapped.code === "blocked_address" || mapped.code === "invalid_url" ? 400 : 422);
     }
     return apiError("Could not read that page. Check the URL and try again.", 502);
   }

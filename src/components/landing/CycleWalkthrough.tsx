@@ -35,7 +35,7 @@ const ADVANCE_MS = 7000;
 
 function Panel({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-xl border border-[#E6E8EA] bg-white shadow-[0_1px_2px_rgba(17,24,39,0.04),0_8px_24px_-12px_rgba(17,24,39,0.10)] ${className}`}>
+    <div className={`rounded-xl border border-bark/10 bg-white shadow-[0_1px_2px_rgba(17,24,39,0.04),0_8px_24px_-12px_rgba(17,24,39,0.10)] ${className}`}>
       {children}
     </div>
   );
@@ -43,7 +43,7 @@ function Panel({ children, className = "" }: { children: ReactNode; className?: 
 
 function Row({ label, children, tag }: { label: string; children: ReactNode; tag?: ReactNode }) {
   return (
-    <div className="grid grid-cols-[112px_minmax(0,1fr)] items-baseline gap-3 border-t border-[#EEF0F2] px-4 py-3 first:border-t-0 sm:grid-cols-[132px_minmax(0,1fr)]">
+    <div className="grid grid-cols-[112px_minmax(0,1fr)] items-baseline gap-3 border-t border-bark/[0.07] px-4 py-3 first:border-t-0 sm:grid-cols-[132px_minmax(0,1fr)]">
       <dt className="text-[13px] text-muted">{label}</dt>
       <dd className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-[14px] text-charcoal">
         <span>{children}</span>
@@ -55,7 +55,7 @@ function Row({ label, children, tag }: { label: string; children: ReactNode; tag
 
 function Tag({ children, tone = "neutral" }: { children: ReactNode; tone?: "neutral" | "forest" | "fig" }) {
   const cls =
-    tone === "forest" ? "bg-forest/[0.08] text-forest" : tone === "fig" ? "bg-fig/[0.12] text-fig-deep" : "bg-[#F1F3F4] text-charcoal-soft";
+    tone === "forest" ? "bg-forest/[0.08] text-forest" : tone === "fig" ? "bg-fig/[0.12] text-fig-deep" : "bg-canvas text-charcoal-soft";
   return <span className={`inline-flex h-5 shrink-0 items-center gap-1 rounded-md px-1.5 text-xs font-medium ${cls}`}>{children}</span>;
 }
 
@@ -123,7 +123,7 @@ const STAGES: Stage[] = [
     produces: "A plan you can read in a minute",
     artifact: (
       <Panel>
-        <div className="border-b border-[#EEF0F2] px-4 py-4">
+        <div className="border-b border-bark/[0.07] px-4 py-4">
           <p className="text-[13px] text-muted">Angle</p>
           <p className="mt-1 font-serif text-[22px] leading-snug text-forest-deep">Send the invoice before the train reaches the station</p>
         </div>
@@ -167,9 +167,9 @@ const STAGES: Stage[] = [
         </ul>
         <div className="mt-6 flex flex-wrap gap-2">
           <span className="inline-flex h-9 items-center rounded-lg bg-forest-deep px-4 text-sm font-medium text-white">Approve</span>
-          <span className="inline-flex h-9 items-center rounded-lg border border-[#E1E4E7] bg-white px-4 text-sm font-medium text-charcoal">Request changes</span>
+          <span className="inline-flex h-9 items-center rounded-lg border border-bark/15 bg-white px-4 text-sm font-medium text-charcoal">Request changes</span>
         </div>
-        <p className="mt-4 flex items-center gap-2 border-t border-[#EEF0F2] pt-4 text-[13px] text-muted">
+        <p className="mt-4 flex items-center gap-2 border-t border-bark/[0.07] pt-4 text-[13px] text-muted">
           <Lock size={14} aria-hidden="true" /> Publishing stays locked until a decision is recorded
         </p>
       </Panel>
@@ -216,16 +216,16 @@ const STAGES: Stage[] = [
     title: "Coordinated publishing",
     short: "Publishing",
     owner: "Publisher Agent",
-    summary: "Approved posts publish through your Postiz connection and the provider's response is recorded. Video is a handoff you record.",
-    produces: "Confirmed publications, or an honest block",
+    summary: "Today you publish each approved post yourself from its export package and record the live URL. When SocialFlow.ai's API is available, approved posts will publish through it automatically.",
+    produces: "Recorded publications with their live URLs",
     artifact: (
       <Panel>
         {[
-          { platform: "x" as const, name: "X thread", detail: "Through Postiz · provider confirmed", tag: <Tag tone="forest"><Check size={12} aria-hidden="true" /> Published</Tag> },
-          { platform: "linkedin" as const, name: "LinkedIn post", detail: "Through Postiz · provider confirmed", tag: <Tag tone="forest"><Check size={12} aria-hidden="true" /> Published</Tag> },
-          { platform: "youtube" as const, name: "Short-video script", detail: "Exported for you to record", tag: <Tag>Manual handoff</Tag> },
+          { platform: "x" as const, name: "X thread", detail: "Exported · published by you · live URL recorded", tag: <Tag tone="forest"><Check size={12} aria-hidden="true" /> Published</Tag> },
+          { platform: "linkedin" as const, name: "LinkedIn post", detail: "Exported · published by you · live URL recorded", tag: <Tag tone="forest"><Check size={12} aria-hidden="true" /> Published</Tag> },
+          { platform: "youtube" as const, name: "Short-video script", detail: "Exported for you to record", tag: <Tag>Waiting on you</Tag> },
         ].map((p) => (
-          <div key={p.name} className="flex items-center gap-3 border-t border-[#EEF0F2] px-4 py-4 first:border-t-0">
+          <div key={p.name} className="flex items-center gap-3 border-t border-bark/[0.07] px-4 py-4 first:border-t-0">
             <PlatformMark platform={p.platform} size={20} />
             <div className="min-w-0 flex-1">
               <p className="text-[14px] font-medium text-charcoal">{p.name}</p>
@@ -234,8 +234,8 @@ const STAGES: Stage[] = [
             {p.tag}
           </div>
         ))}
-        <p className="border-t border-[#EEF0F2] bg-[#F7F8F8] px-4 py-3 text-[13px] text-charcoal-soft">
-          No connection? The post is recorded as <span className="font-mono text-clay">blocked</span>, with the setup step attached.
+        <p className="border-t border-bark/[0.07] bg-canvas px-4 py-3 text-[13px] text-charcoal-soft">
+          Automated publishing through SocialFlow.ai is not available yet. Nothing is marked published until a live URL is recorded.
         </p>
       </Panel>
     ),
@@ -249,7 +249,7 @@ const STAGES: Stage[] = [
     artifact: (
       <div className="flex flex-col gap-3">
         <Panel>
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 border-b border-[#EEF0F2] px-4 py-2 text-xs text-muted">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 border-b border-bark/[0.07] px-4 py-2 text-xs text-muted">
             <span>Tracked link</span>
             <span>Records</span>
           </div>
@@ -258,7 +258,7 @@ const STAGES: Stage[] = [
             { platform: "linkedin" as const, link: "lnk.ledgerline.app/offline-li" },
             { platform: "youtube" as const, link: "lnk.ledgerline.app/offline-video" },
           ].map((l) => (
-            <div key={l.link} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 border-t border-[#EEF0F2] px-4 py-3 first:border-t-0">
+            <div key={l.link} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 border-t border-bark/[0.07] px-4 py-3 first:border-t-0">
               <span className="flex min-w-0 items-center gap-2">
                 <PlatformMark platform={l.platform} size={16} />
                 <span className="truncate font-mono text-[13px] text-charcoal">{l.link}</span>
@@ -330,10 +330,10 @@ export function CycleWalkthrough() {
   const stage = STAGES[active];
 
   return (
-    <div ref={rootRef} className="rounded-[20px] border border-[#E6E8EA] bg-white p-4 shadow-[0_1px_2px_rgba(17,24,39,0.04)] sm:p-6 lg:p-8">
+    <div ref={rootRef} className="rounded-[20px] border border-bark/10 bg-white p-4 shadow-[0_1px_2px_rgba(17,24,39,0.04)] sm:p-6 lg:p-8">
       {/* The trunk: seven stages on one line. */}
       <div className="relative">
-        <span aria-hidden="true" className="absolute left-4 right-4 top-4 h-px bg-[#E1E4E7]" />
+        <span aria-hidden="true" className="absolute left-4 right-4 top-4 h-px bg-bark/15" />
         <span
           aria-hidden="true"
           className="absolute left-4 top-4 h-px bg-forest transition-[width] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]"
@@ -367,7 +367,7 @@ export function CycleWalkthrough() {
                         ? "border-forest/40 bg-white text-forest"
                         : s.you
                           ? "border-fig/50 bg-white text-fig-deep group-hover:border-fig"
-                          : "border-[#D6DADE] bg-white text-charcoal-soft group-hover:border-[#B8BEC4]"
+                          : "border-bark/20 bg-white text-charcoal-soft group-hover:border-bark/30"
                   }`}
                 >
                   {done ? <Check size={14} aria-hidden="true" /> : i + 1}
@@ -394,7 +394,7 @@ export function CycleWalkthrough() {
         id="cycle-panel"
         role="tabpanel"
         aria-labelledby={`cycle-tab-${active}`}
-        className="mt-6 grid gap-6 rounded-2xl bg-[#F7F8F8] p-4 sm:p-6 lg:mt-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-10 lg:p-8"
+        className="mt-6 grid gap-6 rounded-2xl bg-canvas p-4 sm:p-6 lg:mt-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-10 lg:p-8"
       >
         <div key={`copy-${active}`} className="cycle-enter flex flex-col">
           <p className="flex items-center gap-2 text-[13px]">
@@ -413,7 +413,7 @@ export function CycleWalkthrough() {
           </p>
           <h3 className="mt-3 text-2xl font-medium leading-tight tracking-[-0.015em] text-forest-deep sm:text-[28px]">{stage.title}</h3>
           <p className="mt-3 text-[15px] leading-relaxed text-charcoal-soft">{stage.summary}</p>
-          <div className="mt-6 border-t border-[#E6E8EA] pt-4">
+          <div className="mt-6 border-t border-bark/10 pt-4">
             <p className="text-[13px] text-muted">Produces</p>
             <p className="mt-1 text-[15px] font-medium text-charcoal">{stage.produces}</p>
           </div>
@@ -421,14 +421,14 @@ export function CycleWalkthrough() {
             <button
               type="button"
               onClick={() => choose(active === 0 ? STAGES.length - 1 : active - 1)}
-              className="inline-flex h-9 items-center rounded-lg border border-[#E1E4E7] bg-white px-3 text-[13px] font-medium text-charcoal transition-colors hover:border-[#C9CED3]"
+              className="inline-flex h-9 items-center rounded-lg border border-bark/15 bg-white px-3 text-[13px] font-medium text-charcoal transition-colors hover:border-bark/25"
             >
               Previous
             </button>
             <button
               type="button"
               onClick={() => choose((active + 1) % STAGES.length)}
-              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#E1E4E7] bg-white px-3 text-[13px] font-medium text-charcoal transition-colors hover:border-[#C9CED3]"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-bark/15 bg-white px-3 text-[13px] font-medium text-charcoal transition-colors hover:border-bark/25"
             >
               {active === STAGES.length - 1 ? "Start over" : `Next: ${STAGES[active + 1].short}`}
               <ArrowRight size={14} aria-hidden="true" />

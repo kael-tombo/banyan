@@ -1,13 +1,11 @@
+import { sendVerificationEmail } from "@/lib/auth/email-flows";
 import { prisma } from "@/lib/db";
 import { hashPassword } from "@/lib/auth/password";
 import { createSession, sessionCookieOptions, SESSION_COOKIE } from "@/lib/auth/session";
-import { recordActivity, recordMetricEvent } from "@/lib/activity";
+import { createAccount } from "@/lib/auth/accounts";
 import { apiError, assertSameOrigin, guardRate, readJson } from "@/lib/api-utils";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { cookies } from "next/headers";
-import { VISITOR_COOKIE } from "@/lib/auth/session";
-import { randomSlug } from "@/lib/crypto";
 
 const schema = z.object({
   name: z.string().trim().min(1).max(80),
@@ -18,7 +16,7 @@ const schema = z.object({
 export async function POST(req: NextRequest) {
   const csrf = assertSameOrigin(req);
   if (csrf) return csrf;
-  const limited = guardRate(req, "signup", 10, 60_000);
+  const limited = await guardRate(req, "signup", 10, 60_000);
   if (limited) return limited;
 
   const parsed = await readJson(req, schema);
@@ -29,48 +27,15 @@ export async function POST(req: NextRequest) {
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return apiError("An account with this email already exists.", 409);
 
-    // Attribution: if the visitor arrived via a tracked link, attribute the signup
-    // (observed fact: they clicked a campaign link before registering).
-    const store = await cookies();
-    const visitorSlug = store.get(VISITOR_COOKIE)?.value ?? null;
-    let link = visitorSlug ? await prisma.trackedLink.findUnique({ where: { slug: visitorSlug } }) : null;
-
-    const user = await prisma.user.create({
-      data: {
-        email,
-        name: parsed.data.name,
-        passwordHash: await hashPassword(parsed.data.password),
-        attributedLinkId: link?.id ?? null,
-        attributedCampaignId: link?.campaignId ?? null,
-        attributedSource: link ? `tracked:${link.slug}` : "direct",
-      },
+    // Attribution, workspace and activity are shared with provider sign-up.
+    const user = await createAccount({
+      email,
+      name: parsed.data.name,
+      passwordHash: await hashPassword(parsed.data.password),
     });
 
-    if (link) {
-      // Visits attributed to the workspace that owns the link. A signup only
-      // creates an event for the link's own workspace.
-      await recordMetricEvent({
-        workspaceId: link.workspaceId,
-        type: "signup",
-        campaignId: link.campaignId,
-        linkId: link.id,
-        visitorId: visitorSlug,
-        userId: user.id,
-      });
-    }
-
-    // Everyone gets their own workspace to start in.
-    const workspace = await prisma.workspace.create({
-      data: { name: `${parsed.data.name}'s workspace`, slug: `ws-${randomSlug(8)}` },
-    });
-    await prisma.membership.create({ data: { userId: user.id, workspaceId: workspace.id, role: "owner" } });
-    await recordActivity({
-      workspaceId: workspace.id,
-      type: "signup",
-      actorType: "user",
-      summary: `New user ${email} registered${link ? " (attributed to a tracked campaign link)" : " (direct)"}.`,
-      meta: { email },
-    });
+    // US-011: the verification link goes out with signup; a mail problem never blocks the account.
+    await sendVerificationEmail(user).catch((err) => console.error("[signup] verification email:", err instanceof Error ? err.message : err));
 
     const { token } = await createSession(user.id);
     // Straight into the app — setup is guided, never forced.

@@ -15,17 +15,91 @@ model User {
   id                    String        @id @default(cuid())
   email                 String        @unique
   name                  String
-  passwordHash          String
+  // Null for accounts created through a sign-in provider and never given a password.
+  passwordHash          String?
   createdAt             DateTime      @default(now())
   onboardingCompletedAt DateTime?
+  // US-011: set when the owner opens the verification link (or signs up through a provider that verified the address).
+  emailVerifiedAt       DateTime?
+  // JSON: { autonomyDigest: boolean }. Null means the defaults (src/lib/email/preferences.ts).
+  emailPrefs            String?
   // Attribution recorded at signup when a tracked visitor cookie exists (observed, not inferred).
   attributedLinkId      String?
   attributedCampaignId  String?
   attributedSource      String?
   sessions              Session[]
+  apiTokens             ApiToken[]
+  organizationMembers   OrganizationMember[]
+  oauthAccounts         OAuthAccount[]
   memberships           Membership[]
+  emailTokens           EmailToken[]
+  emailMessages         EmailMessage[]
   approvals             ContentItem[] @relation("approvals")
   planApprovals         GoalPlan[]    @relation("planApprovals")
+}
+
+/// A sign-in provider identity linked to a user (Google, GitHub, ...). Only
+/// the identity is kept: provider access tokens are used once and discarded.
+model OAuthAccount {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider          String
+  providerAccountId String
+  email             String?
+  emailVerified     Boolean   @default(false)
+  displayName       String?
+  createdAt         DateTime  @default(now())
+  lastUsedAt        DateTime?
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+/// The founder's business (ADR-005): owns products (workspaces), members and, later, the credit balance.
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  timeZone  String   @default("UTC")
+  createdAt DateTime @default(now())
+
+  members  OrganizationMember[]
+  products Workspace[]
+}
+
+/// Organization role: OWNER | ADMIN | MEMBER | BILLING_MANAGER. OWNER and ADMIN reach every product;
+/// MEMBER reaches only products they are a member of; BILLING_MANAGER reaches billing only.
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role           String       @default("MEMBER")
+  createdAt      DateTime     @default(now())
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+}
+
+/// Personal access token for Banyan's MCP server (/api/mcp). Read-only by design: approvals and
+/// publishing stay with a person in the app. Only the SHA-256 hash is stored; the token is shown once.
+model ApiToken {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  tokenHash   String    @unique
+  // First characters, to tell tokens apart in the list (never enough to use)
+  prefix      String
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+
+  @@index([workspaceId])
 }
 
 model Session {
@@ -41,6 +115,13 @@ model Session {
 
 model Workspace {
   id        String   @id @default(cuid())
+  // ADR-005: a workspace is one product of an organization.
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  // saas | web_app | mobile_app | ecommerce | developer_tool | digital_product | agency_service | personal_brand | other
+  productType    String   @default("saas")
+  // active | archived (archived products leave the selector and their agents stop)
+  status         String   @default("active")
   name      String
   slug      String   @unique
   // The seeded Banyan.ai self-distribution workspace is its own first customer.
@@ -48,9 +129,19 @@ model Workspace {
   // Agent activity control: when set, the orchestrator reconciles but never
   // executes new task work for this workspace (pause is human-controlled).
   agentsPausedAt DateTime?
+  // Business basics captured in onboarding (US-019). timeZone is an IANA name
+  // used to display and enter schedule times; storage stays UTC.
+  businessName  String  @default("")
+  industry      String  @default("")
+  businessModel String  @default("")
+  timeZone      String  @default("UTC")
+  // Supervised autonomy (Level 2): the founder's policy as JSON, see src/lib/autonomy/policy.ts.
+  // Only a human changes it; "{}" means approve each draft.
+  autonomyPolicy String @default("{}")
   createdAt DateTime @default(now())
 
   memberships     Membership[]
+  apiTokens       ApiToken[]
   profile         ProductProfile?
   insights        AudienceInsight[]
   campaigns       Campaign[]
@@ -64,9 +155,31 @@ model Workspace {
   goals           Goal[]
   agentTasks      AgentTask[]
   profileFacts    ProfileFact[]
+  strategies      Strategy[]
+  creditEntries   CreditEntry[]
+  creditAccount   CreditAccount?
   recommendations Recommendation[]
   modelCalls      ModelCall[]
   chatMessages    ChatMessage[]
+  onboardingStages OnboardingStage[]
+  productAnalyses  ProductAnalysis[]
+
+  @@index([organizationId])
+}
+
+/// Onboarding progress, one row per stage the workspace has finished or
+/// skipped (US-018). Stages with no row are not started. The stage list and
+/// which stages are required live in src/lib/onboarding/stages.ts.
+model OnboardingStage {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  stage       String
+  // done | skipped
+  status      String
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([workspaceId, stage])
 }
 
 model Membership {
@@ -107,6 +220,22 @@ model ProductProfile {
   // JSON: { tone, language, themes, avoid, cta, approvalPreference }
   brandVoice      String   @default("{}")
   timezone        String   @default("UTC")
+  // Structured profile from the website analysis (US-022/US-023), JSON arrays of strings
+  features           String    @default("[]")
+  problemsSolved     String    @default("[]")
+  differentiators    String    @default("[]")
+  // Pricing as the site states it, and proof (customers, counts, ratings, quotes) as a JSON array
+  pricing            String?
+  proofPoints        String    @default("[]")
+  missingInformation String    @default("[]")
+  // JSON: field -> "user" | "analysis" — the founder's own words always win
+  fieldSources       String    @default("{}")
+  lastAnalysisId     String?
+  // Approval (US-023). A profile with analysis-sourced fields must be approved
+  // before strategy work; editing an approved profile starts a new version.
+  approvedAt         DateTime?
+  approvedById       String?
+  version            Int       @default(1)
   updatedAt       DateTime @updatedAt
 }
 
@@ -147,6 +276,13 @@ model Campaign {
   completedAt    DateTime?
   isSelfCampaign Boolean   @default(false)
   selfTheme      String?
+  // US-046: the one campaign lifecycle (src/lib/campaign/lifecycle.ts). `status`
+  // above is kept in step for older screens. Work states are derived from content.
+  lifecycle      String    @default("draft")
+  // The state to return to on resume
+  pausedFrom     String?
+  // The approved strategy this campaign distributes (US-044/046), one campaign per strategy
+  strategyId     String?   @unique
   // The goal this campaign serves (agentic execution); null for standalone campaigns
   goalId         String?
   goal           Goal?     @relation(fields: [goalId], references: [id], onDelete: SetNull)
@@ -187,6 +323,11 @@ model ContentItem {
   // JSON: { hook, scenes: [...], onScreenText, caption, cta } for short-form video
   videoExtras     String    @default("{}")
   sourceRef       String?
+  // US-044: the approved strategy and messaging angle this draft serves, and
+  // pre-review flags (banned terms, over-limit) as JSON [{code, message, ...}]
+  strategyId      String?
+  angle           String?
+  checks          String    @default("[]")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -196,6 +337,7 @@ model ContentItem {
 
   @@index([workspaceId, status])
   @@index([campaignId])
+  @@index([workspaceId, strategyId])
 }
 
 model ContentRevision {
@@ -218,12 +360,13 @@ model ChannelConnection {
   workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   // The channel this connection publishes to: x | linkedin | shortvideo
   channel         String
-  // Publishing adapter provider: postiz | manual
-  adapter         String    @default("postiz")
+  // Distribution provider id from src/lib/distribution/providers.ts (socialflow).
+  // Rows with "postiz" are historical: Postiz was removed (ADR-003) and they are status=removed.
+  adapter         String    @default("socialflow")
   label           String
-  // AES-256-GCM encrypted JSON config { baseUrl, apiKey, integrationIds }
+  // AES-256-GCM encrypted JSON of provider-specific credentials
   configEncrypted String
-  // configured | verified | error
+  // configured | verified | error | removed (kept for audit, never used to publish)
   status          String    @default("configured")
   lastCheckedAt   DateTime?
   lastError       String?
@@ -381,6 +524,8 @@ model Goal {
   source        String    @default("user")
   // The original natural-language instruction the goal was created from
   rawInput      String    @default("")
+  // Credits this cycle's drafts may hold or spend; null means only the workspace balance limits them.
+  creditBudget  Int?
   createdBy     String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
@@ -550,10 +695,19 @@ model ModelCall {
   latencyMs        Int       @default(0)
   ok               Boolean   @default(true)
   error            String?
+  // US-045: the registered prompt (src/lib/ai/prompts) behind this call, which
+  // try it was, and whether its output passed the workflow schema (null when
+  // nothing validates it, e.g. chat).
+  promptName       String?
+  promptVersion    Int?
+  attempt          Int       @default(1)
+  schemaValid      Boolean?
   createdAt        DateTime  @default(now())
-  workspace        Workspace @relation(fields: [workspaceId], references: [id])
+  // Usage rows go with their workspace, so deleting a workspace (or an account) never fails on them (TD-17).
+  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, createdAt])
+  @@index([workspaceId, promptName, promptVersion])
 }
 
 // Command center chat. One persisted conversation per workspace between the
@@ -574,4 +728,143 @@ model ChatMessage {
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, createdAt])
+}
+
+/// One analysis of a product's public website (US-021, US-022). The result is
+/// a draft the founder reviews and approves (US-023); it never becomes
+/// business context on its own.
+model ProductAnalysis {
+  id            String    @id @default(cuid())
+  workspaceId   String
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  url           String
+  // queued | reading | analysing | ready | failed
+  status        String    @default("queued")
+  // Set when status = failed: invalid_url | blocked_address | unreachable | timeout | http_error | not_html | empty_page
+  errorCode     String?
+  errorMessage  String?
+  // JSON array of the page URLs that were read
+  pages         String    @default("[]")
+  // JSON of the validated analysis (see src/lib/product/analyze.ts)
+  result        String?
+  // model | basic (rule-based extraction, labelled as such)
+  method        String?
+  // JSON array of instruction-like passages found on the pages (US-024)
+  flags         String    @default("[]")
+  promptVersion String?
+  // Onboarding 360: JSON of the market scan (src/lib/research/types.ts), and its state: running | ready | failed
+  research       String?
+  researchStatus String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([workspaceId, createdAt])
+}
+
+/// A distribution strategy (US-042, US-043). Versioned per workspace; each
+/// new version supersedes the previous proposal. `body` is the validated
+/// JSON from src/lib/strategy/generate.ts; `facts` snapshots the profile
+/// facts it cites so citations still resolve after the profile changes.
+model Strategy {
+  id             String    @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  goalId         String?
+  version        Int
+  // proposed | approved | rejected | superseded
+  status         String    @default("proposed")
+  body           String
+  // model | template
+  method         String
+  fallbackReason String?
+  facts          String    @default("[]")
+  objective      String    @default("")
+  // The product profile version this was generated from (US-023 → US-042)
+  profileVersion Int
+  promptName     String?
+  promptVersion  Int?
+  modelCallId    String?
+  createdById    String?
+  approvedAt     DateTime?
+  approvedById   String?
+  rejectedReason String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@unique([workspaceId, version])
+  @@index([workspaceId, status])
+}
+
+/// Credit ledger entry (US-055). Amounts are positive except for adjust; the
+/// kind decides how the balances move (src/lib/credits/ledger.ts). An entry
+/// is written once per idempotency key, so a retried operation never charges
+/// twice.
+model CreditEntry {
+  id             String    @id @default(cuid())
+  workspaceId    String
+  workspace      Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  // grant | reserve | settle | release | refund | expire | adjust
+  kind           String
+  amount         Int
+  idempotencyKey String
+  // The reserve entry a settle/release belongs to
+  reservationKey String?
+  campaignId     String?
+  note           String    @default("")
+  createdAt      DateTime  @default(now())
+
+  @@unique([workspaceId, idempotencyKey])
+  @@index([workspaceId, createdAt])
+  @@index([workspaceId, reservationKey])
+}
+
+/// Cached balance per workspace (US-055/062). It is the row reservations lock,
+/// so a balance check and a reserve happen atomically. Always equal to the
+/// fold of CreditEntry rows, updated in the same transaction.
+model CreditAccount {
+  workspaceId String    @id
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  available   Int       @default(0)
+  reserved    Int       @default(0)
+  updatedAt   DateTime  @updatedAt
+}
+
+// US-011 / US-012: single-use email links. Only an HMAC of the token is stored.
+model EmailToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  purpose   String // verify | reset
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, purpose])
+}
+
+// US-010: transactional email outbox. The rendered fields live encrypted in
+// `payload` only until the message is sent, then the payload is cleared.
+model EmailMessage {
+  id            String    @id @default(cuid())
+  userId        String?
+  user          User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  template      String // verify_email | reset_password | approval_needed
+  toAddress     String
+  payload       String? // AES-GCM ciphertext of the template data; null once sent
+  // queued | sending | sent | dev_logged | failed
+  status        String    @default("queued")
+  transport     String?
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now())
+  lastError     String?
+  providerId    String?
+  // Set for scheduled emails (e.g. one weekly summary per workspace, user and week) so they are queued once.
+  dedupeKey     String?   @unique
+  sentAt        DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([status, nextAttemptAt])
+  @@index([userId, template, createdAt])
 }

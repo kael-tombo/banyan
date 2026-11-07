@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 
 export type ActivityType =
+  | "strategy"
   | "content_created"
   | "content_generated"
   | "approval"
@@ -10,6 +11,7 @@ export type ActivityType =
   | "publication_success"
   | "publication_failed"
   | "publication_blocked"
+  | "publication_cancelled"
   | "signup"
   | "visit"
   | "onboarding_complete"
@@ -23,7 +25,19 @@ export type ActivityType =
   | "plan"
   | "task"
   // Human control over the agentic runtime (pause/resume)
-  | "agent_control";
+  | "agent_control"
+  // Product profile review and approval (US-023)
+  | "profile"
+  // Supervised autonomy: policy changes (human) and each decision made under a policy
+  | "autonomy_policy"
+  | "autonomy"
+  // The founder's after-the-fact verdict on a draft the policy approved (spot check)
+  | "autonomy_spotcheck"
+  | "autonomy_continuous"
+  // Organizations and products (ADR-005)
+  | "organization"
+  // An agent run that stopped before finishing: its budget, its deadline, or a failure (R4)
+  | "agent_incident";
 
 export async function recordActivity(input: {
   workspaceId: string;

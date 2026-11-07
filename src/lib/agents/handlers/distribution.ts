@@ -1,13 +1,23 @@
+import { generationMetaJson } from "@/lib/content/generation-meta";
+import { syncCampaignLifecycle } from "@/lib/campaign/lifecycle-service";
+import { routedProvider } from "@/lib/model/router";
 import { prisma } from "@/lib/db";
 import { recordActivity } from "@/lib/activity";
 import { attemptPublication } from "@/lib/publishing/publish";
 import { generateContent } from "@/lib/ai/generate";
+import { TemplateFallbackProvider } from "@/lib/ai/provider";
 import { isFormatFor, isChannel, isManualChannel, type Channel } from "@/lib/formats";
 import { DEFAULT_CHANNEL_FORMATS, contentSpecsForChannels } from "@/lib/agents/workflow-template";
 import { createTasksFromSpecs, loadBusinessContext, makeLogger, safeJSON } from "@/lib/agents/handlers/common";
 import { priorLearningLines } from "@/lib/learning-memory";
 import type { HandlerContext, HandlerResult } from "@/lib/agents/types";
 import type { StrategyOutput } from "@/lib/agents/handlers/planning";
+import { contextBlock } from "@/lib/agents/handlers/common";
+import { currentRuntimeSelection } from "@/lib/agents/runtime/select";
+import { draftWithAgents, type AgentDraft } from "@/lib/agents/runtime/opencode/drafting";
+import { env } from "@/lib/env";
+import { log as logEvent } from "@/lib/log";
+import { holdDraftCredit, settleDraftCredit } from "@/lib/credits/draft-charge";
 
 /**
  * Distribution handlers: campaign creation, channel-specific drafting, the
@@ -51,6 +61,7 @@ export async function handleCampaignPlan(ctx: HandlerContext): Promise<HandlerRe
 
   const campaign = await prisma.campaign.create({
     data: {
+      lifecycle: "approved",
       workspaceId: ctx.workspaceId,
       goalId: goal.id,
       name: `${goal.objective.slice(0, 60)} — wave 1`,
@@ -132,10 +143,88 @@ export async function handleContentDraft(ctx: HandlerContext): Promise<HandlerRe
     return { outcome: "blocked", reason: "No business profile configured.", actionable: "Complete your workspace profile so drafts are grounded in real context, then retry this task." };
   }
 
+  // R4: hold the draft's credit before any model work. Short credits or a spent goal budget block the task
+  // (a person can fix either and retry) with nothing started. Only a model-written draft keeps the credit.
+  const hold = await holdDraftCredit({ workspaceId: ctx.workspaceId, goalId: ctx.goalId, taskId: ctx.task.id, attempt: ctx.task.attempts, channel });
+  if (!hold.ok) {
+    log.push("credits", hold.reason);
+    return { outcome: "blocked", reason: hold.reason, actionable: hold.actionable };
+  }
+  let drafted: HandlerResult;
+  try {
+    drafted = await writeDraft(ctx, log, channel, format, campaign, { ...biz, profile: biz.profile });
+  } catch (err) {
+    await settleDraftCredit(ctx.workspaceId, hold.key, false);
+    throw err;
+  }
+  await settleDraftCredit(ctx.workspaceId, hold.key, drafted.outcome === "completed" && drafted.output.isFallback === false);
+  return drafted;
+}
+
+async function writeDraft(
+  ctx: HandlerContext,
+  log: ReturnType<typeof makeLogger>,
+  channel: Channel,
+  format: string,
+  campaign: Awaited<ReturnType<typeof prisma.campaign.findFirst>>,
+  biz: Awaited<ReturnType<typeof loadBusinessContext>> & { profile: NonNullable<Awaited<ReturnType<typeof loadBusinessContext>>["profile"]> },
+): Promise<HandlerResult> {
+  // R3: with AGENT_RUNTIME=opencode on Node 24, a writer agent drafts and a critic from another model
+  // family checks. Short-form video keeps the single call: its structured script is separate work.
+  // Any failure falls back to the single call below, which fills the same draft rather than adding one.
+  const selection = currentRuntimeSelection();
+  let agentNote = "";
+  let agentDraft: AgentDraft | null = null;
+  if (selection.runtime === "opencode" && channel !== "shortvideo") {
+    agentDraft = await draftWithAgents({ workspaceId: ctx.workspaceId, taskId: ctx.task.id, attempt: ctx.task.attempts, channel, format, campaignId: campaign?.id ?? null, context: contextBlock(biz) }).catch(
+      (err: Error): AgentDraft => {
+        logEvent("error", "agent_run_failed", { purpose: "content_draft", taskId: ctx.task.id, error: err.message.slice(0, 500) }, "worker");
+        return { ok: false, reason: `The agent runtime failed: ${err.message.slice(0, 200)}`, itemId: null, stopped: false };
+      }
+    );
+    if (agentDraft.ok) {
+      const item = await prisma.contentItem.update({
+        where: { id: agentDraft.itemId },
+        data: {
+          status: "ready_for_review",
+          generationMeta: generationMetaJson({ provider: "opencode-runtime", model: agentDraft.model, isFallback: false, label: agentDraft.label }, { taskId: ctx.task.id }),
+        },
+      });
+      await prisma.contentRevision.create({
+        data: { contentItemId: item.id, title: item.title, body: item.body, note: `Agent draft — ${agentDraft.label}`, authorType: "ai", meta: JSON.stringify({ taskId: ctx.task.id }) },
+      });
+      await syncCampaignLifecycle(campaign?.id);
+      const flagged = agentDraft.reviewed ? `, ${agentDraft.criticFlags} critic flag(s)` : ", not checked by the critic";
+      await recordActivity({
+        workspaceId: ctx.workspaceId,
+        type: "content_created",
+        actorType: "ai",
+        summary: `Draft created for ${channel} (${format})${flagged} — ${agentDraft.label}.`,
+        meta: { contentItemId: item.id, taskId: ctx.task.id },
+      });
+      return {
+        outcome: "completed",
+        output: {
+          summary: `Draft created for ${channel}/${format}${flagged}. Awaiting human approval before anything publishes.`,
+          refs: { contentItemId: item.id },
+          data: { contentItemId: item.id, channel, format, criticFlags: agentDraft.criticFlags, reviewed: agentDraft.reviewed },
+          generatedLabel: agentDraft.label,
+          isFallback: false,
+        },
+      };
+    }
+    agentNote = ` Agent runtime unavailable, so a single call served this: ${agentDraft.reason}`;
+  } else if (env.AGENT_RUNTIME === "opencode" && channel !== "shortvideo") {
+    agentNote = ` ${selection.reason}`;
+  }
+  const partialId = agentDraft && !agentDraft.ok ? agentDraft.itemId : null;
+
   const voice = safeJSON<{ tone?: string; language?: string; themes?: string; avoid?: string; cta?: string }>(biz.profile.brandVoice ?? "{}", {});
   const result = await generateContent({
     channel,
     format,
+    // R4: when the writer stopped at its limit without a draft, nothing more is spent: the template writes it.
+    provider: agentDraft && !agentDraft.ok && agentDraft.stopped ? new TemplateFallbackProvider() : routedProvider({ workspaceId: ctx.workspaceId, purpose: "content_draft" }),
     // The loop compounds: drafts are written with the workspace's concluded
     // experiments in view, not as if every campaign were the first.
     learning: priorLearningLines(biz.experiments, 4),
@@ -158,9 +247,24 @@ export async function handleContentDraft(ctx: HandlerContext): Promise<HandlerRe
     },
     brandVoice: voice,
   });
+  if (agentDraft && !agentDraft.ok && agentDraft.stopped) {
+    // The template's own label blames missing credentials; the real reason is the agent's limit.
+    result.label = "Template draft: the writer agent stopped at its limit, so nothing more was spent. Edit before use.";
+  }
   log.push("generated", result.label);
 
-  const item = await prisma.contentItem.create({
+  const item = partialId
+    ? // The writer saved a draft before failing: fill that one, so a fallback never adds a second.
+      await prisma.contentItem.update({
+        where: { id: partialId },
+        data: {
+          body: result.body,
+          status: "ready_for_review",
+          generationMeta: generationMetaJson(result, { taskId: ctx.task.id }),
+          videoExtras: result.videoExtras ? JSON.stringify(result.videoExtras) : "{}",
+        },
+      })
+    : await prisma.contentItem.create({
     data: {
       workspaceId: ctx.workspaceId,
       campaignId: campaign?.id ?? null,
@@ -171,7 +275,7 @@ export async function handleContentDraft(ctx: HandlerContext): Promise<HandlerRe
       // Agent drafts go straight to the review queue: they are complete, and
       // only a recorded human approval can ever move them toward publishing.
       status: "ready_for_review",
-      generationMeta: JSON.stringify({ provider: result.provider, isFallback: result.isFallback, note: result.label, taskId: ctx.task.id }),
+      generationMeta: generationMetaJson(result, { taskId: ctx.task.id }),
       videoExtras: result.videoExtras ? JSON.stringify(result.videoExtras) : "{}",
       sourceRef: `task:${ctx.task.id}`,
     },
@@ -179,11 +283,12 @@ export async function handleContentDraft(ctx: HandlerContext): Promise<HandlerRe
   await prisma.contentRevision.create({
     data: { contentItemId: item.id, title: item.title, body: result.body, note: `Agent draft — ${result.label}`, authorType: "ai", meta: JSON.stringify({ taskId: ctx.task.id }) },
   });
+  await syncCampaignLifecycle(campaign?.id);
   await recordActivity({
     workspaceId: ctx.workspaceId,
     type: "content_created",
     actorType: "ai",
-    summary: `Draft created for ${channel} (${format}) — ${result.label}.`,
+    summary: `Draft created for ${channel} (${format}) — ${result.label}.${agentNote}`,
     meta: { contentItemId: item.id, taskId: ctx.task.id },
   });
 
@@ -379,7 +484,7 @@ export async function handlePublish(ctx: HandlerContext): Promise<HandlerResult>
       outcome: "blocked",
       reason: `${blocked.length}/${attempts.length} publication(s) blocked: ${first.detail}`,
       actionable:
-        "Connect a Postiz integration in Publishing (the browser never sees your credentials) or publish natively yourself and record the live URL as a manual publication. The workflow state is preserved; retry this task once configured.",
+        "Automated publishing is not available yet (SocialFlow.ai has no verifiable API). Export the approved post, publish it yourself, and record the live URL as a manual publication. The workflow state is preserved.",
       output: {
         summary: `Publishing blocked: ${published.length}/${attempts.length} confirmed, ${blocked.length} blocked.`,
         refs: { publicationId: (published[0]?.publicationId ?? first.publicationId) ?? "" },

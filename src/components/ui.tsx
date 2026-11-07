@@ -114,10 +114,11 @@ export function Field({
   );
 }
 
-export function Card({ children, className = "", id }: { children: ReactNode; className?: string; id?: string }) {
+export function Card({ children, className = "", id, flush = false }: { children: ReactNode; className?: string; id?: string; flush?: boolean }) {
   // A raised sheet of paper: one hairline, a 16px radius, a neutral 1px shadow.
+  // `flush` drops the padding for cards whose bands run edge to edge.
   return (
-    <div id={id} className={`card-shadow rounded-2xl border border-bark/10 bg-white p-6 ${className}`}>
+    <div id={id} className={`card-shadow rounded-2xl border border-bark/10 bg-white ${flush ? "overflow-hidden" : "p-6"} ${className}`}>
       {children}
     </div>
   );
@@ -214,7 +215,7 @@ export function PageHeader({
         <h1 className="font-serif text-[28px] leading-[1.15] text-forest-deep sm:text-[32px]">{title}</h1>
         {description && <p className="mt-2 max-w-2xl text-sm leading-relaxed text-charcoal-soft">{description}</p>}
       </div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+      {actions && <div className="flex max-w-full shrink-0 flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
 }
@@ -256,7 +257,10 @@ export function StatusBadge({ status }: { status: string }) {
     blocked: "clay",
     error: "clay",
     verified: "forest",
+    active: "forest",
+    revoked: "charcoal",
     configured: "warm",
+    removed: "charcoal",
   };
   return <Badge variant={variantMap[status] ?? "warm"}>{status.replace(/_/g, " ")}</Badge>;
 }

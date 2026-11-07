@@ -1,0 +1,58 @@
+# Production override for a single server (docs/mvp-blockers/02, docs/LAUNCH_SETUP.md).
+#
+#   scripts/deploy.sh                      build, migrate, start, health-check, roll back on failure
+#
+# Adds Caddy for HTTPS (certificates are automatic), closes every host port except 80/443, and runs
+# SocialFlow Lite beside Banyan. Banyan reaches SocialFlow privately at http://socialflow:8080; the public
+# SocialFlow hostname serves only the paths a browser needs (connect and OAuth callbacks).
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "10m", max-file: "5" }
+
+services:
+  caddy:
+    image: caddy:2.8.4-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN in .env, e.g. app.example.com}
+      SFL_DOMAIN: ${SFL_DOMAIN:?set SFL_DOMAIN in .env, e.g. social.example.com}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env (certificate expiry notices)}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [web]
+    logging: *logging
+
+  web:
+    ports: !reset []
+    environment:
+      NEXT_PUBLIC_APP_URL: https://${APP_DOMAIN}
+    logging: *logging
+
+  worker:
+    environment:
+      NEXT_PUBLIC_APP_URL: https://${APP_DOMAIN}
+    logging: *logging
+
+  migrate:
+    environment:
+      NEXT_PUBLIC_APP_URL: https://${APP_DOMAIN}
+
+  postgres:
+    logging: *logging
+
+  redis:
+    logging: *logging
+
+  socialflow:
+    ports: !reset []
+    environment:
+      PUBLIC_URL: https://${SFL_DOMAIN}
+    logging: *logging
+
+volumes:
+  caddy_data:
+  caddy_config:

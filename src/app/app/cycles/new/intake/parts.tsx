@@ -1,0 +1,213 @@
+"use client";
+
+import { useId, useState, type KeyboardEvent, type ReactNode } from "react";
+import { ArrowLeft, Plus, X } from "lucide-react";
+
+/** "home page", "/pricing" — the short name of the page a value came from. */
+export function pageLabel(url: string): string {
+  try {
+    const u = new URL(url);
+    return u.pathname === "/" || u.pathname === "" ? "home page" : u.pathname.replace(/\/$/, "");
+  } catch {
+    return "your site";
+  }
+}
+
+/**
+ * Where a value came from, in one quiet tag: read from a page, inferred by
+ * Banyan (check it), needed from the founder, or the founder's own words.
+ */
+export function SourceTag({ source, empty, required, edited, siteRead = true }: { source?: string; empty: boolean; required?: boolean; edited?: boolean; siteRead?: boolean }) {
+  if (empty) {
+    return required ? (
+      <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md bg-clay/[0.08] px-1.5 py-0.5 text-[11px] font-medium text-clay">Needs you</span>
+    ) : siteRead ? (
+      <span className="text-[11px] text-muted">Not on your site</span>
+    ) : null;
+  }
+  if (source === "inferred") {
+    return (
+      <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md bg-fig/[0.12] px-1.5 py-0.5 text-[11px] font-medium text-fig-deep" title="Banyan worked this out from your pages. Check it reads right.">
+        Inferred · check it
+      </span>
+    );
+  }
+  if (source) {
+    return (
+      <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md bg-moss/[0.09] px-1.5 py-0.5 text-[11px] font-medium text-forest" title={source}>
+        From {pageLabel(source)}
+      </span>
+    );
+  }
+  return edited ? <span className="text-[11px] font-medium text-forest">Your words</span> : null;
+}
+
+/** A labelled control with its source tag on the right of the label. */
+export function ReviewField({
+  label,
+  tag,
+  hint,
+  children,
+  id,
+}: {
+  label: string;
+  tag?: ReactNode;
+  hint?: string;
+  children: (id: string) => ReactNode;
+  id?: string;
+}) {
+  const generated = useId();
+  const controlId = id ?? generated;
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex min-h-5 items-center justify-between gap-3">
+        <label htmlFor={controlId} className="text-[13px] font-medium text-charcoal">{label}</label>
+        {tag}
+      </div>
+      {children(controlId)}
+      {hint && <p className="text-[12px] leading-5 text-muted">{hint}</p>}
+    </div>
+  );
+}
+
+/** An editable list of short items: remove with ×, add with Enter. */
+export function ListField({
+  items,
+  onChange,
+  placeholder,
+  max = 12,
+  quote = false,
+  label,
+}: {
+  items: string[];
+  onChange: (items: string[]) => void;
+  placeholder: string;
+  max?: number;
+  quote?: boolean;
+  label: string;
+}) {
+  const [draft, setDraft] = useState("");
+  const add = () => {
+    const v = draft.trim();
+    if (!v || items.length >= max || items.some((i) => i.toLowerCase() === v.toLowerCase())) return;
+    onChange([...items, v]);
+    setDraft("");
+  };
+  const onKey = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      add();
+    }
+  };
+  return (
+    <div className="rounded-lg border border-bark/15 bg-white p-2 focus-within:border-forest/55 focus-within:ring-4 focus-within:ring-forest/10">
+      {items.length > 0 && (
+        <ul className={quote ? "mb-1.5 space-y-1" : "mb-1.5 flex flex-wrap gap-1.5"} aria-label={label}>
+          {items.map((item, i) => (
+            <li
+              key={`${item}-${i}`}
+              className={
+                quote
+                  ? "group flex items-start gap-2 rounded-md bg-ivory/70 px-2.5 py-1.5 text-[13px] leading-relaxed text-charcoal"
+                  : "group inline-flex max-w-full items-center gap-1 rounded-md bg-sage/45 py-1 pl-2.5 pr-1 text-[13px] text-forest-deep"
+              }
+            >
+              <span className={quote ? "flex-1" : "truncate"}>{item}</span>
+              <button
+                type="button"
+                onClick={() => onChange(items.filter((_, j) => j !== i))}
+                className="shrink-0 rounded p-0.5 text-charcoal-soft opacity-60 transition hover:bg-bark/10 hover:opacity-100 focus-visible:opacity-100"
+                aria-label={`Remove ${item}`}
+              >
+                <X size={13} aria-hidden="true" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {items.length < max && (
+        <div className="flex items-center gap-1.5">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={onKey}
+            onBlur={add}
+            placeholder={placeholder}
+            aria-label={`Add to ${label}`}
+            className="h-8 min-w-0 flex-1 bg-transparent px-1 text-sm text-charcoal placeholder:text-muted focus:outline-none"
+          />
+          <button type="button" onClick={add} disabled={!draft.trim()} className="rounded-md p-1.5 text-forest transition hover:bg-forest/[0.07] disabled:opacity-30" aria-label={`Add to ${label}`}>
+            <Plus size={15} aria-hidden="true" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A numbered chapter of the 360 report. `id` is the anchor the section nav jumps to. */
+export function Section({
+  index,
+  title,
+  lede,
+  children,
+  id,
+  action,
+}: {
+  /** Chapter number; omitted inside a tab, where numbering means nothing. */
+  index?: number;
+  title: string;
+  lede: string;
+  children: ReactNode;
+  id: string;
+  action?: ReactNode;
+}) {
+  return (
+    <section id={id} aria-labelledby={`${id}-h`} className="scroll-mt-24 border-t border-bark/10 pt-6 first:border-t-0 first:pt-0">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-1 basis-64 items-baseline gap-3">
+          {index !== undefined && <span className="font-mono text-xs text-muted" aria-hidden="true">{String(index).padStart(2, "0")}</span>}
+          <div>
+            <h3 id={`${id}-h`} className="font-serif text-lg tracking-[-0.01em] text-forest-deep">{title}</h3>
+            <p className="text-[13px] leading-5 text-muted">{lede}</p>
+          </div>
+        </div>
+        {action}
+      </div>
+      <div className={`grid grid-cols-1 gap-4 ${index !== undefined ? "sm:pl-8" : ""}`}>{children}</div>
+    </section>
+  );
+}
+
+/**
+ * The bar at the bottom of every onboarding step: where you are, one primary
+ * action, and the way back. Sticky, so the next step is always one click away.
+ */
+export function StepFooter({
+  hint,
+  onBack,
+  backLabel = "Back",
+  primary,
+  secondary,
+}: {
+  hint?: ReactNode;
+  onBack?: () => void;
+  backLabel?: string;
+  primary: ReactNode;
+  secondary?: ReactNode;
+}) {
+  return (
+    <div className="sticky bottom-0 z-20 -mx-4 mt-2 flex flex-wrap items-center gap-3 border-t border-bark/10 bg-canvas/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-2xl sm:border sm:bg-white/95 sm:px-5 sm:shadow-[0_8px_24px_-12px_rgba(14,42,33,0.18)]">
+      {onBack && (
+        <button type="button" onClick={onBack} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[13px] text-charcoal-soft transition hover:bg-bark/[0.06] hover:text-charcoal">
+          <ArrowLeft size={14} aria-hidden="true" /> {backLabel}
+        </button>
+      )}
+      {hint && <p className="order-first w-full text-[12px] leading-5 text-charcoal-soft sm:order-none sm:w-auto sm:min-w-0 sm:flex-1 sm:text-[13px]">{hint}</p>}
+      <div className="ml-auto flex items-center gap-2">
+        {secondary}
+        {primary}
+      </div>
+    </div>
+  );
+}

@@ -1,55 +1,72 @@
 /**
- * Backend authorization rules for the agentic runtime.
+ * Backend authorization rules — product roles (BOS-010, ADR-005).
  *
- * Pure functions on purpose: the routing layer calls them after resolving the
- * membership, and the unit tests exercise them without a database. All roles
- * below are Membership.role values stored server-side — never trusted from
- * the browser.
+ * Pure functions on purpose: routes call them after resolving the active
+ * product's membership, and unit tests exercise them without a database.
+ * Roles are Membership.role values stored server side — never trusted from
+ * the browser. Organization roles (OWNER/ADMIN/…) live in organizations.ts and
+ * are composed by products.ts: org OWNER/ADMIN act as PRODUCT_ADMIN.
  *
- * Consequential actions (plan approval, content approval, publishing,
- * advancing a workflow, correcting business context) require write access.
- * Read-only members can inspect everything but cannot cause side effects.
+ * Capabilities:
+ *   read    — see everything in the product
+ *   write   — create and edit drafts, profile, campaigns
+ *   approve — record approvals (strategy, content, plans) and set the autonomy mandate
+ *   control — run, retry, distribute, publish
+ *   manage  — product settings, connections, members
  */
 
-export type MembershipRole = "owner" | "member" | "viewer";
+export const PRODUCT_ROLES = ["PRODUCT_ADMIN", "MARKETING_MANAGER", "CONTENT_EDITOR", "ANALYST", "VIEWER"] as const;
+export type ProductRole = (typeof PRODUCT_ROLES)[number];
+export type Capability = "read" | "write" | "approve" | "control" | "manage";
 
-export const READ_ROLES: readonly string[] = ["owner", "member", "viewer"];
-export const WRITE_ROLES: readonly string[] = ["owner", "member"];
+/** Roles stored before BOS-010, mapped so nobody's rights change. */
+const LEGACY: Record<string, ProductRole> = { owner: "PRODUCT_ADMIN", member: "MARKETING_MANAGER", viewer: "VIEWER" };
 
-export function canRead(role: string): boolean {
-  return (READ_ROLES as readonly string[]).includes(role);
+const CAPABILITIES: Record<ProductRole, readonly Capability[]> = {
+  PRODUCT_ADMIN: ["read", "write", "approve", "control", "manage"],
+  MARKETING_MANAGER: ["read", "write", "approve", "control"],
+  CONTENT_EDITOR: ["read", "write"],
+  ANALYST: ["read"],
+  VIEWER: ["read"],
+};
+
+export const PRODUCT_ROLE_LABEL: Record<ProductRole, string> = {
+  PRODUCT_ADMIN: "Product admin",
+  MARKETING_MANAGER: "Marketing manager",
+  CONTENT_EDITOR: "Content editor",
+  ANALYST: "Analyst",
+  VIEWER: "Viewer",
+};
+
+/** The product role behind a stored value, or null for anything unknown (which grants nothing). */
+export function productRole(role: string | null | undefined): ProductRole | null {
+  if (!role) return null;
+  if ((PRODUCT_ROLES as readonly string[]).includes(role)) return role as ProductRole;
+  return LEGACY[role] ?? null;
 }
 
-export function canWrite(role: string): boolean {
-  return (WRITE_ROLES as readonly string[]).includes(role);
+export function can(role: string | null | undefined, capability: Capability): boolean {
+  const r = productRole(role);
+  return r !== null && CAPABILITIES[r].includes(capability);
 }
 
+export const canRead = (role: string) => can(role, "read");
+export const canWrite = (role: string) => can(role, "write");
 /** Approving a plan or content is a consequential, attributed action. */
-export function canApprove(role: string): boolean {
-  return canWrite(role);
-}
+export const canApprove = (role: string) => can(role, "approve");
+/** Running, retrying, distributing and publishing re-enter the execution path. */
+export const canControlWorkflow = (role: string) => can(role, "control");
+export const canManage = (role: string) => can(role, "manage");
 
-/**
- * Retrying a failed/blocked task re-enters the execution path; gate it the
- * same way as any other write. Cancelling a workflow is also a write.
- */
-export function canControlWorkflow(role: string): boolean {
-  return canWrite(role);
-}
+const DENIED: Record<Capability, string> = {
+  read: "Your role in this product does not grant read access.",
+  write: "Your role in this product does not grant write access.",
+  approve: "Only product admins and marketing managers can record approvals.",
+  control: "Only product admins and marketing managers can run or publish.",
+  manage: "Only product admins can change this product's settings and connections.",
+};
 
-/**
- * Unified guard used by API routes. Returns an error message when the role is
- * insufficient, or null when the action is allowed.
- */
-export function requireRole(role: string, action: "read" | "write" | "approve" | "control"): string | null {
-  switch (action) {
-    case "read":
-      return canRead(role) ? null : "Your workspace role does not grant read access.";
-    case "write":
-      return canWrite(role) ? null : "Your workspace role does not grant write access.";
-    case "approve":
-      return canApprove(role) ? null : "Only owners and members can record approvals.";
-    case "control":
-      return canControlWorkflow(role) ? null : "Only owners and members can control the workflow.";
-  }
+/** Unified guard used by API routes: an error message when the role is insufficient, else null. */
+export function requireRole(role: string, action: Capability): string | null {
+  return can(role, action) ? null : DENIED[action];
 }

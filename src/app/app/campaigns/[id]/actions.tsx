@@ -6,30 +6,19 @@ import { Button, Card, ErrorNote, Field, Input, Select, Textarea, StatusBadge, B
 import { CHANNEL_META, CHANNEL_FORMATS } from "@/lib/formats";
 import { Copy } from "lucide-react";
 
-const TRANSITIONS: Record<string, { to: string; label: string }[]> = {
-  draft: [{ to: "planned", label: "Plan" }],
-  planned: [{ to: "in_progress", label: "Start" }],
-  in_progress: [{ to: "completed", label: "Mark completed" }],
-  completed: [{ to: "in_progress", label: "Reopen" }],
-};
-
-export function CampaignActions({ campaign }: { campaign: { id: string; status: string; name: string } }) {
+/** Lifecycle actions available from the current state (US-046), decided on the server. */
+export function CampaignActions({ campaign, actions }: { campaign: { id: string; name: string }; actions: { action: string; label: string }[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [duplicated, setDuplicated] = useState<string | null>(null);
 
-  const options = [
-    ...(TRANSITIONS[campaign.status] ?? []),
-    ...(campaign.status !== "archived" ? [{ to: "archived", label: "Archive" }] : []),
-  ];
-
-  async function transition(to: string) {
+  async function transition(action: string) {
     setBusy(true); setError(null);
     try {
-      const res = await fetch(`/api/campaigns/${campaign.id}`, {
-        method: "PATCH", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ status: to }),
+      const res = await fetch(`/api/campaigns/${campaign.id}/lifecycle`, {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action }),
       });
       if (!res.ok) {
         const b = await res.json().catch(() => ({}));
@@ -61,8 +50,8 @@ export function CampaignActions({ campaign }: { campaign: { id: string; status: 
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {options.map((o) => (
-        <Button key={o.to} size="sm" variant={o.to === "archived" ? "secondary" : "primary"} onClick={() => transition(o.to)} disabled={busy}>
+      {actions.map((o) => (
+        <Button key={o.action} size="sm" variant={["cancel", "pause", "reject"].includes(o.action) ? "secondary" : "primary"} onClick={() => transition(o.action)} disabled={busy}>
           {busy ? "…" : o.label}
         </Button>
       ))}

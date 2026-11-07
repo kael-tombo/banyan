@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { requireWorkspaceServer } from "@/lib/workspace";
 import { Badge, Card, LinkButton, PageHeader, StatusBadge } from "@/components/ui";
+import { PublicationState } from "@/components/PublicationState";
 import {
   AlertTriangle, ArrowRight, ArrowUpRight, CheckCircle2, Circle, Clock3, Loader2,
   RefreshCw, ShieldCheck, Sparkles, Video,
@@ -114,6 +115,10 @@ export default async function CyclePage({ params }: { params: Promise<{ goalId: 
   });
   if (!goal) notFound();
 
+  // A cycle that runs on the launch path has a strategy instead of a GoalPlan (docs/DECISION_ONE_CYCLE_PIPELINE.md).
+  const strategy = goal.plan
+    ? null
+    : await prisma.strategy.findFirst({ where: { goalId: goal.id, workspaceId: ctx.workspace.id }, orderBy: { version: "desc" }, select: { id: true, version: true, status: true, approvedAt: true } });
   const campaignIds = goal.campaigns.map((c) => c.id);
   const content = goal.campaigns.flatMap((c) => c.items);
   const publications = content.flatMap((item) => item.publications);
@@ -172,8 +177,12 @@ export default async function CyclePage({ params }: { params: Promise<{ goalId: 
     {
       key: "strategy",
       label: "Strategy",
-      state: goal.plan ? (goal.plan.status === "approved" ? "done" : "waiting") : "pending",
-      hint: goal.plan ? `Plan ${goal.plan.status}` : "Planner is drafting",
+      state: goal.plan
+        ? (goal.plan.status === "approved" ? "done" : "waiting")
+        : strategy
+          ? (strategy.status === "approved" ? "done" : strategy.status === "proposed" ? "waiting" : "pending")
+          : "pending",
+      hint: goal.plan ? `Plan ${goal.plan.status}` : strategy ? `Strategy v${strategy.version} ${strategy.status}` : "Strategist is drafting",
     },
     {
       key: "drafts",
@@ -233,6 +242,9 @@ export default async function CyclePage({ params }: { params: Promise<{ goalId: 
           <>
             <LinkButton href={`/app/goals/${goal.id}`} variant="ghost" size="sm">
               Execution view
+            </LinkButton>
+            <LinkButton href={`/app/cycles/${goal.id}/report`} variant="ghost" size="sm">
+              Cycle report
             </LinkButton>
             {pendingReview.length > 0 && (
               <LinkButton href="/app/approvals" variant="secondary" size="sm">
@@ -340,10 +352,20 @@ export default async function CyclePage({ params }: { params: Promise<{ goalId: 
               </p>
             )}
           </>
+        ) : strategy ? (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm leading-relaxed text-charcoal">
+              This cycle runs on <span className="font-medium">strategy v{strategy.version}</span>: channels, angles, cadence and KPIs.{" "}
+              {strategy.status === "approved" ? "Approved; its drafts are written from it." : strategy.status === "proposed" ? "It waits for your review." : `It was ${strategy.status}.`}
+            </p>
+            <LinkButton href="/app/strategy" variant={strategy.status === "proposed" ? "primary" : "secondary"} size="sm">
+              {strategy.status === "proposed" ? "Review strategy" : "Open strategy"}
+            </LinkButton>
+          </div>
         ) : (
           <p className="text-sm leading-relaxed text-charcoal-soft">
-            No plan yet. The planner drafts it from the product snapshot and objective; it is stored here for your
-            approval before any consequential task is created.
+            No plan yet. Banyan drafts it from your product and objective, and it waits here for your approval before
+            anything is written or published.
           </p>
         )}
       </Section>
@@ -381,24 +403,16 @@ export default async function CyclePage({ params }: { params: Promise<{ goalId: 
                       {isManualChannel(item.channel) && <Badge variant="warm">manual handoff</Badge>}
                     </div>
                     <p className="mt-1 text-xs text-charcoal-soft">
-                      {item.format} · {pub ? pub.status.replace(/_/g, " ") : "not published"}
+                      {item.format}
+                      {pub ? "" : " · not published yet"}
                       {link ? ` · ${link.clicks} tracked click(s)` : ""}
                     </p>
+                    {pub && <div className="mt-1.5"><PublicationState publication={pub} compact /></div>}
                     {item.rejectionReason && item.status === "rejected" && (
                       <p className="mt-1 text-xs leading-relaxed text-clay">Reason: {item.rejectionReason}</p>
                     )}
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    {pub?.externalUrl && (
-                      <a
-                        href={pub.externalUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-xs font-medium text-forest hover:underline"
-                      >
-                        Live post <ArrowUpRight size={12} aria-hidden="true" />
-                      </a>
-                    )}
                     <Link
                       href={`/app/content/${item.id}`}
                       className="inline-flex items-center gap-1 text-xs font-medium text-forest hover:underline"

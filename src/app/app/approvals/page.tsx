@@ -1,3 +1,7 @@
+import { generationChip, readGenerationMeta } from "@/lib/content/generation-meta";
+import { bannedTerms, checkDraft } from "@/lib/content/checks";
+import { loadClaimEvidence, type EvidenceFor } from "@/lib/content/claim-evidence";
+import { isChannel } from "@/lib/formats";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
@@ -19,10 +23,26 @@ export const metadata: Metadata = { title: "Approvals" };
  * user's behalf — it only gathers what is waiting and shows the decisions
  * already recorded.
  */
+/** Pre-review flags on the current text (US-044). */
+function makeFlagCounter(avoid: string, evidenceFor: EvidenceFor) {
+  const banned = bannedTerms(avoid);
+  return (item: { channel: string; format: string; body: string; campaignId?: string | null; sourceRef?: string | null }) =>
+    isChannel(item.channel)
+      ? checkDraft({ channel: item.channel, format: item.format, body: item.body, banned, evidence: evidenceFor(item.campaignId ?? null, item.sourceRef) }).length
+      : 0;
+}
+
 export default async function ApprovalsPage() {
   const ctx = await requireWorkspaceServer();
+  let avoid = "";
+  try {
+    avoid = (JSON.parse(ctx.profile?.brandVoice || "{}") as { avoid?: string }).avoid ?? "";
+  } catch {
+    avoid = "";
+  }
+  const flagCount = makeFlagCounter(avoid, await loadClaimEvidence(ctx.workspace.id));
 
-  const [queue, gateTasks, decisions, counts] = await Promise.all([
+  const [queue, gateTasks, decisions, counts, proposedStrategy] = await Promise.all([
     prisma.contentItem.findMany({
       where: { workspaceId: ctx.workspace.id, status: { in: ["ready_for_review", "rejected"] } },
       orderBy: { updatedAt: "desc" },
@@ -41,20 +61,38 @@ export default async function ApprovalsPage() {
       select: { id: true, summary: true, actorType: true, actorSummary: true, createdAt: true },
     }),
     prisma.contentItem.groupBy({ by: ["status"], where: { workspaceId: ctx.workspace.id }, _count: true }),
+    // A strategy proposal is a decision too (US-043); it counts in "waiting on you".
+    prisma.strategy.findFirst({ where: { workspaceId: ctx.workspace.id, status: "proposed" }, orderBy: { version: "desc" }, select: { id: true, version: true, method: true, createdAt: true } }),
   ]);
 
   const countFor = (status: string) => counts.find((c) => c.status === status)?._count ?? 0;
   const rejected = queue.filter((i) => i.status === "rejected");
-  const nothingWaiting = queue.length === 0 && gateTasks.length === 0;
+  const nothingWaiting = queue.length === 0 && gateTasks.length === 0 && !proposedStrategy;
 
   return (
     <>
       <PageHeader
         title="Approvals"
-        description="Everything that cannot proceed without your recorded decision: content awaiting review, and execution gates waiting to close. Nothing here is auto-approved, and editing approved copy sends it back for review."
+        description="Everything that cannot proceed without your recorded decision: the distribution strategy, content awaiting review, and execution gates waiting to close. Nothing here is auto-approved, and editing approved copy sends it back for review."
       />
 
+      {proposedStrategy && (
+        <Link href="/app/strategy" className="card-lift mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-fig/30 bg-white p-4">
+          <span className="min-w-0">
+            <span className="flex items-center gap-2 font-semibold text-forest-deep">
+              <span className="h-1.5 w-1.5 rounded-full bg-fig" aria-hidden="true" />
+              Distribution strategy v{proposedStrategy.version}
+            </span>
+            <span className="mt-1 block text-sm text-charcoal-soft">
+              Channels, cadence and KPIs {proposedStrategy.method === "edited" ? "you edited" : "drafted from your approved profile"}. Drafts are written only from a strategy you approve.
+            </span>
+          </span>
+          <Badge variant="warm">Review strategy</Badge>
+        </Link>
+      )}
+
       <div className="mb-4 flex flex-wrap gap-2 text-sm">
+        {proposedStrategy && <Badge variant="warm">1 strategy to approve</Badge>}
         <Badge variant="warm">{countFor("ready_for_review")} awaiting review</Badge>
         <Badge variant="clay">{rejected.length} needs revision</Badge>
         <Badge variant={gateTasks.length > 0 ? "warm" : "moss"}>
@@ -114,10 +152,13 @@ export default async function ApprovalsPage() {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h2 className="font-semibold text-forest-deep">{item.title}</h2>
                   <div className="flex items-center gap-2">
+                    {flagCount(item) > 0 && <Badge variant="warm">{flagCount(item)} to check</Badge>}
+                    <GenerationChip raw={item.generationMeta} />
                     <Badge variant="charcoal">{item.channel === "shortvideo" ? "video" : item.channel}</Badge>
                     <StatusBadge status={item.status} />
                   </div>
                 </div>
+                {item.angle && <p className="mt-1 text-xs text-charcoal-soft">Angle: {item.angle}</p>}
                 <p className="mt-2 line-clamp-2 max-w-3xl text-sm text-charcoal-soft">{item.body || "No body yet."}</p>
                 <p className="mt-2 text-xs text-charcoal-soft">
                   {item.campaign ? `${item.campaign.name} · ` : "no campaign · "}
@@ -162,5 +203,17 @@ export default async function ApprovalsPage() {
         </p>
       </Card>
     </>
+  );
+}
+
+/** Which model wrote the draft, so a founder knows what they are approving. */
+function GenerationChip({ raw }: { raw: string }) {
+  const meta = readGenerationMeta(raw);
+  const chip = generationChip(meta);
+  if (chip.tone === "none") return null;
+  return (
+    <span title={meta.label ?? undefined}>
+      <Badge variant={chip.tone === "template" ? "clay" : "forest"}>{chip.text}</Badge>
+    </span>
   );
 }

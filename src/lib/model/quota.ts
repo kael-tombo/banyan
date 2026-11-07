@@ -40,8 +40,8 @@ export function startOfUtcDay(d = new Date()): Date {
  * prices, so unknown models record tokens only.
  */
 const MICRO_USD_PER_1K_TOKENS: { match: RegExp; input: number; output: number }[] = [
-  { match: /gpt-4o-mini/i, input: 150, output: 600 }, // $0.15 / $0.60 per 1k
-  { match: /gpt-4o/i, input: 2500, output: 10000 }, // $2.50 / $10 per 1k
+  { match: /gpt-4o-mini/i, input: 150, output: 600 }, // $0.15 / $0.60 per 1M tokens
+  { match: /gpt-4o/i, input: 2500, output: 10000 }, // $2.50 / $10 per 1M tokens
   { match: /gpt-4-turbo/i, input: 1000, output: 3000 },
   { match: /gpt-3\.5/i, input: 50, output: 150 },
 ];
@@ -53,4 +53,13 @@ export function estimateCostMicros(model: string, promptTokens: number, completi
     }
   }
   return 0;
+}
+
+/**
+ * True when the model has an entry in the known-price table. Prices are never
+ * guessed, so unpriced models record tokens with cost 0 — agent-run metering
+ * (ADR-007) uses this to keep a run's cost total honest instead of partial.
+ */
+export function modelPriceKnown(model: string): boolean {
+  return MICRO_USD_PER_1K_TOKENS.some((p) => p.match.test(model));
 }

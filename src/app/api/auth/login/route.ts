@@ -6,14 +6,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 const schema = z.object({
-  email: z.string().trim().email(),
+  // Looked up, not format-checked: an address accepted at signup must always be able to sign in,
+  // even if a later validator is stricter (zod 4's email check is).
+  email: z.string().trim().min(3).max(320),
   password: z.string().min(1).max(200),
 });
 
 export async function POST(req: NextRequest) {
   const csrf = assertSameOrigin(req);
   if (csrf) return csrf;
-  const limited = guardRate(req, "login", 10, 60_000);
+  const limited = await guardRate(req, "login", 10, 60_000);
   if (limited) return limited;
 
   const parsed = await readJson(req, schema);
@@ -21,7 +23,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const user = await prisma.user.findUnique({ where: { email: parsed.data.email.toLowerCase() } });
-    const valid = user ? await verifyPassword(parsed.data.password, user.passwordHash) : false;
+    // Accounts created through a sign-in provider may have no password.
+    const valid = user?.passwordHash ? await verifyPassword(parsed.data.password, user.passwordHash) : false;
     if (!user || !valid) {
       return apiError("Invalid email or password.", 401);
     }

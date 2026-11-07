@@ -1,3 +1,5 @@
+import { verificationRequired, VERIFY_FIRST_MESSAGE } from "@/lib/auth/email-flows";
+import { requireRole } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, guardRate, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { attemptPublication, recordManualPublication } from "@/lib/publishing/publish";
@@ -13,10 +15,12 @@ const schema = z.discriminatedUnion("mode", [
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const csrf = assertSameOrigin(req);
   if (csrf) return csrf;
-  const limited = guardRate(req, "publish", 30, 60_000);
+  const limited = await guardRate(req, "publish", 30, 60_000);
   if (limited) return limited;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
+  const forbidden = requireRole(ctx.membership.role, "control");
+  if (forbidden) return apiError(forbidden, 403);
   const { id } = await params;
 
   const parsed = await readJson(req, schema);
@@ -26,6 +30,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const result = await recordManualPublication({ contentItemId: id, workspaceId: ctx.workspace.id, url: parsed.data.liveUrl });
     return result.ok ? json(result) : apiError(result.message, 400);
   }
+
+  // US-011: Banyan publishes in the founder's name only for a confirmed address.
+  if (verificationRequired(ctx.user)) return apiError(VERIFY_FIRST_MESSAGE, 403, { code: "verify_email" });
 
   if (parsed.data.mode === "now") {
     const result = await attemptPublication({

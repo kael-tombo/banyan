@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { completeValidated, AIError, extractJSON } from "@/lib/ai/provider";
+import { completeValidated, AIError, extractJSON, type AIProvider } from "@/lib/ai/provider";
 import { CHANNEL_META, isChannel, isFormatFor, type Channel } from "@/lib/formats";
 
 export const videoExtrasSchema = z.object({
@@ -136,6 +136,45 @@ export const PLAN_SCHEMA = z.object({
 
 export type DraftPlan = z.infer<typeof PLAN_SCHEMA>;
 
+/** Shorten text to at most `max` characters, cutting at a word boundary and marking the cut. */
+export function clampText(value: unknown, max: number): unknown {
+  if (typeof value !== "string" || value.length <= max) return value;
+  const head = value.slice(0, max - 1);
+  const cut = head.lastIndexOf(" ");
+  return `${(cut > max * 0.6 ? head.slice(0, cut) : head).replace(/[\s,;:.–—-]+$/, "")}…`;
+}
+
+/**
+ * Models sometimes run a field a little past the plan's limits. One long theme
+ * should not throw away an otherwise good plan, so over-long text is shortened
+ * at a word boundary before validation. Structure (counts, channel keys, types)
+ * is still validated strictly.
+ */
+export function clampPlanLengths(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object") return raw;
+  const p = { ...(raw as Record<string, unknown>) };
+  p.positioning = clampText(p.positioning, 500);
+  if (Array.isArray(p.contentThemes)) p.contentThemes = p.contentThemes.map((t) => clampText(t, 120));
+  if (p.initialCampaign && typeof p.initialCampaign === "object") {
+    const c = { ...(p.initialCampaign as Record<string, unknown>) };
+    c.name = clampText(c.name, 80);
+    c.keyMessage = clampText(c.keyMessage, 300);
+    c.cta = clampText(c.cta, 120);
+    p.initialCampaign = c;
+  }
+  if (Array.isArray(p.experiments)) {
+    p.experiments = p.experiments.map((e) => {
+      if (!e || typeof e !== "object") return e;
+      const x = { ...(e as Record<string, unknown>) };
+      x.title = clampText(x.title, 100);
+      x.hypothesis = clampText(x.hypothesis, 400);
+      x.variable = clampText(x.variable, 200);
+      return x;
+    });
+  }
+  return p;
+}
+
 export async function generateDraftPlan(input: {
   productName: string;
   productDescription: string;
@@ -148,6 +187,8 @@ export async function generateDraftPlan(input: {
   goal: string;
   goalTarget?: number | null;
   channels: string[];
+  /** Pass routedProvider(...) so the call is quota-checked and logged. */
+  provider?: AIProvider;
 }): Promise<{ plan: DraftPlan; provider: string; isFallback: boolean; label: string }> {
   const system = [
     "You are Banyan.ai's distribution strategist. You produce honest, evidence-respecting plans.",
@@ -155,6 +196,7 @@ export async function generateDraftPlan(input: {
     "Never fabricate metrics, competitors' results, or market statistics.",
     'Respond with ONLY a JSON object matching: {"positioning": string, "contentThemes": [string x3], "channelFocus": [channel keys], "initialCampaign": {"name", "keyMessage", "cta"}, "experiments": [{"title","hypothesis","variable"}], "assumptions": [string]}',
     'channelFocus keys: "x", "linkedin", "shortvideo".',
+    "Length limits (hard): positioning under 450 characters; each content theme under 110; campaign name under 70; keyMessage under 280; cta under 100; experiment title under 90, hypothesis under 380, variable under 180.",
   ].join("\n");
 
   const user = [
@@ -172,13 +214,14 @@ export async function generateDraftPlan(input: {
 
   try {
     const { data, usage } = await completeValidated<string>({
+      provider: input.provider,
       system,
       user,
       maxTokens: 1200,
       temperature: 0.6,
       schema: z.string(),
     });
-    const plan = PLAN_SCHEMA.parse(extractJSON(data));
+    const plan = PLAN_SCHEMA.parse(clampPlanLengths(extractJSON(data)));
     return { plan, provider: usage.provider, isFallback: usage.isFallback, label: usage.label };
   } catch {
     // Live provider missing, malformed, or failed: fall back to a clearly
@@ -247,6 +290,10 @@ export type ContentGenRequest = {
   /** Concluded-experiment lines from priorLearningLines — the loop's memory. */
   learning?: string[];
   instruction?: string; // for improve-hook / shorten / change-tone / adapt operations
+  /** The approved strategy's messaging angle this draft serves (US-044). */
+  angle?: string;
+  /** Pass routedProvider(...) so the call is quota-checked and logged. */
+  provider?: AIProvider;
 };
 
 function clipAtWord(text: string, limit: number): string {
@@ -296,7 +343,32 @@ export function buildContextPost(req: ContentGenRequest): string {
   return clipAtWord(lines.join("\n\n"), 3000);
 }
 
-export async function generateContent(req: ContentGenRequest): Promise<{ body: string; videoExtras?: VideoExtras; provider: string; isFallback: boolean; label: string }> {
+/**
+ * How each format opens and is built. Formats for the same campaign are
+ * drafted separately, so each one gets a different opening move; that keeps
+ * an X thread and a LinkedIn post from starting with the same sentence.
+ */
+export const FORMAT_GUIDE: Partial<Record<Channel, Record<string, string>>> = {
+  x: {
+    single: "one post under 260 characters. Open with the sharpest version of the problem; end with the call to action.",
+    thread: "4 to 6 posts separated by a blank line, each under 260 characters, numbered 1/, 2/ … Post 1 is a short, blunt claim or question about the problem (no product name in post 1). Middle posts show how it works, one fact each. The last post is the call to action.",
+    discussion: "one post under 260 characters that asks the audience a genuine question about the problem. Mention the product only briefly, if at all.",
+    update: "one post under 260 characters stating what is new and who it is for, then the call to action.",
+  },
+  linkedin: {
+    insight: "120 to 220 words. Open with an observation from the founder's side of the problem, not a question and not the product name. Short paragraphs, no hashtags beyond two at the end.",
+    founder_story: "150 to 250 words in the first person. Open with a concrete moment (a place, a day, a customer conversation that the facts support), then why the product exists, then the call to action.",
+    build_update: "120 to 200 words. Open with what was built or changed; explain the decision behind it; end with the call to action.",
+    problem_solution: "120 to 220 words. Open with a concrete scene of the audience living the problem (who, where, what goes wrong), then the cost of it, then how the product solves it using the facts, then the call to action. Short paragraphs; at most two hashtags at the end.",
+    announcement: "100 to 180 words. Open with the news in one sentence, then who it is for and what it does, then the call to action.",
+  },
+  shortvideo: {
+    hook_script: "a hook spoken in the first 3 seconds that names the problem in the audience's words, then a 30-45 second script.",
+    storyboard: "4 to 6 scenes, each with what is said and what is shown.",
+  },
+};
+
+export async function generateContent(req: ContentGenRequest): Promise<{ body: string; videoExtras?: VideoExtras; provider: string; model: string; isFallback: boolean; label: string }> {
   if (!isFormatFor(req.channel, req.format)) {
     throw new AIError(`Format "${req.format}" is not valid for channel "${req.channel}".`);
   }
@@ -307,7 +379,11 @@ export async function generateContent(req: ContentGenRequest): Promise<{ body: s
     "- Use ONLY the facts provided. Do not invent testimonials, metrics, traction, or research.",
     "- Respect any topics to avoid.",
     "- Write in the requested language.",
-    "- Never claim results that were not given to you.",
+    "- Never claim results that were not given to you. Use no numbers, prices or amounts unless they appear in the facts.",
+    "- Do not write URLs, @handles or placeholders such as [link] or [name]. Banyan attaches the tracked link itself.",
+    "- Name the product at least once.",
+    "- A scene may illustrate the problem, but do not state facts about customers, their behaviour or results that are not in the facts (no \"customers actually…\", \"most teams…\", \"users told us…\").",
+    `- Format: ${FORMAT_GUIDE[req.channel]?.[req.format] ?? "write natively for this channel and format."}`,
     req.channel === "shortvideo"
       ? 'Respond with ONLY JSON: {"hook": string (first 3 seconds line), "script": string (full spoken script), "scenes": [{"scene": string, "visual": string}], "onScreenText": string, "caption": string, "cta": string}. On-screen text is the text overlay. Caption is the accompanying post caption.'
       : "Respond with ONLY the post text. No meta commentary, no titles, no markdown headings.",
@@ -332,11 +408,13 @@ export async function generateContent(req: ContentGenRequest): Promise<{ body: s
           ...req.learning.map((line) => `- ${line}`),
         ]
       : []),
+    req.angle ? `Messaging angle this post serves (from the approved strategy): ${req.angle}` : "",
     `Channel: ${meta.label}; format: ${req.format}`,
     req.instruction ? `Special instruction: ${req.instruction}` : "",
   ].filter(Boolean).join("\n");
 
   const { data, usage } = await completeValidated<string>({
+    provider: req.provider,
     system,
     user: context,
     maxTokens: req.channel === "shortvideo" ? 1600 : 800,
@@ -360,6 +438,7 @@ export async function generateContent(req: ContentGenRequest): Promise<{ body: s
       body: normalized.extras.script,
       videoExtras: normalized.extras,
       provider: usage.provider,
+      model: usage.model,
       isFallback: usage.isFallback || normalized.mode === "template",
       label,
     };
@@ -371,6 +450,7 @@ export async function generateContent(req: ContentGenRequest): Promise<{ body: s
     return {
       body: buildContextPost(req),
       provider: usage.provider,
+      model: usage.model,
       isFallback: true,
       label: isTemplate
         ? "Development fallback: context-built post from your profile and campaign (no model credentials). Edit before use."
@@ -385,7 +465,7 @@ export async function generateContent(req: ContentGenRequest): Promise<{ body: s
   } else if (body.length > limit * (req.channel === "x" ? 4 : 1)) {
     body = body.slice(0, limit * (req.channel === "x" ? 10 : 1));
   }
-  return { body, provider: usage.provider, isFallback: usage.isFallback, label: usage.label };
+  return { body, provider: usage.provider, model: usage.model, isFallback: usage.isFallback, label: usage.label };
 }
 
 /** JSON-safety wrapper used by plan generation. */

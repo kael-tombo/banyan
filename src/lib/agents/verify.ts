@@ -46,7 +46,7 @@ export const VERIFICATION_SCHEMAS: Record<string, z.ZodTypeAny> = {
   measurement: z.object({
     confirmedPublications: z.number().int().min(0),
     trackedClicks: z.number().int().min(0),
-    events: z.record(z.number().int().min(0)),
+    events: z.record(z.string(), z.number().int().min(0)),
     metrics: z.array(z.object({ metric: z.string(), value: z.number(), source: z.string() })),
     dataLimitations: z.array(z.string()),
   }),
