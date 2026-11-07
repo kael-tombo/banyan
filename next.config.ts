@@ -7,8 +7,9 @@ const nextConfig: NextConfig = {
   // tried to resolve BullMQ's optional Valkey client (@valkey/valkey-glide), which this app does not
   // use, and warned "Module not found" on every compile.
   // The embedded OpenCode host (R2) is loaded by Node at runtime, only on Node 24 and only when
-  // AGENT_RUNTIME=opencode; it must never be bundled.
-  serverExternalPackages: ["bullmq", "ioredis", "@opencode/sdk", "effect"],
+  // AGENT_RUNTIME=opencode; it must never be bundled. (Not "effect": Next already transpiles it, and
+  // listing it here is a build error. The host imports both by a name the bundler ignores.)
+  serverExternalPackages: ["bullmq", "ioredis", "@opencode/sdk"],
   // BOS-065: security headers on every response (framing and HSTS in production only; see the module).
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders(process.env.NODE_ENV === "production") }];
