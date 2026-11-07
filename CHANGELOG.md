@@ -26,7 +26,16 @@ follow [Keep a Changelog](https://keepachangelog.com); commit hashes refer to
     check; kept competitors become `competitor` facts with provenance; kept opportunities become open
     recommendations. Migrations `20261107200000_product_profile_pricing_proof` and
     `20261107210000_product_analysis_research`.
-  - **Known limits:** two public sources only (weak for consumer and non-English products), sparse buying
+  - **What's trending (trend radar):** platform by platform. Read live where an official API allows it —
+    YouTube, Reddit and Bluesky with server credentials (`YOUTUBE_API_KEY`, `REDDIT_CLIENT_*`, `BLUESKY_*`),
+    Hacker News and DEV without — and one-click research where none exists: TikTok (search, hashtags,
+    Creative Center), Instagram, Facebook (search, groups, Meta Ad Library per competitor), LinkedIn (posts,
+    Ad Library), X, Pinterest (Trends). Interest over 12 months from Wikipedia page views and a Google Trends
+    comparison; hashtags per platform; native content ideas (prompt `content-ideas` v1) that cite a post
+    from the same platform or say they're a suggestion; "Make this my first cycle" on any idea.
+  - **Known limits:** the trend radar reads none of TikTok, Instagram, Facebook, LinkedIn, X or Pinterest (no
+    public API; never scraped), and YouTube, Reddit and Bluesky only with credentials (TD-26 to TD-28). The
+    market scan uses two public sources only (weak for consumer and non-English products), sparse buying
     signals by design, English-only patterns, prompts not yet evaluated on the production model, the scan is
     not refreshed and its threads and signals are shown only during onboarding (TD-20 to TD-25).
 

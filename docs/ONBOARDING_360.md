@@ -5,7 +5,7 @@ journey fixes after them). This is the reference for how onboarding understands 
 information comes from, what is stored, and what it cannot do yet.
 
 **Contents:** [1. What it does](#1-what-it-does) · [2. The founder's flow](#2-the-founders-flow) ·
-[3. How it works](#3-how-it-works) · [4. Data sources](#4-data-sources) ·
+[3. How it works](#3-how-it-works) (incl. [3.3 What's trending](#33-whats-trending-the-trend-radar)) · [4. Data sources](#4-data-sources) ·
 [5. Honesty rules](#5-honesty-rules-and-provenance) · [6. What is stored](#6-what-is-stored-and-who-uses-it) ·
 [7. API](#7-api) · [8. Prompts and model use](#8-prompts-and-model-use) · [9. Privacy and security](#9-privacy-and-security) ·
 [10. Limits](#10-limits-and-known-gaps) · [11. Testing](#11-how-it-was-tested) · [12. Operating it](#12-operating-it) ·
@@ -22,7 +22,10 @@ A founder pastes their website. Banyan:
 2. **Maps the market** around it: competitors (checked on their own websites), the public threads where this
    market talks, people publicly asking for or switching away from tools like it, and 3–5 opportunities, each
    citing its evidence.
-3. **Starts the first cycle** from that context. Any opportunity can become the cycle's topic in one click.
+3. **Shows what's trending** on each platform: live posts where an official API allows it (YouTube, Reddit,
+   Bluesky with keys; Hacker News, DEV), one-click research where none exists (TikTok, Instagram, Facebook,
+   LinkedIn, X, Pinterest), interest over 12 months, hashtags, and what to post on each platform.
+4. **Starts the first cycle** from that context. Any opportunity can become the cycle's topic in one click.
 
 The founder only corrects mistakes and fills what no source states. Nothing is invented: every value links to the
 page or post it came from, is marked "inferred", or is the founder's own words.
@@ -36,7 +39,7 @@ cycle). Both render the same component, `CycleIntakeForm`.
 | --- | --- | --- |
 | 1. Your site | One address field, three promises (your site then your market · nothing made up · read-only) | Enter or "Read my site" starts the analysis. "No website yet? Start from scratch" opens an empty review. A saved profile can be reused. |
 | — | Reading | Real progress from the analysis status (`queued` → `reading` → `analysing`), a skeleton of what is coming, "Usually 10–30 seconds", Cancel. |
-| 2. Your 360 | One-page report | **Header:** logo, name, tagline, stage, social links, five tiles (Profile, Competitors, Conversations, People in market, Opportunities) that jump to their chapter and shimmer while the scan runs. **Chapter nav** on desktop. **Your product:** 01 Product · 02 Who it's for · 03 Problem and positioning · 04 Proof and pricing · 05 Voice and the ask. **Your market:** 06 Competitors · 07 Where your market talks · 08 People in the market · 09 Opportunities. A sticky bar holds "Plan the cycle". |
+| 2. Your 360 | One-page report | **Header:** logo, name, tagline, stage, social links, six tiles (Profile, Competitors, Conversations, People in market, Opportunities, Trending) that jump to their chapter and shimmer while the scan runs. **Chapter nav** on desktop. **Your product:** 01 Product · 02 Who it's for · 03 Problem and positioning · 04 Proof and pricing · 05 Voice and the ask. **Your market:** 06 Competitors · 07 Where your market talks · 08 People in the market · 09 Opportunities · 10 What's trending. A sticky bar holds "Plan the cycle". |
 | 3. Your first cycle | Objective, metric, target, window, channels | The objective is suggested from the site's main button ("Book a demo" → 5 demos; waitlist → 50 signups; trial → 20 trial signups; download → 50 installs; buy → 10 sales; otherwise 20 signups), with the reason shown. Kept opportunities appear as one-click topics. |
 
 Interaction details:
@@ -147,6 +150,56 @@ POST /api/goals             ──► the first cycle
   competitor" page; answer the most discussed thread; add proof if the site has none; lead with what the named
   alternative doesn't do.
 
+### 3.3 What's trending (the trend radar)
+
+Chapter 10 of the report, added 2026-11-07. It runs automatically after each market scan
+(`POST /api/product/analyze/[id]/trends`) and is kept with the scan.
+
+- **Search terms and competitors** come from the market scan (verified competitors and those named on the site).
+- **Each platform gets one status:**
+
+  | Status | Meaning | Platforms |
+  | --- | --- | --- |
+  | **Live** | Read through an official API; real posts with link, author, date and engagement | Hacker News (always), DEV (developer products), YouTube, Reddit, Bluesky (when their credentials are set) |
+  | **Needs a key** | Has an official API, but this deployment has no credentials for it; research links meanwhile | YouTube, Reddit, Bluesky |
+  | **Research links** | No public search API, so Banyan never reads it | TikTok, Instagram, Facebook, LinkedIn, X, Pinterest |
+  | **Failed** | The API was called and refused (quota, outage); the reason is shown | any live platform |
+
+- **Live readers** (`src/lib/research/trends/providers.ts`):
+  - **YouTube Data API v3:** most-viewed videos of the last 90 days for two terms and one competitor (`search.list`
+    ordered by views, then `videos.list` for views, likes and comments).
+  - **Reddit (app-only OAuth):** this month's top posts for each term and competitor; NSFW skipped.
+  - **Bluesky (`searchPosts`, signed in with an app password):** top posts.
+  - **Hacker News:** stories from the last year with more than 2 points whose title matches.
+  - **DEV:** top articles for single-word tags, kept only if the title matches a real search term.
+
+  Every live item must be about the term (most of its words in the title) or name the competitor. The top 8 per
+  platform are kept.
+- **Research links** (`links.ts`) open the platform in the founder's own browser:
+  - **Searches:** TikTok search and hashtag pages, Instagram hashtag pages, Facebook post and group search,
+    LinkedIn post search, X top search, Pinterest pin search.
+  - **Platform trend tools:** TikTok Creative Center (trending hashtags, top ads) and Pinterest Trends.
+  - **Competitors' ads:** the Meta Ad Library and LinkedIn Ad Library for each competitor.
+  - **Where a key is missing:** YouTube sorted by views, and Reddit and Bluesky search.
+- **Interest over 12 months** (`interest.ts`): monthly Wikipedia page views (Wikimedia REST API, public, no key)
+  for each competitor, the product and the first term. Only exact article titles count. Articles averaging under
+  100 views a month are hidden, and a last month still being counted (under a quarter of the months before) is
+  dropped. Change = the last three months against the three before. A link compares the same names in Google
+  Trends, in Google's own tool.
+- **Hashtags** per platform: from the terms and product name, plus the model's suggestions, with "Copy all".
+- **Content ideas** per platform (prompt `content-ideas` v1): format, hook, angle, and the found post it builds
+  on. A model idea may cite only a post found **on that same platform**; otherwise it is labelled "Suggestion:
+  nothing found here to build on". Without a model, one native-format idea per platform from a fixed template,
+  built on that platform's top post when there is one. **"Make this my first cycle"** turns any idea into the
+  cycle's topic.
+- **UI:** an interest strip with sparklines, platform tabs (platforms with live posts first; a count, key or link
+  icon shows each status), then for the selected platform: its note, the posts getting attention (video cards with
+  thumbnails for YouTube), what to post, research links and hashtags. A sixth header tile counts trending posts
+  and live platforms.
+
+Checked live on cal.com (no platform keys, dev model): 7 relevant Hacker News threads, Calendly interest −8%,
+15 platform-native ideas, research links for every platform, in about 25 seconds.
+
 ## 4. Data sources
 
 | Source | Used for | Access | Why it's allowed / chosen |
@@ -155,16 +208,27 @@ POST /api/goals             ──► the first cycle
 | Competitors' home pages | Verification, tagline, pricing, button | One public page each, same fetcher | Public marketing pages, read once |
 | Hacker News via the Algolia HN Search API (`hn.algolia.com/api/v1`) | Threads and buying signals | Free, no key | Official public search API for HN |
 | Stack Overflow via the Stack Exchange API 2.3 | Questions, for developer products | Free, no key (300 requests/day per IP) | Public API; attribution (author + link) is kept on every item |
+| YouTube Data API v3 | Trend radar: most-viewed recent videos | `YOUTUBE_API_KEY` (free; 10,000 units/day; one radar run uses ~303) | Official API; titles, channels and stats shown with links, as its terms allow |
+| Reddit Data API | Trend radar: top posts of the month | `REDDIT_CLIENT_ID` + `REDDIT_CLIENT_SECRET` (app-only OAuth) | Official API. **Commercial use needs Reddit's written approval**; get it before enabling in production |
+| Bluesky (AT Protocol) | Trend radar: top posts | `BLUESKY_HANDLE` + `BLUESKY_APP_PASSWORD` | Official API; search requires a signed-in account |
+| DEV (Forem API) | Trend radar: top articles, developer products | Free, no key | Public API |
+| Wikimedia REST API | Trend radar: monthly page views as interest | Free, no key (descriptive user agent sent) | Public API with documented reuse |
 
 **Considered and not used** (checked 2026-11-07):
 
 | Source | Why not |
 | --- | --- |
-| Reddit | Returns 403 to server requests; its Data API terms require approval for this use |
-| Bluesky search | The public AppView search now returns 403 without auth |
-| X, LinkedIn | Search APIs are paid or partner-only; scraping is against their terms |
-| Google Trends, Google News | No official API; automated use is outside their terms |
-| Product Hunt | Needs an OAuth token |
+| Reddit without an app | Returns 403 to unauthenticated server requests. Supported with app credentials (above) |
+| Bluesky without an account | The public AppView search returns 403 without auth. Supported with an app password (above) |
+| TikTok | No public search API: the Research API is for approved academic researchers, the Display API covers only a user's own videos, and Creative Center has no API. Research links only |
+| Instagram, Facebook | Meta offers no public content search (CrowdTangle closed in 2024; the Content Library is for approved researchers). The Ad Library is linked, not read |
+| X | Search API is paid (from the Basic tier). Research links only |
+| LinkedIn | No content search API; the Ad Library is linked |
+| Pinterest | The Trends API needs partner approval. Pinterest Trends is linked |
+| Google Trends, Google News | No generally available API; automated use is outside their terms. Google Trends is linked |
+| Mastodon | Hashtag timelines are readable, but tested results were recent, near-zero-engagement and spammy: not "trending" |
+| GDELT news | Did not respond from the test machine; not used |
+| Product Hunt | Needs an OAuth token; API terms restrict commercial use |
 
 "Trending" in the UI means *recent and well-discussed in these sources*. It is not a trend metric.
 
@@ -200,7 +264,8 @@ Provenance when saved (see §6):
 | --- | --- | --- |
 | `ProductAnalysis.result` | The product analysis (v2 schema; v1 results still parse) and the parser's site summary (logo, colour, language, buttons, socials) | `POST /api/product/analyze` |
 | `ProductAnalysis.research`, `.researchStatus` | The market scan (`MarketResearch` JSON) and `running \| ready \| failed` | `POST /api/product/analyze/[id]/research` |
-| `ProductProfile` | Name, description, stage, problem, value proposition, audience, pain, outcome; `positioning`, `market` (category), `features`, `differentiators`, `problemsSolved`, **`pricing`**, **`proofPoints`**; tone and call to action merged into `brandVoice`; `lastAnalysisId` | `POST /api/product/snapshot` |
+| `ProductProfile` | Name, description, stage, problem, value proposition, audience, pain, outcome; `positioning`, `market` (category), `features`, `differentiators`, `problemsSolved`, **`pricing`**, **`proofPoints`**; tone and call to action merged into `brandVoice`; `lastAnalysisId` | `POST /api/product/analyze/[id]/trends` | — | 6 per 10 min, `write`. The trend radar (§3.3), after the market scan; inline, `maxDuration` 60 s. Returns `{trends}` and keeps it on the scan (`research.trends`). 404 across workspaces, 409 before the scan finishes, 502 on failure. |
+| `POST /api/product/snapshot` |
 | `ProfileFact` (`category: competitor`, `source: onboarding 360`) | Kept competitors | same; replaced on each submit |
 | `Recommendation` (`producedBy: agent:onboarding`, `status: open`) | Kept opportunities, shown on `/app/opportunities` | same; open ones replaced on each submit |
 
@@ -245,10 +310,11 @@ intent, about`), `opportunities[]` (`kind, title, rationale, firstStep, evidence
 | `product-analysis` v2 | `product_analysis` | 2,000 | Replaces v1 for new analyses; v1 stays registered for stored results |
 | `market-scan` v1 | `research` | 900 | Competitor candidates with domains, search terms, developer flag |
 | `market-opportunities` v1 | `recommendation` | 1,400 | 3–5 opportunities citing evidence ids |
+| `content-ideas` v1 | `recommendation` | 1,800 | 1–2 native ideas per platform, citing found posts from the same platform; hashtags per platform |
 
 All three go through the model router: logged in `ModelCall` with prompt name and version, schema validity
-recorded, counted against `MODEL_MAX_CALLS_PER_DAY`. A full onboarding with a model makes **3–5 model calls**
-(analysis, with one retry if invalid; scan; opportunities). Without a model configured, or when the daily quota is
+recorded, counted against `MODEL_MAX_CALLS_PER_DAY`. A full onboarding with a model makes **4–6 model calls**
+(analysis, with one retry if invalid; scan; opportunities; content ideas). Without a model configured, or when the daily quota is
 spent, every step falls back to the parser and rules, and says so.
 
 ## 9. Privacy and security
@@ -265,6 +331,11 @@ spent, every step falls back to the parser and rules, and says so.
   the analysis record. It is deleted with the workspace (cascade). Banyan never contacts them.
 - **Third-party images:** the founder's and competitors' logos load from their own domains in the founder's
   browser (`referrerPolicy="no-referrer"`), so those sites see the founder's IP.
+- **Trend radar:** sends search terms and competitor names to YouTube, Reddit and Bluesky (only when their
+  credentials are set), Hacker News, DEV and Wikipedia. It never posts, and never requests TikTok, Instagram,
+  Facebook, LinkedIn, X or Pinterest; those links open in the founder's own browser. Platform credentials are
+  server-side settings, never sent to the browser. YouTube thumbnails load from `i.ytimg.com` in the founder's
+  browser.
 - **Abuse limits:** 8 site reads per minute and 6 scans per 10 minutes per client; a scan refuses to start while
   one is running.
 
@@ -278,6 +349,11 @@ spent, every step falls back to the parser and rules, and says so.
 | **Buying signals are sparse by design** | Precision over recall: a cal.com scan found 2 genuine posts. Many real buyers phrase things the patterns miss | More phrasings, other languages, and a model pass to classify candidate comments |
 | **English-only patterns** | Intent, price, proof, pain and audience patterns are English | Per-language patterns, or model classification |
 | **"Trending" is not a trend metric** | Ranks by points and comments in two indexes; no search-volume or growth data | A trends data source |
+| **TikTok, Instagram, Facebook, LinkedIn, X and Pinterest are not read** | None of them offers a public search API Banyan may use, and scraping is against their terms. The radar gives research links, competitors' ad libraries and suggested ideas, not live data, for the platforms most founders care about | Only with official access: TikTok Research API (academic only today), Meta Content Library (researchers), X API (paid), Pinterest Trends API (partners) |
+| **YouTube, Reddit and Bluesky need credentials** | Without them, these show research links only. YouTube's free quota allows about 33 radar runs a day per key; Reddit commercial use needs Reddit's approval | Create the keys (see §12), and ask Reddit for commercial approval |
+| **"Trending" on the radar is engagement, not velocity** | Ranked by views, upvotes or points within a window (YouTube 90 days, Reddit a month, HN a year); no rate-of-growth measure | Store radar runs and compare them over time |
+| **Wikipedia interest covers only names with an article** | Most young products and niche categories have none, so the interest strip is often just the big competitors | Google Trends API (alpha, limited access) when available |
+| **Content ideas are suggestions** | Hooks and angles are drafted from the product and found posts; most platforms have nothing found to build on and say so. They are not tested against platform performance | Measure ideas once cycles publish |
 | **Stack Exchange quota** | 300 requests/day per IP without a key; on Vercel's shared IPs it can run out, and the source then shows ✗ | Register a free Stack Apps key (10,000/day) |
 
 ### Accuracy
@@ -311,6 +387,7 @@ These are tracked as TD-20 to TD-25 in [TECHNICAL_DEBT.md](TECHNICAL_DEBT.md).
 | Test file | Covers |
 | --- | --- |
 | `tests/site-signals.test.ts` (14) | JSON-LD, meta, hero, lead, CTAs, prices, proof, audience, pain, stage, socials, logo; cookie banners kept out; malformed JSON-LD; page ranking; www fallback; JavaScript-only page; first-paragraph description; review mapping, sources and cycle suggestion |
+| `tests/trend-radar.test.ts` (13) | YouTube, Reddit and Bluesky parsers; hashtags; research links (TikTok search, Creative Center, Meta Ad Library, Google Trends); Wikipedia exact-title match, change, unfinished last month and tiny articles; statuses without keys (and no request ever made to TikTok, Instagram, Facebook, LinkedIn, X or Pinterest); YouTube with a key; a failing platform reported; rule ideas; model ideas restricted to listed platforms and same-platform citations |
 | `tests/market-research.test.ts` (15) | Buying signals (switching, frustration, comparing kept; job posts, self-promotion and link-only mentions dropped; topic needs all words in one sentence); threads and relevance; Stack Overflow; filler stripping; status-quo competitors dropped; verification (parked domain fails, down site fails); no-model scan end to end; founder overrides; failing source reported; uncited model opportunities dropped; evidence-id stripping |
 | `tests/product-analysis.test.ts`, `tests/prompts.test.ts`, `tests/profile-review.test.ts` | v2 prompt registered and used, retry and fallback, untrusted fencing, failure messages, v2 fields merge into the profile |
 | `scripts/e2e-acceptance.sh` (CI) | Onboarding page loads on the 360 headline; site analysis through the API; drafted profile carries the page's description; private address refused; cross-workspace analysis and market scan refused (404) |
@@ -326,12 +403,22 @@ Live checks run during development (not in CI, since they depend on third-party 
 
 ## 12. Operating it
 
-- **No new environment variables.** The model is the existing provider (`AI_PROVIDER`, `OPENAI_*`). Without one,
+- **Optional platform keys for the trend radar** (all server-side; see `.env.example`):
+  - `YOUTUBE_API_KEY`: Google Cloud console → enable *YouTube Data API v3* → Credentials → API key; restrict it
+    to that API. Free quota 10,000 units/day; one radar run uses about 303.
+  - `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`: reddit.com/prefs/apps → create a *script* app. **Request Reddit's
+    approval for commercial use before turning this on in production.**
+  - `BLUESKY_HANDLE`, `BLUESKY_APP_PASSWORD`: a Bluesky account for Banyan → Settings → Privacy and security →
+    App passwords.
+  Without them those platforms show research links; nothing breaks.
+- **The model** is the existing provider (`AI_PROVIDER`, `OPENAI_*`). Without one,
   the parser and rules run.
-- **Outbound network:** production must reach `hn.algolia.com` and `api.stackexchange.com` over HTTPS, plus the
+- **Outbound network:** production must reach `hn.algolia.com`, `api.stackexchange.com`, `dev.to`, `en.wikipedia.org`,
+  `wikimedia.org` and, when configured, `www.googleapis.com`, `www.reddit.com`/`oauth.reddit.com` and `bsky.social` over HTTPS, plus the
   public web for founder and competitor sites.
 - **Migrations:** the two above, applied by `prisma migrate deploy` with the rest of PR #5.
-- **Cost:** 3–5 model calls per onboarding (see §8), counted in the usage page and the daily cap.
+- **Cost:** 4–6 model calls per onboarding (see §8), counted in the usage page and the daily cap; about 303 YouTube
+  quota units per radar run when the key is set.
 - **When something looks wrong:** the analysis record (`ProductAnalysis`) holds the pages read, the result, the
   method, the scan and its status; `ModelCall` holds each prompt call and whether its output was valid.
 
@@ -342,6 +429,7 @@ Live checks run during development (not in CI, since they depend on third-party 
 | Site reading | `src/lib/product/site-signals.ts`, `src/lib/product/analyze.ts`, `src/lib/product/intake.ts`, `src/lib/product/analysis-runner.ts` |
 | Review mapping | `src/lib/product/intake-profile.ts`, `src/lib/product/profile-review.ts` |
 | Market scan | `src/lib/research/types.ts`, `sources.ts`, `competitors.ts`, `market.ts`, `runner.ts` |
+| Trend radar | `src/lib/research/trends/types.ts`, `providers.ts`, `links.ts`, `interest.ts`, `radar.ts`; prompt `src/lib/ai/prompts/content-ideas.v1.ts`; route `src/app/api/product/analyze/[id]/trends/route.ts`; UI `src/app/app/cycles/new/intake/trend-radar.tsx` |
 | Prompts | `src/lib/ai/prompts/product-analysis.v2.ts`, `market-scan.v1.ts`, `market-opportunities.v1.ts` |
 | API | `src/app/api/product/analyze/route.ts`, `analyze/[id]/route.ts`, `analyze/[id]/research/route.ts`, `snapshot/route.ts` |
 | UI | `src/app/app/cycles/new/cycle-intake-form.tsx`, `intake/reading-progress.tsx`, `intake/understood.tsx`, `intake/market-sections.tsx`, `intake/parts.tsx`; pages `src/app/onboarding/page.tsx`, `src/app/app/cycles/new/page.tsx` |
@@ -353,7 +441,8 @@ In order of value:
 
 1. Pick the production model (blocker 03) and run the three prompts on the 10-product evaluation set.
 2. A **Market page** in the app that shows the saved threads and signals, with a weekly rescan.
-3. A broader search source for non-developer products (needs a vendor and a key).
-4. A Stack Apps key for the Stack Exchange quota.
-5. Read competitors' `/pricing` page as well as their home page.
-6. Move the scan onto the job queue where Redis exists, and retire `/api/product/intake`.
+3. Set the YouTube and Bluesky keys, and ask Reddit for commercial approval, so the radar reads them live.
+4. A broader search source for non-developer products (needs a vendor and a key).
+5. A Stack Apps key for the Stack Exchange quota.
+6. Read competitors' `/pricing` page as well as their home page.
+7. Move the scan onto the job queue where Redis exists, and retire `/api/product/intake`.

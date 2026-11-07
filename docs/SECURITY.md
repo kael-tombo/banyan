@@ -73,7 +73,10 @@ Onboarding reads public pages and two public search APIs ([ONBOARDING_360.md](ON
 - public posts are kept only as username, sentence, link and date inside the workspace's analysis record,
   deleted with the workspace; Banyan never contacts anyone;
 - founder and competitor logos load from their own domains in the founder's browser (`no-referrer`);
-- rate limits: 8 site reads/min, 6 market scans per 10 min; one scan at a time per analysis.
+- the trend radar sends search terms and competitor names to YouTube, Reddit and Bluesky (only with server-side
+  credentials, never sent to the browser), Hacker News, DEV and Wikipedia; it never requests TikTok, Instagram,
+  Facebook, LinkedIn, X or Pinterest — those are links the founder opens;
+- rate limits: 8 site reads/min, 6 market scans and 6 radar runs per 10 min; one scan at a time per analysis.
 
 ### Secrets at rest & in transit
 - Channel connection configs are **AES-256-GCM encrypted**

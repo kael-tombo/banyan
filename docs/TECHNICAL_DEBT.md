@@ -1,6 +1,6 @@
 # Technical Debt Register
 
-> Statuses checked against the code on 2026-11-07. Open items: TD-08 (partly), TD-09, TD-10, TD-11, TD-12 (vendor), TD-14, TD-16, TD-19, TD-20 to TD-25 (onboarding 360, added 2026-11-07), and the nested zod 3 under `@opencode/sdk` noted in TD-18.
+> Statuses checked against the code on 2026-11-07. Open items: TD-08 (partly), TD-09, TD-10, TD-11, TD-12 (vendor), TD-14, TD-16, TD-19, TD-20 to TD-28 (onboarding 360, added 2026-11-07), and the nested zod 3 under `@opencode/sdk` noted in TD-18.
 
 Recorded 2026-11-01 during the Phase 0 audit. Severity: **High** blocks the MVP or risks data/money · **Medium**
 hurts reliability or operations · **Low** cleanup.
@@ -32,3 +32,6 @@ hurts reliability or operations · **Low** cleanup.
 | TD-23 | Prompts `product-analysis` v2, `market-scan` v1 and `market-opportunities` v1 were tested only with the development model on three live sites | Medium | Quality on the production model and across product types is unmeasured | Run them on the 10-product evaluation set with the production model (blocker 03) |
 | TD-24 | The market scan runs inline once, and its threads and signals are shown only during onboarding | Medium | A saved scan goes stale; the founder can't revisit the people and threads it found | A Market page with a scheduled rescan; queue the scan where Redis exists |
 | TD-25 | `/api/product/intake` (the old one-page reader) is unused by the UI; competitor reads take the home page only | Low | Dead surface; competitor pricing often missing | Move the journey's SSRF check to `/api/product/analyze` and remove the route; also read competitors' `/pricing` |
+| TD-26 | The trend radar cannot read TikTok, Instagram, Facebook, LinkedIn, X or Pinterest ([ONBOARDING_360.md](ONBOARDING_360.md) §3.3, §10) | Medium | The platforms most consumer founders care about get research links and suggested ideas, not live posts | Only through official access: X API (paid), Meta Content Library and TikTok Research API (researcher programmes), Pinterest Trends API (partners). Never scraping |
+| TD-27 | YouTube, Reddit and Bluesky are read only with credentials; Reddit commercial use needs Reddit's approval | Medium | Without keys these three show research links; YouTube's free quota allows ~33 radar runs a day | Set `YOUTUBE_API_KEY` and the Bluesky app password; request Reddit's approval, then set its app credentials |
+| TD-28 | Radar "trending" is engagement within a window, not growth; runs are not stored over time | Low | Can't say what is rising this week, only what got the most attention | Keep radar runs and compare them; Google Trends API when access opens |

@@ -179,6 +179,18 @@ In the provider's console: add billing, **set a monthly spend limit** (start aro
 Brevo…). Verify `banyan-ai.app` as a sender domain there, then set in Vercel `SMTP_URL` (e.g.
 `smtps://user:pass@smtp.provider.com:465`) and `EMAIL_FROM` (e.g. `Banyan <hello@banyan-ai.app>`).
 
+**Optional: live trends in onboarding.** Onboarding's "What's trending" chapter reads Hacker News, DEV and Wikipedia
+with no setup. To read these live too, set in Vercel (all optional; without them they show research links):
+
+| Platform | What to do | Variables |
+| --- | --- | --- |
+| YouTube | Google Cloud console → enable *YouTube Data API v3* → Credentials → *API key*, restricted to that API. Free (about 33 onboarding scans a day) | `YOUTUBE_API_KEY` |
+| Bluesky | Make a Bluesky account for Banyan → Settings → Privacy and security → *App passwords* | `BLUESKY_HANDLE`, `BLUESKY_APP_PASSWORD` |
+| Reddit | reddit.com/prefs/apps → *create app* (type *script*). **Ask Reddit for commercial approval first** (Reddit Data API terms) | `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET` |
+
+TikTok, Instagram, Facebook, LinkedIn, X and Pinterest can't be added: they have no public search API Banyan may
+use. Onboarding gives one-click research links for them instead. Details: [ONBOARDING_360.md](ONBOARDING_360.md).
+
 ## 7. Connect Banyan to SocialFlow and prove it
 
 1. In Vercel set `SOCIALFLOW_API_URL=https://social.banyan-ai.app`, `SOCIALFLOW_TRANSPORT=mcp`,
