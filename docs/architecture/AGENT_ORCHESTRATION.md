@@ -307,7 +307,7 @@ claim stays "approved execution": each new cycle's strategy still waits for the 
   confident (oldest on a tie), with the policy's credit budget on the new goal (R4 enforces it on every draft).
 - **Stops**: quietly while agents are paused (the one-action stop), a cycle is running, another is open, or the report
   is not in. **Stops and tells the founder** (once per cycle and reason) after `maxUnattended` Banyan-started cycles
-  in a row, more than ${MAX_INCIDENTS_PER_CYCLE} (2) agent incidents in the cycle, any spot check the founder stopped,
+  in a row, more than two agent incidents in the cycle, any spot check the founder stopped,
   only low-confidence advice, a balance below the budget, or an unapproved product profile.
 - **Applied** (`src/lib/autonomy/continuous-service.ts`) by the maintenance sweep, before workflows advance. The start
   goes through `startNextCycle` (`src/lib/cycle/start-next.ts`), the same path as the founder accepting a
