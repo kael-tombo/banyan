@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState, type KeyboardEvent, type ReactNode } from "react";
-import { Plus, X } from "lucide-react";
+import { ArrowLeft, Plus, X } from "lucide-react";
 
 /** "home page", "/pricing" — the short name of the page a value came from. */
 export function pageLabel(url: string): string {
@@ -154,7 +154,8 @@ export function Section({
   id,
   action,
 }: {
-  index: number;
+  /** Chapter number; omitted inside a tab, where numbering means nothing. */
+  index?: number;
   title: string;
   lede: string;
   children: ReactNode;
@@ -165,7 +166,7 @@ export function Section({
     <section id={id} aria-labelledby={`${id}-h`} className="scroll-mt-24 border-t border-bark/10 pt-6 first:border-t-0 first:pt-0">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 flex-1 basis-64 items-baseline gap-3">
-          <span className="font-mono text-xs text-muted" aria-hidden="true">{String(index).padStart(2, "0")}</span>
+          {index !== undefined && <span className="font-mono text-xs text-muted" aria-hidden="true">{String(index).padStart(2, "0")}</span>}
           <div>
             <h3 id={`${id}-h`} className="font-serif text-lg tracking-[-0.01em] text-forest-deep">{title}</h3>
             <p className="text-[13px] leading-5 text-muted">{lede}</p>
@@ -173,7 +174,40 @@ export function Section({
         </div>
         {action}
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:pl-8">{children}</div>
+      <div className={`grid grid-cols-1 gap-4 ${index !== undefined ? "sm:pl-8" : ""}`}>{children}</div>
     </section>
+  );
+}
+
+/**
+ * The bar at the bottom of every onboarding step: where you are, one primary
+ * action, and the way back. Sticky, so the next step is always one click away.
+ */
+export function StepFooter({
+  hint,
+  onBack,
+  backLabel = "Back",
+  primary,
+  secondary,
+}: {
+  hint?: ReactNode;
+  onBack?: () => void;
+  backLabel?: string;
+  primary: ReactNode;
+  secondary?: ReactNode;
+}) {
+  return (
+    <div className="sticky bottom-0 z-20 -mx-4 mt-2 flex flex-wrap items-center gap-3 border-t border-bark/10 bg-canvas/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-2xl sm:border sm:bg-white/95 sm:px-5 sm:shadow-[0_8px_24px_-12px_rgba(14,42,33,0.18)]">
+      {onBack && (
+        <button type="button" onClick={onBack} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-[13px] text-charcoal-soft transition hover:bg-bark/[0.06] hover:text-charcoal">
+          <ArrowLeft size={14} aria-hidden="true" /> {backLabel}
+        </button>
+      )}
+      {hint && <p className="order-first w-full text-[12px] leading-5 text-charcoal-soft sm:order-none sm:w-auto sm:min-w-0 sm:flex-1 sm:text-[13px]">{hint}</p>}
+      <div className="ml-auto flex items-center gap-2">
+        {secondary}
+        {primary}
+      </div>
+    </div>
   );
 }

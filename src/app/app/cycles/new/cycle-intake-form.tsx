@@ -3,12 +3,14 @@
 import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, Check, Eye, FileText, Globe2, Loader2, Lock, PenLine, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowRight, Check, Globe2, Loader2, MessageSquare, PenLine, ShieldCheck, Sparkles, Swords, TrendingUp, UserRound } from "lucide-react";
 import { Badge, Button, Card, ErrorNote, Field, Input, Textarea } from "@/components/ui";
 import type { ProductAnalysisResult } from "@/lib/product/analyze";
 import { BLANK_INTAKE, intakeFromAnalysis, suggestCycle, type IntakeProfile } from "@/lib/product/intake-profile";
 import { ReadingProgress, type ReadingStatus } from "./intake/reading-progress";
-import { Understood } from "./intake/understood";
+import { ConfirmStep } from "./intake/confirm-step";
+import { MarketStep, type Angle, type MarketTab } from "./intake/market-step";
+import { StepFooter } from "./intake/parts";
 import { MarketSections, type ResearchState } from "./intake/market-sections";
 import { TrendRadar, type TrendsState } from "./intake/trend-radar";
 import { googleTrendsLink } from "@/lib/research/trends/links";
@@ -16,7 +18,7 @@ import { PLATFORM_LABEL, type ContentIdea, type TrendsReport } from "@/lib/resea
 import type { Competitor, MarketResearch, Opportunity } from "@/lib/research/types";
 
 type Channel = "x" | "linkedin" | "shortvideo";
-type Phase = "url" | "reading" | "review" | "cycle";
+type Phase = "url" | "reading" | "confirm" | "market" | "cycle";
 
 const CHANNELS: { key: Channel; label: string; hint: string; live: boolean }[] = [
   { key: "linkedin", label: "LinkedIn", hint: "Published through your connection, after your approval.", live: true },
@@ -24,7 +26,13 @@ const CHANNELS: { key: Channel; label: string; hint: string; live: boolean }[] =
   { key: "shortvideo", label: "Short-form video", hint: "Banyan writes the script; you record and post it.", live: false },
 ];
 
-const STEPS = ["Your site", "Your 360", "Your first cycle"];
+const STEPS: { label: string; phases: Phase[] }[] = [
+  { label: "Your site", phases: ["url", "reading"] },
+  { label: "Confirm", phases: ["confirm"] },
+  { label: "Your market", phases: ["market"] },
+  { label: "First cycle", phases: ["cycle"] },
+];
+const stepOf = (p: Phase) => STEPS.findIndex((s) => s.phases.includes(p));
 const POLL_MS = 1500;
 const POLL_LIMIT_MS = 120_000;
 
@@ -64,29 +72,41 @@ function normalizeResult(r: Partial<ProductAnalysisResult>): ProductAnalysisResu
   };
 }
 
-function Stepper({ phase }: { phase: Phase }) {
-  const current = phase === "url" || phase === "reading" ? 0 : phase === "review" ? 1 : 2;
+/** Four segments; a step already reached can be revisited, the next ones can't be skipped to. */
+function Progress({ phase, reached, onGo, skipMarket }: { phase: Phase; reached: number; onGo: (step: number) => void; skipMarket: boolean }) {
+  const current = stepOf(phase);
   return (
-    <ol className="flex flex-wrap items-center gap-x-2 gap-y-2 text-[13px]" aria-label="Steps">
-      {STEPS.map((label, i) => {
-        const done = i < current;
-        const active = i === current;
-        return (
-          <li key={label} className="flex items-center gap-2">
-            <span
-              aria-current={active ? "step" : undefined}
-              className={`flex h-6 w-6 items-center justify-center rounded-full border text-[11px] font-semibold transition-colors ${
-                done ? "border-forest bg-forest text-ivory" : active ? "border-forest-deep bg-forest-deep text-ivory" : "border-bark/15 bg-white text-muted"
-              }`}
-            >
-              {done ? <Check size={13} aria-hidden="true" /> : i + 1}
-            </span>
-            <span className={active ? "font-medium text-forest-deep" : done ? "text-charcoal-soft" : "text-muted"}>{label}</span>
-            {i < STEPS.length - 1 && <span className="mx-1 hidden h-px w-8 bg-bark/15 sm:block" aria-hidden="true" />}
-          </li>
-        );
-      })}
-    </ol>
+    <nav aria-label="Onboarding steps">
+      <ol className="grid grid-cols-4 gap-2">
+        {STEPS.map((step, i) => {
+          const done = i < current;
+          const active = i === current;
+          const skipped = skipMarket && i === 2;
+          const reachable = i <= reached && !active && !skipped && phase !== "reading";
+          const bar = active ? "bg-forest-deep" : done ? "bg-forest/70" : "bg-bark/12";
+          const body = (
+            <>
+              <span className={`block h-1 rounded-full transition-colors duration-300 ${bar}`} aria-hidden="true" />
+              <span className={`mt-2 flex items-center gap-1 text-[12px] sm:text-[13px] ${active ? "font-medium text-forest-deep" : done ? "text-charcoal-soft" : "text-muted"}`}>
+                {done && !skipped && <Check size={12} className="shrink-0 text-forest" aria-hidden="true" />}
+                <span className="truncate">{step.label}</span>
+              </span>
+            </>
+          );
+          return (
+            <li key={step.label} aria-current={active ? "step" : undefined}>
+              {reachable ? (
+                <button type="button" onClick={() => onGo(i)} className="block w-full text-left hover:opacity-80">
+                  {body}
+                </button>
+              ) : (
+                <div>{body}</div>
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
   );
 }
 
@@ -135,6 +155,16 @@ export default function CycleIntakeForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const run = useRef(0);
+  // The furthest step reached (for the progress bar) and the angle picked on the market step.
+  const [reached, setReached] = useState(0);
+  const [angle, setAngle] = useState<Angle | null>(null);
+
+  function go(next: Phase) {
+    setPhase(next);
+    setReached((r) => Math.max(r, stepOf(next)));
+    setError(null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 
   function set<K extends keyof IntakeProfile>(key: K, value: IntakeProfile[K]) {
     setProfile((prev) => {
@@ -149,8 +179,7 @@ export default function CycleIntakeForm({
   function enterReview(next: IntakeProfile) {
     setProfile(next);
     setEdited(new Set());
-    setPhase("review");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    go("confirm");
   }
 
   async function readSite() {
@@ -162,7 +191,7 @@ export default function CycleIntakeForm({
     const token = ++run.current;
     setBusy(true);
     setReadingStatus("queued");
-    setPhase("reading");
+    go("reading");
     try {
       const res = await fetch("/api/product/analyze", {
         method: "POST",
@@ -267,13 +296,17 @@ export default function CycleIntakeForm({
 
   /** "Make this my first cycle" on a content idea: the post becomes what this cycle distributes. */
   function useIdea(idea: ContentIdea) {
-    setUpdate(`${PLATFORM_LABEL[idea.platform]} ${idea.format.toLowerCase()}: “${idea.hook}” ${idea.angle}`.slice(0, 1000));
+    const detail = `${PLATFORM_LABEL[idea.platform]} ${idea.format.toLowerCase()}: “${idea.hook}” ${idea.angle}`.slice(0, 1000);
+    setAngle({ source: "idea", title: `${PLATFORM_LABEL[idea.platform]}: ${idea.hook}`, detail });
+    setUpdate(detail);
     toCycle();
   }
 
   /** "Make this my first cycle": the opportunity becomes what this cycle distributes. */
   function useOpportunity(o: Opportunity) {
-    setUpdate(`${o.title}. ${o.firstStep}`.slice(0, 1000));
+    const detail = `${o.title}. ${o.firstStep}`.slice(0, 1000);
+    setAngle({ source: "opportunity", title: o.title, detail });
+    setUpdate(detail);
     setKept((prev) => new Set(prev).add(o.id));
     toCycle();
   }
@@ -304,9 +337,7 @@ export default function CycleIntakeForm({
       setDays(String(s.days));
       setGoalReason(s.reason);
     }
-    setPhase("cycle");
-    setError(null);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    go("cycle");
   }
 
   function touchGoal<T>(setter: (v: T) => void) {
@@ -421,23 +452,84 @@ export default function CycleIntakeForm({
     }
   }
 
+  const siteRead = profile.method === "model" || profile.method === "basic";
+  const scanProgress = {
+    state: researchState,
+    competitors: competitors.length,
+    verified: competitors.filter((c) => c.verified).length,
+    conversations: research?.conversations.length ?? 0,
+    leads: research?.leads.length ?? 0,
+    opportunities: research?.opportunities.length ?? 0,
+    trendsState,
+    trending: trends ? trends.platforms.reduce((n, p) => n + p.items.length, 0) : 0,
+    livePlatforms: trends ? trends.platforms.filter((p) => p.status === "live").length : 0,
+    platforms: trends?.platforms.length ?? 0,
+  };
+  const marketCounts: Record<MarketTab, number> = {
+    opportunities: scanProgress.opportunities,
+    competitors: scanProgress.competitors,
+    conversations: scanProgress.conversations,
+    signals: scanProgress.leads,
+    trending: scanProgress.trending,
+  };
+  const marketProps = {
+    startIndex: 1,
+    state: researchState,
+    research,
+    canScan: Boolean(analysisId),
+    competitors,
+    onCompetitorsChange: (c: Competitor[]) => {
+      setCompetitors(c);
+      setResearchDirty(true);
+    },
+    queries,
+    onQueriesChange: (q: string[]) => {
+      setQueries(q);
+      setResearchDirty(true);
+    },
+    kept,
+    onToggleKept: (id: string) =>
+      setKept((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      }),
+    onScan: () => void scanMarket(analysisId, Boolean(research)),
+    onUseOpportunity: useOpportunity,
+    dirty: researchDirty,
+  };
+  // Without a site read there is no market to map: the market step is skipped.
+  const skipMarket = !analysisId && !research;
+
   return (
-    <form onSubmit={startCycle} className="space-y-6">
-      <Stepper phase={phase} />
+    <form onSubmit={startCycle} className="space-y-8">
+      {phase !== "url" && (
+        <Progress
+          phase={phase}
+          reached={reached}
+          skipMarket={skipMarket}
+          onGo={(i) => go(i === 0 ? "url" : i === 1 ? "confirm" : i === 2 ? "market" : "cycle")}
+        />
+      )}
 
       {phase === "url" && (
-        <Card flush className="max-w-3xl">
-          <div className="p-6 sm:p-8">
-            <h2 className="font-serif text-2xl tracking-[-0.01em] text-forest-deep sm:text-[28px]">Start with your website.</h2>
-            <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-charcoal-soft">
-              Banyan reads your site for your product, audience, positioning, proof and pricing, then maps the market around it:
-              competitors, the threads where buyers talk, people asking for this, and where to start. You check all of it.
+        <div className="mx-auto max-w-3xl">
+          <div className="text-center">
+            <h1 className="font-serif text-[34px] leading-[1.1] tracking-[-0.02em] text-forest-deep sm:text-[44px]">
+              {firstCycle ? "Your product and its market, in one read." : "Start with your website."}
+            </h1>
+            <p className="mx-auto mt-4 max-w-xl text-[16px] leading-relaxed text-charcoal-soft">
+              Paste your site. Banyan reads it, maps the market around it, and turns what it finds into your first distribution cycle.
+              You check everything; nothing is made up.
             </p>
+          </div>
 
-            <div className="mt-6 flex flex-col gap-2 sm:flex-row">
-              <label htmlFor="intake-url" className="sr-only">Your product&apos;s website</label>
+          <div className="mx-auto mt-8 max-w-xl">
+            <label htmlFor="intake-url" className="sr-only">Your product&apos;s website</label>
+            <div className="flex flex-col gap-2 rounded-2xl border border-bark/12 bg-white p-2 shadow-[0_12px_32px_-16px_rgba(14,42,33,0.25)] sm:flex-row">
               <div className="relative flex-1">
-                <Globe2 size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" aria-hidden="true" />
+                <Globe2 size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" aria-hidden="true" />
                 <input
                   id="intake-url"
                   value={url}
@@ -452,17 +544,15 @@ export default function CycleIntakeForm({
                   inputMode="url"
                   autoComplete="url"
                   autoFocus
-                  className="h-12 w-full rounded-xl border border-bark/15 bg-white pl-10 pr-3 text-base text-charcoal placeholder:text-muted transition-colors focus:border-forest/55 focus:outline-none focus:ring-4 focus:ring-forest/10"
+                  className="h-12 w-full rounded-xl bg-transparent pl-11 pr-3 text-[17px] text-charcoal placeholder:text-muted focus:outline-none"
                 />
               </div>
-              <Button type="button" onClick={readSite} disabled={busy} className="h-12 rounded-xl px-5 text-[15px]">
+              <Button type="button" onClick={readSite} disabled={busy} className="h-12 rounded-xl px-6 text-[15px]">
                 Read my site <ArrowRight size={16} aria-hidden="true" />
               </Button>
             </div>
-
-            {error && <div className="mt-4"><ErrorNote>{error}</ErrorNote></div>}
-
-            <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px]">
+            {error && <div className="mt-3"><ErrorNote>{error}</ErrorNote></div>}
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[13px]">
               {initialProfile && (
                 <button type="button" onClick={useSaved} className="inline-flex items-center gap-1.5 font-medium text-forest hover:underline">
                   <ShieldCheck size={14} aria-hidden="true" /> Use my saved profile ({initialProfile.name})
@@ -474,106 +564,116 @@ export default function CycleIntakeForm({
             </div>
           </div>
 
-          <ul className="grid gap-px border-t border-bark/10 bg-bark/10 sm:grid-cols-3">
+          {/* What you'll get: the promise, before the wait. */}
+          <ul className="mt-12 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {[
-              { icon: FileText, title: "Your site, then your market", body: "Up to 5 of your pages, competitors' own sites, Hacker News and Stack Overflow." },
-              { icon: Eye, title: "Nothing made up", body: "Every finding links to the page or post it came from. What no source says, you add." },
-              { icon: Lock, title: "Read-only", body: "Banyan never logs in, posts or contacts anyone. Only search terms leave Banyan." },
+              { icon: UserRound, title: "Your product, understood", body: "What it does, who it's for, positioning, proof and pricing, each with the page it came from." },
+              { icon: Swords, title: "Your competitors", body: "Read from their own websites: what they promise, what they charge, what they ask for." },
+              { icon: MessageSquare, title: "Where buyers talk", body: "Public threads about your category, and people already asking for a tool like yours." },
+              { icon: TrendingUp, title: "What's trending, and what to post", body: "Platform by platform, from YouTube and Reddit to TikTok and LinkedIn." },
             ].map(({ icon: Icon, title, body }) => (
-              <li key={title} className="bg-white px-6 py-4">
-                <p className="flex items-center gap-2 text-[13px] font-medium text-charcoal">
-                  <Icon size={14} className="text-moss" aria-hidden="true" /> {title}
-                </p>
-                <p className="mt-1 text-[13px] leading-5 text-muted">{body}</p>
+              <li key={title} className="flex gap-3 rounded-2xl border border-bark/10 bg-white/70 p-4">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-sage/50 text-forest-deep" aria-hidden="true">
+                  <Icon size={17} />
+                </span>
+                <span>
+                  <span className="block text-[14px] font-medium text-charcoal">{title}</span>
+                  <span className="mt-0.5 block text-[13px] leading-5 text-muted">{body}</span>
+                </span>
               </li>
             ))}
           </ul>
-        </Card>
+          <p className="mt-6 text-center text-[12px] leading-5 text-muted">
+            Read-only: Banyan never logs in, posts or contacts anyone. Only search terms leave Banyan.{" "}
+            {!firstCycle && (
+              <>
+                Already know what you want? <Link href="/app/goals" className="font-medium text-forest hover:underline">Start from a goal</Link>.
+              </>
+            )}
+          </p>
+        </div>
       )}
 
       {phase === "reading" && (
-        <div className="max-w-3xl">
+        <div className="mx-auto max-w-3xl">
           <ReadingProgress url={url} status={readingStatus} onCancel={cancelReading} />
         </div>
       )}
 
-      {phase === "review" && (
-        <Understood
+      {phase === "confirm" && (
+        <ConfirmStep
           profile={profile}
           edited={edited}
           set={set}
-          onContinue={toCycle}
+          onBack={() => go("url")}
           onReread={() => void readSite()}
-          snapshot={{
-            state: researchState,
-            competitors: competitors.length,
-            verified: competitors.filter((c) => c.verified).length,
-            conversations: research?.conversations.length ?? 0,
-            leads: research?.leads.length ?? 0,
-            opportunities: research?.opportunities.length ?? 0,
-            trendsState,
-            trending: trends ? trends.platforms.reduce((n, p) => n + p.items.length, 0) : 0,
-            livePlatforms: trends ? trends.platforms.filter((p) => p.status === "live").length : 0,
-            platforms: trends?.platforms.length ?? 0,
-          }}
-          market={
-            <MarketSections
-              startIndex={6}
-              state={researchState}
-              research={research}
-              canScan={Boolean(analysisId)}
-              competitors={competitors}
-              onCompetitorsChange={(c) => {
-                setCompetitors(c);
-                setResearchDirty(true);
-              }}
-              queries={queries}
-              onQueriesChange={(q) => {
-                setQueries(q);
-                setResearchDirty(true);
-              }}
-              kept={kept}
-              onToggleKept={(id) =>
-                setKept((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(id)) next.delete(id);
-                  else next.add(id);
-                  return next;
-                })
-              }
-              onScan={() => void scanMarket(analysisId, Boolean(research))}
-              onUseOpportunity={useOpportunity}
-              dirty={researchDirty}
-            />
-          }
-          trending={
-            <TrendRadar
-              index={10}
-              state={trendsState}
-              trends={trends}
-              canRun={Boolean(analysisId) && researchState === "ready"}
-              googleTrends={googleTrendsLink([...competitors.filter((c) => c.verified).slice(0, 3).map((c) => c.name), ...(trends?.terms ?? queries).slice(0, 2)])}
-              onRun={() => void runTrends()}
-              onUseIdea={useIdea}
-            />
+          onContinue={() => (skipMarket ? toCycle() : go("market"))}
+          scan={skipMarket ? undefined : scanProgress}
+        />
+      )}
+
+      {phase === "market" && (
+        <MarketStep
+          research={research}
+          researchState={researchState}
+          trends={trends}
+          trendsState={trendsState}
+          canScan={Boolean(analysisId)}
+          angle={angle}
+          counts={marketCounts}
+          onScan={() => void scanMarket(analysisId, Boolean(research))}
+          onBack={() => go("confirm")}
+          onContinue={toCycle}
+          renderTab={(tab) =>
+            tab === "trending" ? (
+              <TrendRadar
+                state={trendsState}
+                trends={trends}
+                canRun={Boolean(analysisId) && researchState === "ready"}
+                googleTrends={googleTrendsLink([...competitors.filter((c) => c.verified).slice(0, 3).map((c) => c.name), ...(trends?.terms ?? queries).slice(0, 2)])}
+                onRun={() => void runTrends()}
+                onUseIdea={useIdea}
+              />
+            ) : (
+              <MarketSections {...marketProps} only={tab} />
+            )
           }
         />
       )}
 
       {phase === "cycle" && (
-        <Card className="max-w-3xl p-6 sm:p-8">
-          <h2 className="font-serif text-2xl tracking-[-0.01em] text-forest-deep">Your first cycle for {profile.name || "your product"}</h2>
-          <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-charcoal-soft">
-            One objective, one number, two or three channels. Banyan drafts the strategy and the posts; nothing publishes until you approve it.
-          </p>
+        <div className="mx-auto max-w-3xl space-y-5">
+          <header>
+            <h2 className="font-serif text-[28px] leading-tight tracking-[-0.015em] text-forest-deep sm:text-[32px]">
+              Your first cycle for {profile.name || "your product"}.
+            </h2>
+            <p className="mt-2 text-[15px] leading-relaxed text-charcoal-soft">
+              One angle, one number, two or three channels. Banyan drafts the strategy and three posts; nothing publishes until you approve it.
+            </p>
+          </header>
 
-          <div className="mt-6 grid gap-5">
-            <Field label="What are you shipping or announcing?" hint="A launch, a feature, a lesson. Leave it empty to introduce the product itself.">
-              <Textarea value={update} onChange={(e) => setUpdate(e.target.value)} rows={3} maxLength={1000} placeholder="e.g. We shipped offline mode, so invoices go out even on a plane." />
-            </Field>
+          <Card>
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="font-serif text-lg text-forest-deep">The angle</h3>
+              {!skipMarket && (
+                <button type="button" onClick={() => go("market")} className="text-[13px] font-medium text-forest hover:underline">
+                  {angle ? "Change" : "Pick one from your market"}
+                </button>
+              )}
+            </div>
+            {angle && (
+              <p className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-sage/50 px-2 py-0.5 text-[12px] font-medium text-forest-deep">
+                <Sparkles size={12} aria-hidden="true" /> From {angle.source === "opportunity" ? "an opportunity" : "a content idea"}
+              </p>
+            )}
+            <div className="mt-3">
+              <Field label="What will this cycle say?" hint="A launch, a feature, a lesson, or the angle you picked. Leave it empty to introduce the product itself.">
+                <Textarea value={update} onChange={(e) => setUpdate(e.target.value)} rows={3} maxLength={1000} placeholder="e.g. We shipped offline mode, so invoices go out even on a plane." />
+              </Field>
+            </div>
             {research && research.opportunities.some((o) => kept.has(o.id)) && (
-              <div>
-                <p className="text-[12px] font-medium text-charcoal-soft">Or start from an opportunity you kept</p>
+              <div className="mt-3">
+                <p className="text-[12px] font-medium text-charcoal-soft">Or one of the opportunities you kept</p>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {research.opportunities
                     .filter((o) => kept.has(o.id))
@@ -583,7 +683,11 @@ export default function CycleIntakeForm({
                         <button
                           key={o.id}
                           type="button"
-                          onClick={() => setUpdate(`${o.title}. ${o.firstStep}`.slice(0, 1000))}
+                          onClick={() => {
+                            const detail = `${o.title}. ${o.firstStep}`.slice(0, 1000);
+                            setAngle({ source: "opportunity", title: o.title, detail });
+                            setUpdate(detail);
+                          }}
                           aria-pressed={chosen}
                           className={`max-w-full truncate rounded-lg border px-2.5 py-1.5 text-left text-[13px] transition ${chosen ? "border-forest bg-forest/[0.06] text-forest-deep" : "border-bark/15 bg-white text-charcoal-soft hover:border-forest/30"}`}
                         >
@@ -594,8 +698,11 @@ export default function CycleIntakeForm({
                 </div>
               </div>
             )}
+          </Card>
 
-            <div className="rounded-xl border border-bark/10 bg-ivory/40 p-4">
+          <Card>
+            <h3 className="font-serif text-lg text-forest-deep">The goal</h3>
+            <div className="mt-3">
               <Field label="Objective" required hint={goalReason ? `Suggested. ${goalReason}` : "The outcome, not the activity."}>
                 <Input value={objective} onChange={(e) => touchGoal(setObjective)(e.target.value)} maxLength={300} />
               </Field>
@@ -611,13 +718,13 @@ export default function CycleIntakeForm({
                 </Field>
               </div>
             </div>
+          </Card>
 
+          <Card>
             <fieldset>
-              <legend className="text-[13px] font-medium text-charcoal">
-                Channels <span className="text-clay" aria-hidden="true">*</span>
-              </legend>
-              <p className="mt-1 text-[13px] text-muted">At least two, and at least one of X or LinkedIn so the cycle can publish.</p>
-              <div className="mt-2 grid gap-2 sm:grid-cols-3">
+              <legend className="font-serif text-lg text-forest-deep">Channels</legend>
+              <p className="mt-0.5 text-[13px] text-muted">At least two, and at least one of X or LinkedIn so the cycle can publish.</p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
                 {CHANNELS.map((opt) => {
                   const checked = channels.includes(opt.key);
                   return (
@@ -641,27 +748,21 @@ export default function CycleIntakeForm({
                 <p className="mt-2 text-xs text-clay" role="status">A complete cycle needs two channels and at least one live channel.</p>
               ) : null}
             </fieldset>
-          </div>
+          </Card>
 
-          {error && <div className="mt-5"><ErrorNote>{error}</ErrorNote></div>}
+          {error && <ErrorNote>{error}</ErrorNote>}
 
-          <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-bark/10 pt-5">
-            <Button type="submit" disabled={busy} className="h-11 rounded-xl px-5">
-              {busy ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <Sparkles size={15} aria-hidden="true" />}
-              {busy ? "Starting…" : "Start the cycle"}
-            </Button>
-            <Button type="button" variant="ghost" onClick={() => { setPhase("review"); setError(null); }} disabled={busy}>
-              <ArrowLeft size={14} aria-hidden="true" /> Back to your profile
-            </Button>
-            <span className="text-[13px] text-muted">Drafts the strategy and three posts. Nothing publishes without your approval.</span>
-          </div>
-        </Card>
-      )}
-
-      {phase === "url" && (
-        <p className="text-[13px] leading-relaxed text-muted">
-          Already know what you want? <Link href="/app/goals" className="font-medium text-forest hover:underline">Start from a goal</Link> instead.
-        </p>
+          <StepFooter
+            onBack={() => go(skipMarket ? "confirm" : "market")}
+            hint="Drafts the strategy and three posts. Nothing publishes without your approval."
+            primary={
+              <Button type="submit" disabled={busy} className="h-10 rounded-xl px-4">
+                {busy ? <Loader2 size={15} className="animate-spin" aria-hidden="true" /> : <Sparkles size={15} aria-hidden="true" />}
+                {busy ? "Starting…" : "Start the cycle"}
+              </Button>
+            }
+          />
+        </div>
       )}
     </form>
   );

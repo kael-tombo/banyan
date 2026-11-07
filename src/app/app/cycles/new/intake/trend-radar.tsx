@@ -154,7 +154,7 @@ export function TrendRadar({
   onRun,
   onUseIdea,
 }: {
-  index: number;
+  index?: number;
   state: TrendsState;
   trends: TrendsReport | null;
   /** The market scan has finished, so the radar has terms and competitors. */

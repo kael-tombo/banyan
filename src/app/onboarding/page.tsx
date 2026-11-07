@@ -8,6 +8,7 @@ import { OnboardingWizard } from "./wizard";
 import { getProgress } from "@/lib/onboarding/progress";
 import Link from "next/link";
 import { ExploreFirst } from "./explore-first";
+import { BanyanMark } from "@/components/BanyanMark";
 import CycleIntakeForm from "@/app/app/cycles/new/cycle-intake-form";
 import { intakeFromSavedProfile } from "@/lib/product/intake-profile";
 import { savedScan } from "@/lib/research/runner";
@@ -40,25 +41,24 @@ export default async function OnboardingPage({
     const initialProfile = usable && profile ? intakeFromSavedProfile(profile) : null;
     const scan = workspace ? await savedScan(workspace.id, profile?.lastAnalysisId) : { analysisId: null, research: null };
     return (
-      <main className="min-h-screen bg-canvas px-4 py-10 sm:py-14">
-        <div className="mx-auto max-w-5xl">
-          <p className="text-[13px] font-medium text-moss">Welcome to Banyan</p>
-          <h1 className="mt-1 font-serif text-3xl tracking-[-0.015em] text-forest-deep sm:text-4xl">Your product and its market, in one read.</h1>
-          <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-charcoal-soft">
-            Paste your site. Banyan reads it, then maps your market: competitors (from their own sites), the public threads where
-            your buyers talk, people already asking for a tool like yours, and where to start. You check it, and your first cycle begins.
-          </p>
-          <div className="mt-8">
-            <CycleIntakeForm initialProfile={initialProfile} initialUrl={seedUrl} firstCycle initialAnalysisId={scan.analysisId} initialResearch={scan.research} />
+      <div className="min-h-screen bg-canvas">
+        {/* A quiet frame: the brand, and the two ways out. The steps carry the page. */}
+        <header className="border-b border-bark/10 bg-canvas/80 backdrop-blur">
+          <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
+            <span className="inline-flex items-center gap-2 text-[15px] font-semibold tracking-tight text-forest-deep">
+              <BanyanMark size={24} /> Banyan
+            </span>
+            <span className="flex items-center gap-3 text-[12px] text-charcoal-soft">
+              <Link href="/onboarding?mode=detailed" className="hover:text-forest">Detailed setup</Link>
+              <span aria-hidden="true" className="text-bark/30">·</span>
+              <ExploreFirst />
+            </span>
           </div>
-          <p className="mt-6 text-xs text-charcoal-soft">
-            Prefer to set everything up first?{" "}
-            <Link href="/onboarding?mode=detailed" className="font-medium text-forest hover:underline">Use the detailed setup</Link>
-            {" · "}
-            <ExploreFirst />
-          </p>
-        </div>
-      </main>
+        </header>
+        <main className="mx-auto max-w-5xl px-4 pb-16 pt-10 sm:pt-14">
+          <CycleIntakeForm initialProfile={initialProfile} initialUrl={seedUrl} firstCycle initialAnalysisId={scan.analysisId} initialResearch={scan.research} />
+        </main>
+      </div>
     );
   }
 

@@ -184,6 +184,7 @@ export function MarketSections({
   onScan,
   onUseOpportunity,
   dirty,
+  only,
 }: {
   startIndex: number;
   state: ResearchState;
@@ -199,7 +200,10 @@ export function MarketSections({
   onUseOpportunity: (o: Opportunity) => void;
   /** The founder changed competitors or search terms since the last scan. */
   dirty: boolean;
+  /** Render one chapter only (the onboarding market step shows each in its own tab). */
+  only?: "competitors" | "conversations" | "signals" | "opportunities";
 }) {
+  const show = (k: "competitors" | "conversations" | "signals" | "opportunities") => !only || only === k;
   const running = state === "running";
   const failedSources = research?.sources.filter((s) => !s.ok).map((s) => s.name) ?? [];
 
@@ -238,8 +242,9 @@ export function MarketSections({
       )}
 
       <div className="space-y-8">
+        {show("competitors") && (
         <Section
-          index={startIndex}
+          index={only ? undefined : startIndex}
           id="sec-competitors"
           title="Competitors"
           lede="Who a buyer compares you with. Banyan reads each one's own website; nothing here is written from memory."
@@ -265,9 +270,11 @@ export function MarketSections({
             </ul>
           )}
         </Section>
+        )}
 
+        {show("conversations") && (
         <Section
-          index={startIndex + 1}
+          index={only ? undefined : startIndex + 1}
           id="sec-conversations"
           title="Where your market talks"
           lede="Recent, well-discussed public threads about your category and competitors. Good places to listen, and to answer."
@@ -305,9 +312,11 @@ export function MarketSections({
             </Empty>
           ) : null}
         </Section>
+        )}
 
+        {show("signals") && (
         <Section
-          index={startIndex + 2}
+          index={only ? undefined : startIndex + 2}
           id="sec-signals"
           title="People in the market"
           lede="Public posts where someone wants an alternative, complains about a competitor, or asks for a tool like yours."
@@ -344,9 +353,11 @@ export function MarketSections({
             <Empty>No public posts asking for this turned up on Hacker News{research.sources.some((s) => s.name === "Stack Overflow") ? " or Stack Overflow" : ""} in the last two years. Normal for a new or niche category; add a competitor or a search term and rescan.</Empty>
           ) : null}
         </Section>
+        )}
 
+        {show("opportunities") && (
         <Section
-          index={startIndex + 3}
+          index={only ? undefined : startIndex + 3}
           id="sec-opportunities"
           title="Opportunities"
           lede="Where to start, each one resting on something above. Keep the ones you like; they're saved to your Opportunities."
@@ -374,6 +385,7 @@ export function MarketSections({
             </p>
           )}
         </Section>
+        )}
       </div>
     </Card>
   );

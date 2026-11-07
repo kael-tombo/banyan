@@ -146,7 +146,7 @@ export const REQUIRED_FIELDS: { key: keyof IntakeProfile; label: string; min: nu
   { key: "description", label: "What it does", min: 10 },
   { key: "audience", label: "Who it's for", min: 2 },
   { key: "problem", label: "The problem it solves", min: 10 },
-  { key: "valueProp", label: "Value proposition", min: 10 },
+  { key: "valueProp", label: "Why it's worth it", min: 10 },
 ];
 
 export function missingRequired(p: IntakeProfile): { key: keyof IntakeProfile; label: string }[] {
