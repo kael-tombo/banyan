@@ -32,10 +32,12 @@ Recommendation: a single VM with Compose — it matches vision principle 9 (one 
 
 ## Status (2026-11-07)
 
-The buildable steps are done: `docker-compose.prod.yml` (Caddy with automatic HTTPS, only 80/443 published,
-SocialFlow Lite public only for its browser paths), `deploy/Caddyfile`, `scripts/deploy.sh` (build, migrate, start,
-health check, roll back to the previous image) and `scripts/smoke-prod.sh`. Not yet run on a real server. The
-founder steps, in order, are in [LAUNCH_SETUP.md](../LAUNCH_SETUP.md).
+**Decided: Banyan is hosted on Vercel** (`https://www.banyan-ai.app`, live on an older `main`). What that needs, built
+on the branch: `/api/worker/tick` accepts Vercel Cron's GET with `CRON_SECRET`; work that runs after a response is
+kept alive with `after()`; Banyan runs without `REDIS_URL` on Vercel (no worker consumes a queue there);
+SocialFlow Lite gets its own small server (`deploy/socialflow/`). Founder steps, including two checks on the live
+site, are in [LAUNCH_SETUP.md](../LAUNCH_SETUP.md). The single-server kit (`docker-compose.prod.yml`,
+`scripts/deploy.sh`) stays as the alternative.
 
 ## Plan, step by step
 

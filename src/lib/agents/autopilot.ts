@@ -5,6 +5,7 @@ import { createStrategy } from "@/lib/strategy/service";
 import { writeDraftsFromStrategy } from "@/lib/content/from-strategy";
 import { enqueue, JOB, queueConfigured } from "@/lib/queue/jobs";
 import { superviseDrafts } from "@/lib/autonomy/service";
+import { finishAfterResponse } from "@/lib/runtime/after-response";
 
 /**
  * Autopilot — the agents act on the founder's decisions.
@@ -161,5 +162,6 @@ export async function triggerAutopilot(
       : run.kind === "cycle_strategy"
         ? runCycleStrategy(run.workspaceId, run.goalId)
         : runAutopilotDrafts(run.workspaceId, run.strategyId);
-  void job.catch(() => {});
+  // On a serverless host (Vercel) the run must outlive the response; finishAfterResponse keeps it alive.
+  finishAfterResponse(job);
 }

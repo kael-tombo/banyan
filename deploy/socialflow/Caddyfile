@@ -1,0 +1,16 @@
+# HTTPS for SocialFlow Lite on its own server. Every API call needs a SocialFlow API key; the connect page and
+# OAuth callbacks are what the founder's browser opens.
+{
+	email {$ACME_EMAIL}
+}
+
+{$SFL_DOMAIN} {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+	request_body {
+		max_size 1MB
+	}
+	reverse_proxy socialflow:8080
+}

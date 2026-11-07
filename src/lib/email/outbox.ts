@@ -74,7 +74,11 @@ export async function queueEmail<T extends EmailTemplate>(input: {
   }
   // No queue (plain dev) or the queue is down: deliver now; the sweep retries failures.
   const delivery = deliverEmail(row.id).catch((err) => log("error", "email.deliver_error", { messageId: row.id, error: (err as Error).message }));
-  if (!input.background) await delivery;
+  if (input.background) {
+    // Kept alive past the response on serverless hosts, where an unawaited send could be cut off.
+    const { finishAfterResponse } = await import("@/lib/runtime/after-response");
+    finishAfterResponse(delivery);
+  } else await delivery;
   return { id: row.id, queued: false };
 }
 
