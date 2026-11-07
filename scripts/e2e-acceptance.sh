@@ -408,7 +408,7 @@ req POST /api/goals "$JAR1" '{broken json'; check "$STATUS" 400 "malformed JSON 
 # connection probe it replaces went away with Postiz). Cloud metadata and
 # private addresses must be refused before any request is made.
 req POST /api/product/intake "$JAR1" '{"url":"http://169.254.169.254/latest/meta-data"}'
-contains "$BODY" "Blocked" "SSRF attempt against cloud metadata blocked"
+contains "$BODY" "only reads public websites" "SSRF attempt against cloud metadata blocked"
 check "$STATUS" 400 "SSRF attempt rejected with 400"
 
 # --- SSO / sign-in providers ----------------------------------------------------
