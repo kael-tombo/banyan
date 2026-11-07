@@ -246,8 +246,11 @@ req POST /api/goals "$JAR3" '{"rawInput":"Get 20 signups from developers in 30 d
                                        check "$STATUS" 409 "strategy refused until the drafted profile is approved"
 req POST /api/strategies "$JAR3" '{}'
                                        check "$STATUS" 409 "strategy generation refused while analysis-drafted fields are unapproved"
-req POST /api/product/profile/approve "$JAR3" '{}'
-                                       check "$STATUS" 422 "profile without a description cannot be approved"
+# The reader copies the page's own first paragraph as the description (an empty
+# description still blocks approval: unit-tested in tests/profile-review.test.ts).
+req GET /api/profile "$JAR3"
+DESC3=$(printf '%s' "$BODY" | jget '.profile.description')
+[ "${#DESC3}" -ge 10 ] && ok "drafted profile carries the page's own description" || bad "drafted profile carries the page's own description" "got description=[$DESC3]"
 req PATCH /api/profile "$JAR3" '{"name":"Example","description":"A plain example page used for tests.","stage":"building","problem":"Founders need a stable public page to test with.","valueProp":"Always there, always the same.","website":"https://example.com"}'
                                        check "$STATUS" 200 "founder completes the profile in their own words"
 req POST /api/product/profile/approve "$JAR3" '{}'

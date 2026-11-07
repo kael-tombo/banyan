@@ -3,10 +3,10 @@ import { definePrompt, getPrompt, hasPrompt, listPrompts, promptKey, renderPromp
 import { analyzeProduct, PROMPT_VERSION, type Completer, type Fetcher } from "@/lib/product/analyze";
 
 describe("prompt registry (US-045)", () => {
-  it("registers product-analysis.v1 and uses it as the analysis version", () => {
-    expect(hasPrompt({ name: "product-analysis", version: 1 })).toBe(true);
-    expect(PROMPT_VERSION).toBe("product-analysis.v1");
-    expect(listPrompts()).toContainEqual({ name: "product-analysis", version: 1 });
+  it("registers product-analysis.v2 and uses it as the analysis version", () => {
+    expect(hasPrompt({ name: "product-analysis", version: 2 })).toBe(true);
+    expect(PROMPT_VERSION).toBe("product-analysis.v2");
+    expect(listPrompts()).toContainEqual({ name: "product-analysis", version: 2 });
   });
 
   it("rejects an unknown version", () => {
@@ -50,8 +50,8 @@ describe("analysis reports prompt, attempt and schema validity per call", () => 
     const out = await analyzeProduct("https://ledgerline.app", { fetch: fetcher, complete });
     expect(out.method).toBe("model");
     expect(calls).toEqual([
-      { attempt: 1, prompt: "product-analysis.v1", valid: false },
-      { attempt: 2, prompt: "product-analysis.v1", valid: true },
+      { attempt: 1, prompt: "product-analysis.v2", valid: false },
+      { attempt: 2, prompt: "product-analysis.v2", valid: true },
     ]);
   });
 

@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { mergeAnalysis, markUserFields, approvalState, editBump, approvalBlockers, parseSources } from "@/lib/product/profile-review";
-import type { ProductAnalysisResult } from "@/lib/product/analyze";
+import { analysisSchema } from "@/lib/product/analyze";
 
-const analysis: ProductAnalysisResult = {
+const analysis = analysisSchema.parse({
   product_name: "Ledgerline",
   description: "Invoicing that works offline.",
   value_proposition: "Send invoices from anywhere.",
@@ -12,7 +12,7 @@ const analysis: ProductAnalysisResult = {
   differentiators: [],
   missing_information: ["differentiators", "pricing"],
   provenance: {},
-};
+});
 
 describe("mergeAnalysis (US-023, US-020)", () => {
   it("fills an empty profile and marks every filled field as from the analysis", () => {

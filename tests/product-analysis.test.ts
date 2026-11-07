@@ -114,8 +114,10 @@ describe("basic extraction never invents (US-022)", () => {
     const r = basicAnalysis([{ url: "https://ledgerline.app/", html: HOME }]);
     expect(r.product_name).toMatch(/Ledgerline/);
     expect(r.features).toEqual(["Offline invoicing", "Automatic reminders"]);
-    expect(r.target_audience).toEqual([]);
-    expect(r.missing_information).toEqual(expect.arrayContaining(["target audience", "problems solved", "differentiators", "pricing"]));
+    // Stated on the page ("Built for …"), so copied, not guessed.
+    expect(r.target_audience).toEqual(["freelance designers and developers who work on the move"]);
+    expect(r.problems_solved).toEqual([]);
+    expect(r.missing_information).toEqual(expect.arrayContaining(["problems solved", "differentiators", "pricing"]));
   });
 
   it("does not list pricing as missing when a page states a price", () => {

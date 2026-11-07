@@ -32,6 +32,8 @@ export async function loadClaimEvidence(workspaceId: string): Promise<EvidenceFo
     ...jsonList(profile?.features),
     ...jsonList(profile?.problemsSolved),
     ...jsonList(profile?.differentiators),
+    profile?.pricing,
+    ...jsonList(profile?.proofPoints),
     ...facts.map((f) => f.value),
   ].filter((s): s is string => Boolean(s && s.trim()));
   const byCampaign = new Map(campaigns.map((c) => [c.id, c.evidence]));

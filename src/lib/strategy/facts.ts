@@ -20,6 +20,8 @@ type ProfileLike = {
   features?: string | null;
   problemsSolved?: string | null;
   differentiators?: string | null;
+  pricing?: string | null;
+  proofPoints?: string | null;
 };
 
 const list = (raw: string | null | undefined): string[] => {
@@ -44,6 +46,8 @@ export function profileFacts(p: ProfileLike): ProfileFact[] {
     ...list(p.features).map((f): [string, string] => ["Feature", f]),
     ...list(p.problemsSolved).map((f): [string, string] => ["Problem solved", f]),
     ...list(p.differentiators).map((f): [string, string] => ["Differentiator", f]),
+    ["Pricing", p.pricing],
+    ...list(p.proofPoints).map((f): [string, string] => ["Proof", f]),
   ];
   return entries
     .filter(([, text]) => typeof text === "string" && text.trim().length > 0)

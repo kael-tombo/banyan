@@ -224,6 +224,9 @@ model ProductProfile {
   features           String    @default("[]")
   problemsSolved     String    @default("[]")
   differentiators    String    @default("[]")
+  // Pricing as the site states it, and proof (customers, counts, ratings, quotes) as a JSON array
+  pricing            String?
+  proofPoints        String    @default("[]")
   missingInformation String    @default("[]")
   // JSON: field -> "user" | "analysis" — the founder's own words always win
   fieldSources       String    @default("{}")

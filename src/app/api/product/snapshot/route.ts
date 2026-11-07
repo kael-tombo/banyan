@@ -18,10 +18,21 @@ const schema = z.object({
   problem: z.string().trim().min(10).max(1000),
   valueProp: z.string().trim().min(10).max(500),
   audience: z.string().trim().min(2).max(300),
-  audiencePain: z.string().trim().max(1000).optional().default(""),
-  audienceOutcome: z.string().trim().max(1000).optional().default(""),
+  audiencePain: z.string().trim().max(1000).optional(),
+  audienceOutcome: z.string().trim().max(1000).optional(),
   sourceUrl: z.union([z.string().trim().url().max(300), z.literal("")]).optional(),
   channels: z.array(z.enum(CHANNELS)).min(1).max(3).optional(),
+  // What onboarding read from the site and the founder reviewed. Each is saved
+  // only when sent, so a form that does not show it never erases it.
+  positioning: z.string().trim().max(500).optional(),
+  category: z.string().trim().max(120).optional(),
+  pricing: z.string().trim().max(600).optional(),
+  tone: z.string().trim().max(80).optional(),
+  primaryCta: z.string().trim().max(100).optional(),
+  features: z.array(z.string().trim().min(1).max(200)).max(12).optional(),
+  differentiators: z.array(z.string().trim().min(1).max(300)).max(6).optional(),
+  problemsSolved: z.array(z.string().trim().min(1).max(300)).max(6).optional(),
+  proof: z.array(z.string().trim().min(1).max(300)).max(8).optional(),
 });
 
 /**
@@ -48,6 +59,26 @@ export async function POST(req: NextRequest) {
   const website = d.website || d.sourceUrl || null;
   const source = d.sourceUrl ? `cycle intake: ${d.sourceUrl}` : "cycle intake";
   const channelsJson = d.channels ? JSON.stringify(d.channels) : null;
+  const current = await prisma.productProfile.findUnique({ where: { workspaceId: ctx.workspace.id }, select: { brandVoice: true } });
+  // Tone and call to action join the brand voice the writer already reads; other voice settings are kept.
+  const voice = (() => {
+    try {
+      return JSON.parse(current?.brandVoice || "{}") as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  })();
+  if (d.tone) voice.tone = d.tone;
+  if (d.primaryCta) voice.cta = d.primaryCta;
+  const extra: Record<string, string | null> = {};
+  if (d.positioning !== undefined) extra.positioning = d.positioning || null;
+  if (d.category !== undefined) extra.market = d.category || null;
+  if (d.pricing !== undefined) extra.pricing = d.pricing || null;
+  if (d.features !== undefined) extra.features = JSON.stringify(d.features);
+  if (d.differentiators !== undefined) extra.differentiators = JSON.stringify(d.differentiators);
+  if (d.problemsSolved !== undefined) extra.problemsSolved = JSON.stringify(d.problemsSolved);
+  if (d.proof !== undefined) extra.proofPoints = JSON.stringify(d.proof);
+  if (d.tone !== undefined || d.primaryCta !== undefined) extra.brandVoice = JSON.stringify(voice);
 
   await prisma.productProfile.upsert({
     where: { workspaceId: ctx.workspace.id },
@@ -63,9 +94,10 @@ export async function POST(req: NextRequest) {
       audiencePain: d.audiencePain || null,
       audienceOutcome: d.audienceOutcome || null,
       ...(channelsJson ? { channels: channelsJson } : {}),
+      ...extra,
       // The founder reviewed and corrected this snapshot before submitting it:
       // every field is theirs and this submission is the approval (US-023).
-      fieldSources: JSON.stringify({ name: "user", description: "user", valueProp: "user", problem: "user", audience: "user" }),
+      fieldSources: JSON.stringify(Object.fromEntries(["name", "description", "valueProp", "problem", "audience", ...Object.keys(extra)].map((k) => [k, "user"]))),
       approvedAt: new Date(),
       approvedById: ctx.user.id,
     },
@@ -80,9 +112,10 @@ export async function POST(req: NextRequest) {
       audiencePain: d.audiencePain || null,
       audienceOutcome: d.audienceOutcome || null,
       ...(channelsJson ? { channels: channelsJson } : {}),
+      ...extra,
       // The founder reviewed and corrected this snapshot before submitting it:
       // every field is theirs and this submission is the approval (US-023).
-      fieldSources: JSON.stringify({ name: "user", description: "user", valueProp: "user", problem: "user", audience: "user" }),
+      fieldSources: JSON.stringify(Object.fromEntries(["name", "description", "valueProp", "problem", "audience", ...Object.keys(extra)].map((k) => [k, "user"]))),
       approvedAt: new Date(),
       approvedById: ctx.user.id,
     },

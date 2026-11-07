@@ -10,6 +10,9 @@ import { z } from "zod";
  * runs in the worker and the client polls GET /api/product/analyze/[id];
  * without it, it runs inline and the response is already final.
  */
+// Up to five pages and one model call when it runs inline (no queue, e.g. on Vercel).
+export const maxDuration = 60;
+
 const schema = z.object({ url: z.string().trim().min(3).max(400) });
 
 export async function POST(req: NextRequest) {

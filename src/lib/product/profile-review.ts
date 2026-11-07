@@ -51,6 +51,14 @@ function fromAnalysis(a: ProductAnalysisResult): Record<string, string> {
     features: JSON.stringify(a.features),
     problemsSolved: JSON.stringify(a.problems_solved),
     differentiators: JSON.stringify(a.differentiators),
+    // v2 analysis fields (empty on v1 results, so they are skipped there).
+    problem: a.problems_solved[0] ?? "",
+    positioning: a.positioning ?? "",
+    market: a.category ?? "",
+    audiencePain: a.audience_pain ?? "",
+    audienceOutcome: a.audience_outcome ?? "",
+    pricing: a.pricing ?? "",
+    proofPoints: JSON.stringify(a.proof ?? []),
   };
 }
 
