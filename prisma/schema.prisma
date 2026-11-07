@@ -521,6 +521,8 @@ model Goal {
   source        String    @default("user")
   // The original natural-language instruction the goal was created from
   rawInput      String    @default("")
+  // Credits this cycle's drafts may hold or spend; null means only the workspace balance limits them.
+  creditBudget  Int?
   createdBy     String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt

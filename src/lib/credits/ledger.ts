@@ -64,6 +64,14 @@ export function validAmount(kind: CreditKind, amount: number): boolean {
   return kind === "adjust" ? amount !== 0 : amount > 0;
 }
 
+/**
+ * Credits a budget has used: what its reservations hold or spent, minus what was returned. A budget
+ * is identified by a reservation-key prefix, e.g. every draft of one goal (R4).
+ */
+export function budgetUsed(entries: { kind: string; amount: number }[]): number {
+  return entries.reduce((sum, e) => sum + (e.kind === "reserve" ? e.amount : e.kind === "release" ? -e.amount : 0), 0);
+}
+
 /** Credits every workspace starts with. */
 export const STARTER_GRANT = 50;
 

@@ -1,6 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { deltas, insufficientMessage, STARTER_GRANT, validAmount, type Balance, type CreditKind } from "./ledger";
+import { budgetUsed, deltas, insufficientMessage, STARTER_GRANT, validAmount, type Balance, type CreditKind } from "./ledger";
 
 /**
  * Credit operations — US-055, US-056, US-062.
@@ -18,6 +18,16 @@ export class InsufficientCreditsError extends Error {
     super(insufficientMessage(needed, available));
   }
 }
+
+/** A cycle's credit budget would be exceeded (R4). Nothing was written. */
+export class BudgetExceededError extends Error {
+  constructor(public limit: number, public used: number) {
+    super(`This cycle has used ${used} of its ${limit}-credit budget.`);
+  }
+}
+
+/** A budget is every reservation whose key starts with this prefix. */
+export type CreditBudget = { keyPrefix: string; limit: number };
 
 type Tx = Prisma.TransactionClient;
 
@@ -82,12 +92,22 @@ export async function grantCredits(workspaceId: string, amount: number, key: str
  * when the balance is short. Repeating with the same key returns the
  * existing reservation.
  */
-export async function reserveCredits(workspaceId: string, amount: number, key: string, extra: { campaignId?: string | null; note?: string } = {}) {
+export async function reserveCredits(
+  workspaceId: string,
+  amount: number,
+  key: string,
+  extra: { campaignId?: string | null; note?: string; budget?: CreditBudget } = {},
+) {
   return locked(workspaceId, async (tx, balance) => {
     const existing = await tx.creditEntry.findUnique({ where: { workspaceId_idempotencyKey: { workspaceId, idempotencyKey: key } } });
     if (existing) return { reused: true, balance };
     if (balance.available < amount) throw new InsufficientCreditsError(amount, balance.available);
-    return { reused: false, balance: await apply(tx, workspaceId, balance, "reserve", amount, key, { ...extra, reservationKey: key }) };
+    if (extra.budget) {
+      // Under the same account lock as the balance check, so two holds at once cannot both slip under the budget.
+      const used = budgetUsed(await tx.creditEntry.findMany({ where: { workspaceId, reservationKey: { startsWith: extra.budget.keyPrefix }, kind: { in: ["reserve", "release"] } }, select: { kind: true, amount: true } }));
+      if (used + amount > extra.budget.limit) throw new BudgetExceededError(extra.budget.limit, used);
+    }
+    return { reused: false, balance: await apply(tx, workspaceId, balance, "reserve", amount, key, { campaignId: extra.campaignId, note: extra.note, reservationKey: key }) };
   });
 }
 
@@ -147,4 +167,9 @@ export async function refundCredits(workspaceId: string, amount: number, key: st
     if (existing) return balance;
     return apply(tx, workspaceId, balance, "refund", amount, key, extra);
   });
+}
+
+/** Credits a budget has used so far, for display. */
+export async function creditsUsedBy(workspaceId: string, keyPrefix: string): Promise<number> {
+  return budgetUsed(await prisma.creditEntry.findMany({ where: { workspaceId, reservationKey: { startsWith: keyPrefix }, kind: { in: ["reserve", "release"] } }, select: { kind: true, amount: true } }));
 }
