@@ -9,9 +9,7 @@ import { getProgress } from "@/lib/onboarding/progress";
 import Link from "next/link";
 import { ExploreFirst } from "./explore-first";
 import CycleIntakeForm from "@/app/app/cycles/new/cycle-intake-form";
-import type { ProductSnapshot, ProductStage } from "@/lib/product/intake";
-
-const STAGES: ProductStage[] = ["idea", "building", "private_beta", "public_beta", "launched", "growth"];
+import { intakeFromSavedProfile } from "@/lib/product/intake-profile";
 
 export const metadata: Metadata = { title: "Your first cycle" };
 
@@ -38,30 +36,17 @@ export default async function OnboardingPage({
   // publishing, results. The detailed setup stays available for founders who want it first.
   if (mode !== "detailed") {
     const usable = profile && profile.name.trim() && profile.description.trim() && profile.problem.trim() && profile.valueProp.trim();
-    const initialProfile: ProductSnapshot | null = usable
-      ? {
-          name: profile.name,
-          description: profile.description,
-          website: profile.website ?? "",
-          stage: STAGES.includes(profile.stage as ProductStage) ? (profile.stage as ProductStage) : "launched",
-          problem: profile.problem,
-          valueProp: profile.valueProp,
-          audience: profile.audience ?? "",
-          audiencePain: profile.audiencePain ?? "",
-          audienceOutcome: profile.audienceOutcome ?? "",
-          observedFields: [],
-        }
-      : null;
+    const initialProfile = usable && profile ? intakeFromSavedProfile(profile) : null;
     return (
       <main className="min-h-screen bg-canvas px-4 py-10 sm:py-14">
         <div className="mx-auto max-w-3xl">
-          <p className="text-xs font-medium text-moss">Welcome to Banyan</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-forest-deep sm:text-3xl">Your first cycle starts with one link.</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-charcoal-soft">
-            Paste your product&apos;s URL. Banyan reads it, you correct what it got wrong, and you say what you are shipping.
-            Then the agents draft the strategy and three posts. Nothing is published until you approve it.
+          <p className="text-[13px] font-medium text-moss">Welcome to Banyan</p>
+          <h1 className="mt-1 font-serif text-3xl tracking-[-0.015em] text-forest-deep sm:text-4xl">Your first cycle starts with one link.</h1>
+          <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-charcoal-soft">
+            Banyan reads your site so you don&apos;t have to describe your product twice. Check what it understood, say what
+            you&apos;re shipping, and the agents draft the strategy and three posts. Nothing is published until you approve it.
           </p>
-          <div className="mt-6">
+          <div className="mt-8">
             <CycleIntakeForm initialProfile={initialProfile} initialUrl={seedUrl} firstCycle />
           </div>
           <p className="mt-6 text-xs text-charcoal-soft">

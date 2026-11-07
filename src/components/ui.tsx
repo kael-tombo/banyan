@@ -114,10 +114,11 @@ export function Field({
   );
 }
 
-export function Card({ children, className = "", id }: { children: ReactNode; className?: string; id?: string }) {
+export function Card({ children, className = "", id, flush = false }: { children: ReactNode; className?: string; id?: string; flush?: boolean }) {
   // A raised sheet of paper: one hairline, a 16px radius, a neutral 1px shadow.
+  // `flush` drops the padding for cards whose bands run edge to edge.
   return (
-    <div id={id} className={`card-shadow rounded-2xl border border-bark/10 bg-white p-6 ${className}`}>
+    <div id={id} className={`card-shadow rounded-2xl border border-bark/10 bg-white ${flush ? "overflow-hidden" : "p-6"} ${className}`}>
       {children}
     </div>
   );
