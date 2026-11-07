@@ -245,6 +245,10 @@ section[id] {
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1; transform: none; transition: none; }
 }
+/* Without scripting nothing would ever reveal it (crawlers, link previews, a failed bundle): show it as is. */
+@media (scripting: none) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+}
 
 /* Connector: the workflow's root line draws root-to-branch when it scrolls
    into view. JS removes the initial state only once measured, so the dash

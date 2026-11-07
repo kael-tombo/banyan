@@ -136,8 +136,8 @@ function Avatar({ name }: { name: string }) {
   );
 }
 
-const SHEET = "rounded-[14px] border border-[#E6E8EA] bg-white shadow-[0_1px_2px_rgba(17,24,39,0.04),0_8px_24px_-12px_rgba(17,24,39,0.10)]";
-const META = "text-[12px] leading-4 text-[#6B7280]";
+const SHEET = "rounded-[14px] border border-bark/10 bg-white shadow-[0_1px_2px_rgba(17,24,39,0.04),0_8px_24px_-12px_rgba(17,24,39,0.10)]";
+const META = "text-[12px] leading-4 text-muted";
 
 function Stats({ items }: { items: (string | undefined)[] }) {
   return (
@@ -232,7 +232,7 @@ export function ContentCard({ card }: { card: Card }) {
               {card.publication}
             </p>
             <p className="mt-2.5 font-serif text-[16px] leading-[1.3] text-charcoal">{card.title}</p>
-            <p className="mt-1.5 text-[13px] leading-5 text-[#4B5563]">{card.excerpt}</p>
+            <p className="mt-1.5 text-[13px] leading-5 text-charcoal-soft">{card.excerpt}</p>
             <p className={`mt-3 ${META}`}>
               {card.author} · {card.meta}
             </p>
@@ -246,7 +246,7 @@ export function ContentCard({ card }: { card: Card }) {
           <p className="flex items-center gap-2 text-[12px] font-medium leading-4 text-charcoal-soft">
             <PlatformMark platform={card.platform} size={16} />
             {card.community}
-            <span className="font-normal text-[#6B7280]">· {card.time}</span>
+            <span className="font-normal text-muted">· {card.time}</span>
           </p>
           {card.flair && (
             <span className="mt-2.5 inline-block rounded-md bg-[#FFF1EA] px-1.5 py-0.5 text-[12px] font-medium leading-4 text-[#B5410E]">
@@ -254,7 +254,7 @@ export function ContentCard({ card }: { card: Card }) {
             </span>
           )}
           <p className="mt-2 text-[14px] font-semibold leading-5 text-charcoal">{card.title}</p>
-          {card.excerpt && <p className="mt-1.5 text-[13px] leading-5 text-[#4B5563]">{card.excerpt}</p>}
+          {card.excerpt && <p className="mt-1.5 text-[13px] leading-5 text-charcoal-soft">{card.excerpt}</p>}
           <Stats items={[card.votes, card.comments]} />
         </article>
       );
@@ -268,9 +268,9 @@ export function ContentCard({ card }: { card: Card }) {
             <span className={`num ${META}`}>{card.time}</span>
           </header>
           <p className="mt-3 text-[13px] font-semibold leading-5 text-charcoal">{card.subject}</p>
-          <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-[#4B5563]">{card.preview}</p>
+          <p className="mt-1 line-clamp-2 text-[13px] leading-5 text-charcoal-soft">{card.preview}</p>
           {card.label && (
-            <span className="mt-3 inline-block rounded-md bg-[#F1F3F4] px-1.5 py-0.5 text-[12px] font-medium leading-4 text-[#4B5563]">
+            <span className="mt-3 inline-block rounded-md bg-canvas px-1.5 py-0.5 text-[12px] font-medium leading-4 text-charcoal-soft">
               {card.label}
             </span>
           )}
@@ -290,11 +290,11 @@ export function ContentCard({ card }: { card: Card }) {
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-[14px] font-semibold leading-5 text-charcoal">{card.name}</p>
-              <p className="text-[13px] leading-5 text-[#4B5563]">{card.tagline}</p>
+              <p className="text-[13px] leading-5 text-charcoal-soft">{card.tagline}</p>
             </div>
           </header>
-          <div className="mt-3 flex items-center justify-between gap-3 border-t border-[#EEF0F2] pt-3">
-            <span className="flex items-center gap-2 text-[12px] leading-4 text-[#6B7280]">
+          <div className="mt-3 flex items-center justify-between gap-3 border-t border-bark/[0.07] pt-3">
+            <span className="flex items-center gap-2 text-[12px] leading-4 text-muted">
               <PlatformMark platform={card.platform} size={16} />
               {card.meta}
             </span>
