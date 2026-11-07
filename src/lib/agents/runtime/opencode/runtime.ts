@@ -15,7 +15,7 @@ import type { AgentRunResult, AgentRuntime, AgentTaskSpec, ProposalRef } from ".
  *    again (V07), so every Banyan tool is idempotent.
  */
 
-export type V2Content = { type: string; text?: string; name?: string; state?: { status?: string; content?: { type: string; text?: string }[] } };
+export type V2Content = { type: string; text?: string; name?: string; state?: { status?: string; input?: Record<string, unknown>; content?: { type: string; text?: string }[] } };
 export type V2Message = {
   id: string;
   type: string;
@@ -42,7 +42,15 @@ export interface OpenCodeHost {
 
 /** Why a run was stopped from outside: OpenCode enforces neither limit itself. */
 export type StopReason = "budget" | "timeout";
-export type OpenCodeRunResult = AgentRunResult & { perModel: RunModelUsage[]; costUsd: number; latencyMs: number; stopped: StopReason | null; tokens: number };
+export type OpenCodeRunResult = AgentRunResult & {
+  perModel: RunModelUsage[];
+  costUsd: number;
+  latencyMs: number;
+  stopped: StopReason | null;
+  tokens: number;
+  /** The question the agent asked the founder in this run, if any (banyan_ask_founder). */
+  question: string | null;
+};
 
 type Options = {
   host: () => Promise<OpenCodeHost>;
@@ -93,8 +101,14 @@ export class OpenCodeAgentRuntime implements AgentRuntime {
         metadata: { ...spec.context, workspaceId: spec.workspaceId, taskId: spec.taskId, runId: spec.runId },
       });
       // A resumed attempt already has its prompt: sending it again would ask for the work twice.
-      if (!(await this.messages(host, sessionID)).some((m) => m.type === "user")) {
-        await host.sessions.prompt({ sessionID, text: spec.brief });
+      const users = (await this.messages(host, sessionID)).filter((m) => m.type === "user");
+      if (!users.length) {
+        await host.sessions.prompt({ sessionID, text: spec.followUp ? `${spec.brief}
+
+${spec.followUp}` : spec.brief });
+      } else if (spec.followUp && !users.some((m) => m.text === spec.followUp)) {
+        // The same session continues with the answer, so the agent keeps everything it already read.
+        await host.sessions.prompt({ sessionID, text: spec.followUp });
       }
       const stop = await this.follow(host, sessionID, spec, started);
       return this.result(host, sessionID, stop, started);
@@ -149,7 +163,11 @@ export class OpenCodeAgentRuntime implements AgentRuntime {
     let costUsd = 0;
     let toolCalls = 0;
     const proposals: ProposalRef[] = [];
-    for (const m of assistants) {
+    let question: string | null = null;
+    // Only this turn's question counts: one asked before the last prompt has been answered.
+    const lastUser = messages.map((m) => m.type).lastIndexOf("user");
+    for (const [index, m] of messages.entries()) {
+      if (m.type !== "assistant") continue;
       const model = m.model ? `${m.model.providerID}/${m.model.id}` : "unknown";
       const row = byModel.get(model) ?? { model, inputTokens: 0, outputTokens: 0 };
       row.inputTokens += (m.tokens?.input ?? 0) + (m.tokens?.cache?.read ?? 0) + (m.tokens?.cache?.write ?? 0);
@@ -159,6 +177,10 @@ export class OpenCodeAgentRuntime implements AgentRuntime {
       for (const c of m.content ?? []) {
         if (c.type !== "tool") continue;
         toolCalls++;
+        if (c.name === "banyan_ask_founder" && c.state?.status === "completed" && index > lastUser && typeof c.state.input?.question === "string") {
+          question = c.state.input.question;
+          proposals.push({ kind: "question", id: sessionID });
+        }
         if (c.name === "banyan_record_note" && c.state?.status === "completed") {
           const id = noteIdFrom(c.state.content);
           if (id && !proposals.some((p) => p.id === id)) proposals.push({ kind: "note", id });
@@ -187,6 +209,7 @@ export class OpenCodeAgentRuntime implements AgentRuntime {
       costUsd,
       latencyMs: Date.now() - started,
       stopped: stop === "idle" ? null : stop,
+      question,
       tokens: perModel.reduce((s, m) => s + m.inputTokens + m.outputTokens, 0),
     };
   }

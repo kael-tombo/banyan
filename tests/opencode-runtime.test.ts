@@ -148,3 +148,35 @@ describe("OpenCodeAgentRuntime", () => {
     expect(taskForSession(sessionIdFor(spec()))).toBeUndefined();
   });
 });
+
+describe("asking the founder (R4)", () => {
+  const asked = (question: string): V2Message =>
+    assistant({ content: [{ type: "tool", name: "banyan_ask_founder", state: { status: "completed", input: { question }, content: [{ type: "text", text: "ok" }] } }, { type: "text", text: "Waiting for the founder." }] });
+
+  it("reports the question the agent asked in this run", async () => {
+    const { host } = fakeHost({ messages: [asked("Which market comes first, B2B or B2C?"), { id: "i", type: "idle", outcome: "succeeded" }] });
+    const r = await runtime(host).run(spec());
+    expect(r.question).toBe("Which market comes first, B2B or B2C?");
+    expect(r.status).toBe("completed");
+  });
+
+  it("sends the answer into the same session once, and ignores the question it already answered", async () => {
+    const history: V2Message[] = [{ id: "u1", type: "user", text: "Research this." }, asked("Which market first?"), { id: "i1", type: "idle", outcome: "succeeded" }];
+    const { host, calls } = fakeHost({ existing: history });
+    host.sessions.prompt = vi.fn(async (input) => {
+      calls.prompt.push(input);
+      history.push({ id: "u2", type: "user", text: input.text }, assistant({ content: [{ type: "text", text: "{}" }] }), { id: "i2", type: "idle", outcome: "succeeded" });
+    });
+    const r = await runtime(host).run(spec({ followUp: "B2B." }));
+    expect(calls.prompt).toEqual([{ sessionID: sessionIdFor(spec()), text: "B2B." }]);
+    expect(r.question).toBeNull();
+    await runtime(host).run(spec({ followUp: "B2B." }));
+    expect(calls.prompt).toHaveLength(1);
+  });
+
+  it("puts the brief and the answer together when the session is new, e.g. on another replica", async () => {
+    const { host, calls } = fakeHost({ messages: [assistant(), { id: "i", type: "idle", outcome: "succeeded" }] });
+    await runtime(host).run(spec({ followUp: "B2B." }));
+    expect(calls.prompt).toEqual([{ sessionID: sessionIdFor(spec()), text: "Research this.\n\nB2B." }]);
+  });
+});

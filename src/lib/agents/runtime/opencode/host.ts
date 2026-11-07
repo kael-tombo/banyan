@@ -68,6 +68,16 @@ export function banyanToolDefinitions(workspaceId: string, hostRef: () => OpenCo
       asJson(async () => proposeDraft(workspaceId, await taskContext(context.sessionID), input)),
     banyan_flag: async (input: { kind: string; excerpt: string; note: string }, context: { sessionID: string }) =>
       asJson(async () => flagDraft(workspaceId, await taskContext(context.sessionID), input)),
+    /** The question itself is read back from this call by the task (R4); the tool only ends the turn. */
+    banyan_ask_founder: async (input: { question: string }, context: { sessionID: string }) => {
+      const task = taskForSession(context.sessionID);
+      if (task?.context.asked === "1") {
+        return "You already asked the founder one question for this task. Do not ask again: make a reasonable assumption, say so in missingInfo, and finish.";
+      }
+      const question = (input.question ?? "").trim();
+      if (question.length < 10 || question.length > 500) return "Ask one clear question of 10 to 500 characters.";
+      return "Your question is with the founder. Stop here: finish with one line, \"Waiting for the founder.\"";
+    },
   };
 }
 
@@ -146,6 +156,17 @@ async function createHost(): Promise<OpenCodeHost> {
           output: S.Struct({ text: S.String }),
           execute: async (input: { body: string }, context: { sessionID: string }) => {
             const text = await impl.banyan_propose_draft(input, context);
+            return { output: { text }, content: text };
+          },
+        });
+        tools.add({
+          name: "banyan_ask_founder",
+          options: { codemode: false },
+          description: "Ask the founder one question you cannot answer from the context or the goal. The run pauses until they answer. You may ask only once.",
+          input: S.Struct({ question: S.String }),
+          output: S.Struct({ text: S.String }),
+          execute: async (input: { question: string }, context: { sessionID: string }) => {
+            const text = await impl.banyan_ask_founder(input, context);
             return { output: { text }, content: text };
           },
         });

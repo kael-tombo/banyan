@@ -20,6 +20,7 @@ export async function runAgentTask(args: {
   purpose: string;
   attempt: number;
   context?: Record<string, string>;
+  followUp?: string;
   /** Decides whether the run counts as ok in the ledger. Defaults to the runtime's own status. */
   succeeded?: (result: OpenCodeRunResult) => boolean;
 }): Promise<OpenCodeRunResult> {
@@ -35,6 +36,7 @@ export async function runAgentTask(args: {
       brief: args.brief,
       budget: { maxSteps: ROSTER[args.agent].steps, maxTokens: env.AGENT_RUN_MAX_TOKENS },
       context: args.context,
+      followUp: args.followUp,
     });
   } catch (err) {
     await recordIncident(args, `it could not run: ${(err as Error).message.slice(0, 200)}`, {});

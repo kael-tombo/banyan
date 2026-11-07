@@ -43,6 +43,8 @@ export type AgentTaskSpec = {
   budget: Budget;
   /** What the task is about (e.g. channel, format, campaignId). Tools read it; the model never supplies it. */
   context?: Record<string, string>;
+  /** Sent into an existing session once, e.g. the founder's answer to the agent's question (R4). */
+  followUp?: string;
 };
 
 export interface AgentRuntime {

@@ -10,6 +10,8 @@ import {
 import { AlertTriangle, FileCheck2, FlaskConical, Lightbulb, ShieldCheck } from "lucide-react";
 import GoalLive from "./goal-live";
 import GateActions from "./gate-actions";
+import AnswerQuestion from "./answer-question";
+import { openQuestion } from "@/lib/agents/questions";
 import ProvenanceBadge from "./provenance-badge";
 
 export const dynamic = "force-dynamic";
@@ -242,7 +244,17 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
                     <span className="truncate">{t.title}</span>
                     <StatusBadge status={t.status} />
                   </div>
-                  {t.lastError && <p className="mt-0.5 text-xs text-clay">{t.lastError}</p>}
+                  {(() => {
+                    const open = t.status === "blocked" ? openQuestion(t.output) : null;
+                    if (!open) return t.lastError && <p className="mt-0.5 text-xs text-clay">{t.lastError}</p>;
+                    return (
+                      <div className="mt-1.5">
+                        <p className="text-xs text-charcoal-soft">The agent needs one answer from you before it continues:</p>
+                        <p className="mt-0.5 text-sm text-charcoal">{open.question}</p>
+                        <AnswerQuestion taskId={t.id} />
+                      </div>
+                    );
+                  })()}
                 </li>
               ))}
             </ul>

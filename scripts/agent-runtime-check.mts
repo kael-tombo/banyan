@@ -30,13 +30,16 @@ if (process.env.AGENT_CHECK_THROWAWAY_DB !== "1") throw new Error("Set AGENT_CHE
 // ---- Child: one worker process running one task (research, or a LinkedIn draft) ----
 
 if (role === "child") {
-  const [workspaceId, taskId, type = "research"] = process.argv.slice(3);
+  const [workspaceId, taskId, type = "research", goalId = "", outputB64 = "", attempts = "1"] = process.argv.slice(3);
   const drafting = type === "content_draft";
-  const handler = drafting ? (await import("../src/lib/agents/handlers/distribution")).handleContentDraft : (await import("../src/lib/agents/handlers/planning")).handleResearch;
+  const planning = type === "plan_draft";
+  const handlers = await import("../src/lib/agents/handlers/planning");
+  const handler = drafting ? (await import("../src/lib/agents/handlers/distribution")).handleContentDraft : planning ? handlers.handlePlanDraft : handlers.handleResearch;
+  const output = outputB64 ? JSON.parse(Buffer.from(outputB64, "base64").toString("utf8")) : null;
   const result = await handler({
-    task: { id: taskId, workspaceId, goalId: null, campaignId: null, dedupeKey: taskId, type, title: drafting ? "Draft" : "Research", agentRole: drafting ? "writer" : "researcher", status: "running", inputs: drafting ? { channel: "linkedin", format: "insight" } : {}, expectedOutput: "", output: null, verification: { kind: "nonempty" }, requiresApproval: false, dependsOn: [], attempts: 1, maxAttempts: 3, lastError: null, leasedUntil: null, startedAt: new Date() },
+    task: { id: taskId, workspaceId, goalId: goalId || null, campaignId: null, dedupeKey: taskId, type, title: drafting ? "Draft" : planning ? "Plan" : "Research", agentRole: drafting ? "writer" : planning ? "planner" : "researcher", status: "running", inputs: drafting ? { channel: "linkedin", format: "insight" } : {}, expectedOutput: "", output, verification: { kind: "nonempty" }, requiresApproval: false, dependsOn: [], attempts: Number(attempts), maxAttempts: 3, lastError: null, leasedUntil: null, startedAt: new Date() },
     workspaceId: workspaceId!,
-    goalId: null,
+    goalId: goalId || null,
     userId: null,
     log: () => {},
   } as never);
@@ -46,7 +49,7 @@ if (role === "child") {
 
 // ---- Parent: a scripted model, two workspaces, and the checks ----
 
-type Call = { product: string; toolTurns: number; aborted: boolean; model: string };
+type Call = { product: string; toolTurns: number; aborted: boolean; model: string; sawQuestion: boolean };
 const calls: Call[] = [];
 let hangProduct: string | null = null;
 
@@ -63,7 +66,7 @@ async function model(req: IncomingMessage, res: ServerResponse) {
   const all = JSON.stringify(messages);
   const product = /CheckCo-[a-z0-9]+/.exec(all)?.[0] ?? "none";
   const toolTurns = messages.filter((m) => m.role === "tool").length;
-  const call: Call = { product, toolTurns, aborted: false, model: String(body.model ?? "") };
+  const call: Call = { product, toolTurns, aborted: false, model: String(body.model ?? ""), sawQuestion: /start with B2B or B2C/.test(all) && all.includes("The founder answered") };
   calls.push(call);
   res.on("close", () => {
     if (!res.writableEnded) call.aborted = true;
@@ -86,6 +89,16 @@ async function model(req: IncomingMessage, res: ServerResponse) {
     chunk({}, "tool_calls");
     end();
   };
+  if (all.includes("You are Banyan's planner")) {
+    // Asks once; once the answer is in the conversation, writes the plan.
+    if (all.includes("The founder answered your question")) {
+      chunk({ role: "assistant", content: JSON.stringify({ summary: `Start with B2B founders for ${product}.`, assumptions: ["Founders read LinkedIn"], missingInfo: [], risks: ["Small audience"], phases: [{ name: "Research", description: "Interview five founders", taskTypes: ["research"] }] }) }, "stop");
+      return end();
+    }
+    if (toolTurns === 0) return tool("banyan_ask_founder", { question: `Should ${product} start with B2B or B2C customers?` });
+    chunk({ role: "assistant", content: "Waiting for the founder." }, "stop");
+    return end();
+  }
   if (looping && all.includes("You are Banyan's writer")) {
     await sleep(700);
     return tool("banyan_channel_rules", {});
@@ -150,8 +163,9 @@ const childEnv = {
   ...realEnv,
 };
 
-function worker(workspaceId: string, taskId: string, type = "research", extraEnv: Record<string, string> = {}) {
-  const child = spawn(process.execPath, ["--import", "tsx", "scripts/agent-runtime-check.mts", "child", workspaceId, taskId, type], { env: { ...childEnv, ...extraEnv }, stdio: ["ignore", "pipe", "pipe"] });
+function worker(workspaceId: string, taskId: string, type = "research", extraEnv: Record<string, string> = {}, plan: { goalId: string; output?: unknown; attempts?: number } | null = null) {
+  const planArgs = plan ? [plan.goalId, plan.output ? Buffer.from(JSON.stringify(plan.output)).toString("base64") : "", String(plan.attempts ?? 1)] : [];
+  const child = spawn(process.execPath, ["--import", "tsx", "scripts/agent-runtime-check.mts", "child", workspaceId, taskId, type, ...planArgs], { env: { ...childEnv, ...extraEnv }, stdio: ["ignore", "pipe", "pipe"] });
   let out = "";
   let err = "";
   child.stdout.on("data", (d) => (out += d));
@@ -212,10 +226,40 @@ try {
   check("One ledger row for each of the two runs", ledgerC.filter((l) => l.provider === "opencode-runtime").map((l) => l.purpose).sort().join() === "content_draft,content_review", ledgerC.map((l) => ({ purpose: l.purpose, provider: l.provider, ok: l.ok })));
 
   if (REAL) {
+    // The planner may or may not ask. If it does, answer as a founder would and let it continue.
+    const wsR = await makeWorkspace(`CheckCo-${randomBytes(3).toString("hex")}`);
+    const goalR = await prisma.goal.create({ data: { workspaceId: wsR, objective: "Get 20 signups in 30 days", successMetric: "signups", status: "planning" } });
+    const taskR = `task_${randomBytes(4).toString("hex")}`;
+    const first = (await worker(wsR, taskR, "plan_draft", {}, { goalId: goalR.id }).done).result;
+    let planOutcome = first?.outcome;
+    if (first?.outcome === "blocked") {
+      const answered = { ...first.output, data: { ...first.output.data, answer: "Small B2B software teams of 3 to 20 people. No paid ads; LinkedIn and X only." } };
+      planOutcome = (await worker(wsR, taskR, "plan_draft", {}, { goalId: goalR.id, output: answered, attempts: 2 }).done).result?.outcome;
+    }
+    const planR = await prisma.goalPlan.findUnique({ where: { goalId: goalR.id } });
+    check("The real planner produced a plan (asking first if it chose to)", planOutcome === "waiting_approval" && /planner agent/.test(JSON.parse(planR?.generatedMeta ?? "{}").label ?? ""), { asked: first?.outcome === "blocked" ? first.actionable : null, outcome: planOutcome, label: JSON.parse(planR?.generatedMeta ?? "{}").label });
+    console.log(JSON.stringify({ plannerQuestion: first?.outcome === "blocked" ? first.actionable : "(did not ask)", planSummary: planR?.summary, missingInfo: planR?.missingInfo }, null, 2));
+
     console.log("\nReal-model output, for a person to read:");
     console.log(JSON.stringify({ brief: outA?.data, notes: notesA.map((n) => n.value), draft: item?.body, criticFlags: criticFlags.map((f: { message: string }) => f.message) }, null, 2));
     throw new Error("__real_done__");
   }
+
+  // ---- The planner asks the founder one question, waits, and continues the same session with the answer (R4)
+  const productE = `CheckCo-${randomBytes(3).toString("hex")}`;
+  const wsE = await makeWorkspace(productE);
+  const goal = await prisma.goal.create({ data: { workspaceId: wsE, objective: "Get 20 signups", successMetric: "signups", status: "planning" } });
+  const taskE = `task_${randomBytes(4).toString("hex")}`;
+  const asked = (await worker(wsE, taskE, "plan_draft", {}, { goalId: goal.id }).done).result;
+  check("The planner asked a question, and the task waits for the founder with it", asked?.outcome === "blocked" && /B2B or B2C/.test(asked?.actionable ?? "") && asked?.output?.data?.runId === "attempt-1", { outcome: asked?.outcome, actionable: asked?.actionable });
+  const callsBeforeAnswer = calls.filter((c) => c.product === productE).length;
+  // What the answer API stores on the task, then the task runs again as a later attempt.
+  const answered = { ...asked?.output, data: { ...asked?.output?.data, answer: "B2B: small software teams." } };
+  const resumed = (await worker(wsE, taskE, "plan_draft", {}, { goalId: goal.id, output: answered, attempts: 2 }).done).result;
+  const planRow = await prisma.goalPlan.findUnique({ where: { goalId: goal.id } });
+  const afterAnswer = calls.filter((c) => c.product === productE).slice(callsBeforeAnswer);
+  check("With the answer, the planner finished the plan, which waits for approval", resumed?.outcome === "waiting_approval" && /B2B founders/.test(planRow?.summary ?? ""), { outcome: resumed?.outcome, summary: planRow?.summary, label: JSON.parse(planRow?.generatedMeta ?? "{}").label });
+  check("It continued the same session: the model saw its own question and the answer, in one more call", afterAnswer.length === 1 && afterAnswer[0]!.sawQuestion, { callsAfterAnswer: afterAnswer.length, sawQuestion: afterAnswer[0]?.sawQuestion });
 
   // ---- A writer that never finishes: its token budget stops it, and nothing more is spent (R4)
   const productD = `CheckCo-loop${randomBytes(3).toString("hex")}`;

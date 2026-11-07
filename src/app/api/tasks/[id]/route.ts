@@ -3,6 +3,7 @@ import { apiError, assertSameOrigin, guardRate, json, requireWorkspace, readJson
 import { recordActivity } from "@/lib/activity";
 import { requireRole } from "@/lib/permissions";
 import { canTransitionTask } from "@/lib/state-machines";
+import { openQuestion } from "@/lib/agents/questions";
 import { z } from "zod";
 import { NextRequest } from "next/server";
 
@@ -16,7 +17,9 @@ const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("retry") }),
   z.object({ action: z.literal("cancel") }),
   z.object({ action: z.literal("approve_gate") }), // complete an approval_gate task after human approval in the content UI
+  z.object({ action: z.literal("answer"), answer: z.string().trim().min(2).max(2000) }), // R4: answer the question an agent asked
 ]);
+
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const csrf = assertSameOrigin(req);
@@ -56,6 +59,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       actorType: "user",
       actorSummary: ctx.user.email,
       summary: `Task retried by the user: ${task.title}`,
+      meta: { taskId: task.id },
+    });
+    return json({ ok: true, status: "ready" });
+  }
+
+  if (parsed.data.action === "answer") {
+    const open = task.status === "blocked" ? openQuestion(task.output) : null;
+    if (!open) return apiError("This task is not waiting for an answer.", 400);
+    // The answer travels with the task; when it runs again, the agent continues the session it asked from.
+    const output = JSON.stringify({ summary: "The founder answered; the agent continues.", data: { ...open.data, answer: parsed.data.answer } });
+    const updated = await prisma.agentTask.updateMany({
+      where: { id: task.id, status: "blocked", output: task.output },
+      data: { status: "ready", lastError: null, leasedUntil: null, output },
+    });
+    if (updated.count === 0) return apiError("The task changed while you were answering. Reload and try again.", 409);
+    await recordActivity({
+      workspaceId: ctx.workspace.id,
+      type: "task",
+      actorType: "user",
+      actorSummary: ctx.user.email,
+      summary: `Answered the agent's question on "${task.title}": ${open.question}`.slice(0, 400),
       meta: { taskId: task.id },
     });
     return json({ ok: true, status: "ready" });
