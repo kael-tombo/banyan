@@ -6,7 +6,9 @@ const nextConfig: NextConfig = {
   // The job queue (BullMQ on Redis) runs in Node; let Node load it instead of bundling it. Bundling
   // tried to resolve BullMQ's optional Valkey client (@valkey/valkey-glide), which this app does not
   // use, and warned "Module not found" on every compile.
-  serverExternalPackages: ["bullmq", "ioredis"],
+  // The embedded OpenCode host (R2) is loaded by Node at runtime, only on Node 24 and only when
+  // AGENT_RUNTIME=opencode; it must never be bundled.
+  serverExternalPackages: ["bullmq", "ioredis", "@opencode/sdk", "effect"],
   // BOS-065: security headers on every response (framing and HSTS in production only; see the module).
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders(process.env.NODE_ENV === "production") }];

@@ -60,6 +60,27 @@ const envSchema = z.object({
   AGENT_MODEL_STRONG: z.string().regex(MODEL_REF, AGENT_MODEL_MSG("AGENT_MODEL_STRONG")).default(""),
   AGENT_MODEL_FAST: z.string().regex(MODEL_REF, AGENT_MODEL_MSG("AGENT_MODEL_FAST")).default(""),
   AGENT_MODEL_CRITIC: z.string().regex(MODEL_REF, AGENT_MODEL_MSG("AGENT_MODEL_CRITIC")).default(""),
+  // The opencode runtime's session store. One file per live worker process: two processes on one
+  // file duplicate runs. Empty means .data/opencode-<hostname>.db; mount .data on a volume in Docker.
+  AGENT_OPENCODE_DB: z.string().default(""),
+  // Optional extra OpenCode providers as JSON, e.g. an OpenAI-compatible endpoint:
+  // {"myco":{"package":"aisdk:@ai-sdk/openai-compatible","settings":{"baseURL":"https://…/v1"},"models":{"m":{}}}}
+  // Keys never go here: OpenCode reads each provider's own environment variable.
+  AGENT_OPENCODE_PROVIDERS: z
+    .string()
+    .default("")
+    .refine((v) => {
+      if (!v) return true;
+      try {
+        const parsed = JSON.parse(v);
+        return typeof parsed === "object" && parsed !== null && !/"(apiKey|api_key|token|secret)"\s*:/i.test(v);
+      } catch {
+        return false;
+      }
+    }, "AGENT_OPENCODE_PROVIDERS must be a JSON object without keys in it (set the provider's own key variable instead)."),
+  // Limits OpenCode does not enforce itself; the runtime interrupts the session past them.
+  AGENT_RUN_TIMEOUT_MS: z.coerce.number().int().min(10_000).max(1_800_000).default(240_000),
+  AGENT_RUN_MAX_TOKENS: z.coerce.number().int().min(1_000).max(5_000_000).default(80_000),
   SEED_USER_EMAIL: z.string().default("founder@banyan.ai"),
   SEED_USER_PASSWORD: z.string().default("banyan-demopass"),
   // Sign-in providers (SSO). A provider is offered only when both its client

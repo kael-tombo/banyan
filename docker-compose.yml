@@ -113,6 +113,10 @@ services:
       <<: *app-env
       WORKER_INTERVAL_MS: ${WORKER_INTERVAL_MS:-60000}
       WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
+    # The OpenCode runtime's sessions survive a restart only on a volume. One worker replica per
+    # volume: two processes on one session store run the same work twice.
+    volumes:
+      - agentdata:/app/.data
     # The worker serves no HTTP; it is healthy while its process runs and
     # Compose restarts it if it exits.
     healthcheck:
@@ -153,3 +157,4 @@ volumes:
   pgdata:
   redisdata:
   sfldata:
+  agentdata:

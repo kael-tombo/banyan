@@ -14,11 +14,11 @@ describe("resolveRuntimeSelection", () => {
     expect(s.reason).toMatch(/direct/i);
   });
 
-  it("degrades to direct with a labelled reason while the embedded runtime is unbuilt (pre-R2)", () => {
+  it("degrades to direct with a labelled reason on a Node too old for the embedded runtime", () => {
     const s = resolveRuntimeSelection({ agentRuntime: "opencode", opencodeAvailable: false, strongModelConfigured: true });
     expect(s.runtime).toBe("direct");
-    expect(s.reason).toMatch(/not built yet/i);
-    expect(s.reason).toMatch(/R2/);
+    expect(s.reason).toMatch(/Node 24/);
+    expect(s.reason).toMatch(/degradation/);
   });
 
   it("degrades to direct when the strong tier is missing", () => {

@@ -21,3 +21,6 @@ tsconfig.tsbuildinfo
 
 # Bundled worker
 dist/
+
+# OpenCode runtime session store (AGENT_OPENCODE_DB)
+.data/

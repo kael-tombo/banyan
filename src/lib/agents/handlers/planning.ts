@@ -7,6 +7,10 @@ import type { HandlerResult } from "@/lib/agents/types";
 import type { ParsedGoal } from "@/lib/agents/nl-goal";
 import { parseChannelConstraint } from "@/lib/agents/channels";
 import type { Channel } from "@/lib/formats";
+import { env } from "@/lib/env";
+import { log } from "@/lib/log";
+import { currentRuntimeSelection } from "@/lib/agents/runtime/select";
+import { researchWithAgent, type AgentResearch } from "@/lib/agents/runtime/opencode/research";
 
 /**
  * Planning-phase handlers: plan drafting (with human approval gate),
@@ -169,16 +173,35 @@ export async function handleResearch(ctx: import("@/lib/agents/types").HandlerCo
 
   const user = contextBlock(biz, goal ? { objective: goal.objective, successMetric: goal.successMetric, metricTarget: goal.metricTarget, deadline: goal.deadline, constraints: goal.constraints } : null);
 
-  const { data, label, isFallback } = await routedStructured({
-    workspaceId: ctx.workspaceId,
-    purpose: "research",
-    system,
-    user,
-    maxTokens: 900,
-    temperature: 0.6,
-    schema: RESEARCH_OUTPUT,
-    template: () => templateResearchBrief(biz, goal),
-  });
+  // R2: with AGENT_RUNTIME=opencode on Node 24, the researcher agent does this task with tools.
+  // Any failure falls back to the single call below, and the label says so.
+  const selection = currentRuntimeSelection();
+  let agentNote = "";
+  let agent: AgentResearch<ResearchBrief> | null = null;
+  if (selection.runtime === "opencode") {
+    agent = await researchWithAgent({ workspaceId: ctx.workspaceId, taskId: ctx.task.id, attempt: ctx.task.attempts, context: user, schema: RESEARCH_OUTPUT }).catch(
+      (err: Error) => {
+        log("error", "agent_run_failed", { purpose: "research", taskId: ctx.task.id, error: err.message.slice(0, 500) }, "worker");
+        return { ok: false as const, reason: `The agent runtime failed: ${err.message.slice(0, 200)}` };
+      }
+    );
+    const failed = agent.ok ? null : agent.reason;
+    if (failed) agentNote = ` Agent runtime unavailable, so a single call served this: ${failed}`;
+  } else if (env.AGENT_RUNTIME === "opencode") {
+    agentNote = ` ${selection.reason}`;
+  }
+  const { data, label, isFallback } = agent?.ok
+    ? { data: agent.data, label: agent.label, isFallback: false }
+    : await routedStructured({
+        workspaceId: ctx.workspaceId,
+        purpose: "research",
+        system,
+        user,
+        maxTokens: 900,
+        temperature: 0.6,
+        schema: RESEARCH_OUTPUT,
+        template: () => templateResearchBrief(biz, goal),
+      });
 
   // Persist the angles as inspectable business context with hypothesis provenance.
   let persisted = 0;
@@ -208,8 +231,8 @@ export async function handleResearch(ctx: import("@/lib/agents/types").HandlerCo
     workspaceId: ctx.workspaceId,
     type: "task",
     actorType: "ai",
-    summary: `Research brief produced (${data.hypothesisAngles.length} hypothesis angle(s), ${persisted} stored as context) — ${label}.`,
-    meta: { taskId: ctx.task.id, goalId: ctx.task.goalId },
+    summary: `Research brief produced (${data.hypothesisAngles.length} hypothesis angle(s), ${persisted} stored as context${agent?.ok ? `, ${agent.notes} note(s) recorded by the agent` : ""}) — ${label}.${agentNote}`,
+    meta: { taskId: ctx.task.id, goalId: ctx.task.goalId, ...(agent?.ok ? { sessionRef: agent.sessionRef } : {}) },
   });
 
   return {

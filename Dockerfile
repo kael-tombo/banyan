@@ -7,7 +7,8 @@
 #
 # Standalone use: docker build -t banyan . && docker run --env-file .env -p 3000:3000 banyan
 
-FROM node:22-alpine AS base
+# Node 24: the embedded OpenCode runtime (AGENT_RUNTIME=opencode, ADR-006 R2) needs it.
+FROM node:24-alpine AS base
 # Prisma engines on musl need openssl; libc6-compat for native modules.
 RUN apk add --no-cache openssl libc6-compat
 WORKDIR /app
@@ -42,6 +43,8 @@ COPY --from=build --chown=node:node /app/public ./public
 COPY --from=build --chown=node:node /app/dist ./dist
 COPY --from=build --chown=node:node /app/prisma ./prisma
 COPY --from=build --chown=node:node /app/package.json /app/next.config.ts ./
+# The OpenCode runtime's session store (AGENT_OPENCODE_DB defaults under here). Mount a volume on it.
+RUN mkdir -p /app/.data && chown node:node /app/.data
 USER node
 EXPOSE 3000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=40s --retries=3 \

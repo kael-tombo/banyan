@@ -29,8 +29,7 @@ export function resolveRuntimeSelection(cfg: {
     if (!cfg.opencodeAvailable) {
       return {
         runtime: "direct",
-        reason:
-          "AGENT_RUNTIME=opencode, but the embedded OpenCode runtime is not built yet (roadmap R2). Serving single-shot direct calls, labelled as a degradation.",
+        reason: `AGENT_RUNTIME=opencode, but the embedded OpenCode runtime needs Node 24 or later and this process runs Node ${process.versions.node}. Serving single-shot direct calls, labelled as a degradation.`,
       };
     }
     if (!cfg.strongModelConfigured) {
@@ -45,11 +44,11 @@ export function resolveRuntimeSelection(cfg: {
   return { runtime: "direct", reason: "AGENT_RUNTIME=direct (default): one model call per task." };
 }
 
-/** This deployment's selection. `opencodeAvailable` flips to true in R2. */
+/** This deployment's selection. The runtime exists from R2, on Node 24 (the SDK needs it). */
 export function currentRuntimeSelection(): RuntimeSelection {
   return resolveRuntimeSelection({
     agentRuntime: env.AGENT_RUNTIME,
-    opencodeAvailable: false,
+    opencodeAvailable: Number(process.versions.node.split(".")[0]) >= 24,
     strongModelConfigured: env.AGENT_MODEL_STRONG !== "",
   });
 }

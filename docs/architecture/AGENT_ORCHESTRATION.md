@@ -200,19 +200,45 @@ writer, then to also start the researcher and the strategist, the `creator` star
 `strategist` call failed with "cannot run as a subagent". The unit tests model OpenCode's rules (deny first, last
 match wins, the subagent permission's resource is the agent id) and this run confirms that model.
 
-## Open: a separate platform instead of R2
+## Decided: V2 directly in Banyan, not through the platform (2026-11-07)
 
-A review on 2026-11-06 found problems with this design that R2 would run into. The web process also runs handlers, so it
-would load an SDK that needs Node 24. Subagents make fan-out unbounded until R4. Falling back to `direct` after a partial
-run can duplicate drafts. `central-brain-agent-platform` (a separate repo, not yet published) addresses these by running
-OpenCode behind HTTP. Adopting it would supersede ADR-006 and replace R2. Nothing in Banyan depends on it yet.
+A review on 2026-11-06 proposed running agents through `central-brain-agent-platform` instead. A source-level investigation
+the next day (that repo's `docs/opencode/`) found V2 stronger than the review assumed: a hard step limit, resume after a
+crash, both queued prompts answered, per-workspace tools by session metadata, and far less memory per run. It also found the
+V1 line the platform uses is ending. The founder chose to run V2 directly in Banyan. The platform stays available for a
+second product. How R2 answers the review:
+
+| Review concern | R2's answer |
+| --- | --- |
+| The web process also runs handlers and would need Node 24 | The whole image is on Node 24, and the SDK is imported only when `AGENT_RUNTIME=opencode`, on Node 24 (otherwise a labelled fallback) |
+| Subagents make fan-out unbounded | R2 runs the researcher only, which has no subagents. Bounding them is still R3/R4 work |
+| Falling back to `direct` after a partial run duplicates drafts | Research proposes notes keyed by task and text, so a fallback after a partial run adds no duplicates. Drafts need the same keying in R3 |
+
+## R2 as built (2026-11-07)
+
+- `src/lib/agents/runtime/opencode/`: `host.ts` (one embedded `@opencode/sdk@2.2.6` host per process, per-workspace tool
+  instances keyed by session metadata), `runtime.ts` (`AgentRuntime` over it), `banyan-tools.ts` (`banyan_read_context`,
+  `banyan_record_note`), `research.ts` (the research task as an agent run, with quota check and one ledger row).
+- **One session per task attempt**, with an id derived from the attempt. The same attempt on the same replica reattaches
+  instead of starting over, and does not resend its prompt. The host resumes interrupted sessions itself at start-up.
+- **Limits OpenCode does not enforce** (tokens, wall time) are polled and the session interrupted: `AGENT_RUN_MAX_TOKENS`,
+  `AGENT_RUN_TIMEOUT_MS`. Steps are a hard limit in V2.
+- **Session store:** `AGENT_OPENCODE_DB`, one file per live worker process (two processes on one file run the same work
+  twice), on the `agentdata` volume in Compose.
+- **Keys** never enter OpenCode's config: it reads each provider's own variable. Extra providers come from
+  `AGENT_OPENCODE_PROVIDERS` (JSON, no keys allowed).
+- **Verified:** unit tests, and `scripts/agent-runtime-check.mts`, which runs the research handler through the real host,
+  tools and database with a scripted model, including killing the worker mid-run (one note, one ledger row, the session
+  reused). It runs in CI. **Not yet verified with a real model.**
+- **Not built in R2:** the other tools (`channel_rules`, `results`, proposal tools) and the other agents; research
+  only. `banyan_web_search` stays unregistered until a web provider is verified.
 
 ## Roadmap
 
 | Step | What | Done when |
 | --- | --- | --- |
 | **R1 · Seam** | `AgentRuntime` interface, `direct` runtime wrapping today's handlers, agent-config builder and tool catalogue as pure, tested modules | No behaviour change; tests pin "no agent can reach a side-effect tool". **Partly done 2026-11-03/04**: `src/lib/agents/runtime/{types,tools,roster,select}.ts`, the ADR-007 governance modules (`src/lib/model/agent-run.ts`, `checkRunQuota`/`recordAgentRun` in the router, validated `AGENT_*` env) and their tests; the `direct` runtime adapter is next |
-| **R2 · Worker on Node 24** | Worker image to `node:24-alpine`, pin `@opencode/sdk@2.2.5`, the OpenCode runtime behind `AGENT_RUNTIME=opencode`, first task type: `research` | A research task runs through OpenCode in a throwaway workspace, its notes carry provenance, usage lands in `ModelCall`, killing the worker mid-run duplicates nothing |
+| **R2 · Worker on Node 24** | Worker image to `node:24-alpine`, pin `@opencode/sdk@2.2.6`, the OpenCode runtime behind `AGENT_RUNTIME=opencode`, first task type: `research` | A research task runs through OpenCode in a throwaway workspace, its notes carry provenance, usage lands in `ModelCall`, killing the worker mid-run duplicates nothing. **Built 2026-11-07; verified with a scripted model, not yet a real one** |
 | **R3 · Creator team** | `creator`, `writer` and `critic` agents; critic flags feed the autonomy policy | One draft per channel, critic flags visible on the draft, supervised approval unchanged |
 | **R4 · Ask and budgets** | `banyan_ask_founder` with `waiting_input`, per-run token budgets, per-cycle credit budgets, an incident log | A run that needs an answer pauses and resumes in the same session; an over-budget run stops cleanly |
 | **R5 · Level 3** | Continuous cycles started by Banyan's scheduler inside the cycle budget, with sampling (spot checks, built) and incident review | Several measured cycles in one workspace without a founder prompt, every one inside its budget and policy |

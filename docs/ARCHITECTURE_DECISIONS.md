@@ -106,7 +106,7 @@ The single-product MVP promise is unchanged: it is one product's cycle. Phase 0 
 
 ## ADR-006 — OpenCode as the agent runtime, Banyan as the control plane
 
-**Date:** 2026-11-03 · **Status:** Accepted (design); R1 in progress
+**Date:** 2026-11-03 · **Status:** Accepted; R2 (research through the embedded runtime) built 2026-11-07, pinned to `@opencode/sdk` 2.2.6. Reaffirmed over running agents through `central-brain-agent-platform`; see docs/architecture/AGENT_ORCHESTRATION.md
 
 **Context.** Each Banyan agent task is one model call. Research, writing and critique improve with tool use and
 delegation, and OpenCode V2 (`@opencode/sdk` 2.2.5) offers an embeddable host with sessions, subagents as durable child
