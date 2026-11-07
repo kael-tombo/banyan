@@ -9,6 +9,8 @@ import type { ProductAnalysisResult } from "@/lib/product/analyze";
 import { BLANK_INTAKE, intakeFromAnalysis, suggestCycle, type IntakeProfile } from "@/lib/product/intake-profile";
 import { ReadingProgress, type ReadingStatus } from "./intake/reading-progress";
 import { Understood } from "./intake/understood";
+import { MarketSections, type ResearchState } from "./intake/market-sections";
+import type { Competitor, MarketResearch, Opportunity } from "@/lib/research/types";
 
 type Channel = "x" | "linkedin" | "shortvideo";
 type Phase = "url" | "reading" | "review" | "cycle";
@@ -19,7 +21,7 @@ const CHANNELS: { key: Channel; label: string; hint: string; live: boolean }[] =
   { key: "shortvideo", label: "Short-form video", hint: "Banyan writes the script; you record and post it.", live: false },
 ];
 
-const STEPS = ["Your site", "What Banyan understood", "Your first cycle"];
+const STEPS = ["Your site", "Your 360", "Your first cycle"];
 const POLL_MS = 1500;
 const POLL_LIMIT_MS = 120_000;
 
@@ -89,13 +91,27 @@ export default function CycleIntakeForm({
   initialProfile,
   initialUrl = "",
   firstCycle = false,
+  initialAnalysisId = null,
+  initialResearch = null,
 }: {
   initialProfile: IntakeProfile | null;
   initialUrl?: string;
   /** Onboarding (blocker 04): starting this cycle also finishes onboarding, with the browser's time zone. */
   firstCycle?: boolean;
+  /** The saved profile's last site read and its market scan, so a returning founder keeps their 360. */
+  initialAnalysisId?: string | null;
+  initialResearch?: MarketResearch | null;
 }) {
   const router = useRouter();
+  // The 360's market half: scan state, the founder's edits, and what they keep.
+  const [analysisId, setAnalysisId] = useState<string | null>(initialAnalysisId);
+  const [research, setResearch] = useState<MarketResearch | null>(initialResearch);
+  const [researchState, setResearchState] = useState<ResearchState>(initialResearch ? "ready" : "idle");
+  const [competitors, setCompetitors] = useState<Competitor[]>(initialResearch?.competitors ?? []);
+  const [queries, setQueries] = useState<string[]>(initialResearch?.queries ?? []);
+  const [kept, setKept] = useState<Set<string>>(new Set(initialResearch?.opportunities.map((o) => o.id) ?? []));
+  const [researchDirty, setResearchDirty] = useState(false);
+  const scanRun = useRef(0);
   const [phase, setPhase] = useState<Phase>("url");
   const [url, setUrl] = useState(initialUrl || initialProfile?.website || "");
   const [profile, setProfile] = useState<IntakeProfile>(initialProfile ?? BLANK_INTAKE);
@@ -171,6 +187,9 @@ export default function CycleIntakeForm({
       });
       setUrl(next.website || url);
       enterReview(next);
+      // The market half starts as soon as the product half is on screen.
+      setAnalysisId(analysis.id);
+      void scanMarket(analysis.id);
     } catch (err) {
       if (token !== run.current) return;
       setError((err as Error).message);
@@ -178,6 +197,52 @@ export default function CycleIntakeForm({
     } finally {
       if (token === run.current) setBusy(false);
     }
+  }
+
+  /**
+   * Run (or rerun) the market scan. A rerun sends the founder's competitor
+   * list and search terms, so their edits steer it.
+   */
+  async function scanMarket(id: string | null = analysisId, withEdits = false) {
+    if (!id) return;
+    const token = ++scanRun.current;
+    setResearchState("running");
+    try {
+      const body = withEdits
+        ? {
+            queries: queries.slice(0, 5),
+            competitors: competitors.slice(0, 6).map((c) => ({
+              name: c.name,
+              domain: c.url || undefined,
+              source: c.source,
+              reason: c.reason || undefined,
+            })),
+          }
+        : {};
+      const res = await fetch(`/api/product/analyze/${id}/research`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const out = (await res.json().catch(() => ({}))) as { research?: MarketResearch; error?: string };
+      if (token !== scanRun.current) return;
+      if (!res.ok || !out.research) throw new Error(out.error || "The market scan couldn't finish.");
+      setResearch(out.research);
+      setCompetitors(out.research.competitors);
+      setQueries(out.research.queries);
+      setKept(new Set(out.research.opportunities.map((o) => o.id)));
+      setResearchDirty(false);
+      setResearchState("ready");
+    } catch {
+      if (token === scanRun.current) setResearchState("failed");
+    }
+  }
+
+  /** "Make this my first cycle": the opportunity becomes what this cycle distributes. */
+  function useOpportunity(o: Opportunity) {
+    setUpdate(`${o.title}. ${o.firstStep}`.slice(0, 1000));
+    setKept((prev) => new Set(prev).add(o.id));
+    toCycle();
   }
 
   function cancelReading() {
@@ -269,6 +334,29 @@ export default function CycleIntakeForm({
           differentiators: cap(profile.differentiators, 6, 300),
           problemsSolved: cap(profile.problemsSolved, 6, 300),
           proof: cap(profile.proof, 8, 300),
+          // The market half: only what the founder kept, and only once a scan has run.
+          ...(analysisId ? { analysisId } : {}),
+          ...(research
+            ? {
+                competitors: competitors.slice(0, 8).map((c) => ({
+                  name: c.name.slice(0, 80),
+                  url: c.url.slice(0, 300),
+                  tagline: (c.tagline || c.description).slice(0, 300),
+                  verified: c.verified,
+                  source: c.source,
+                })),
+                opportunities: research.opportunities
+                  .filter((o) => kept.has(o.id))
+                  .slice(0, 6)
+                  .map((o) => ({
+                    title: o.title.slice(0, 140),
+                    rationale: o.rationale.slice(0, 600),
+                    firstStep: o.firstStep.slice(0, 300),
+                    confidence: o.confidence,
+                    evidence: o.evidence.slice(0, 8).map((e) => ({ label: e.label.slice(0, 300), url: e.url?.slice(0, 500) })),
+                  })),
+              }
+            : {}),
         }),
       });
       const snapshotBody = (await snapshotRes.json().catch(() => ({}))) as { error?: string };
@@ -305,12 +393,12 @@ export default function CycleIntakeForm({
       <Stepper phase={phase} />
 
       {phase === "url" && (
-        <Card flush>
+        <Card flush className="max-w-3xl">
           <div className="p-6 sm:p-8">
             <h2 className="font-serif text-2xl tracking-[-0.01em] text-forest-deep sm:text-[28px]">Start with your website.</h2>
             <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-charcoal-soft">
-              Banyan reads your site and fills in your product, audience, positioning, proof and pricing for you. You check it, fix
-              anything it got wrong, and the cycle starts from there.
+              Banyan reads your site for your product, audience, positioning, proof and pricing, then maps the market around it:
+              competitors, the threads where buyers talk, people asking for this, and where to start. You check all of it.
             </p>
 
             <div className="mt-6 flex flex-col gap-2 sm:flex-row">
@@ -355,9 +443,9 @@ export default function CycleIntakeForm({
 
           <ul className="grid gap-px border-t border-bark/10 bg-bark/10 sm:grid-cols-3">
             {[
-              { icon: FileText, title: "Up to 5 public pages", body: "Home, then pricing, about, features and customers when you link them." },
-              { icon: Eye, title: "Nothing made up", body: "Every field shows the page it came from. What your site doesn't say, you add." },
-              { icon: Lock, title: "Public pages only", body: "Banyan never logs in, and refuses private network addresses." },
+              { icon: FileText, title: "Your site, then your market", body: "Up to 5 of your pages, competitors' own sites, Hacker News and Stack Overflow." },
+              { icon: Eye, title: "Nothing made up", body: "Every finding links to the page or post it came from. What no source says, you add." },
+              { icon: Lock, title: "Read-only", body: "Banyan never logs in, posts or contacts anyone. Only search terms leave Banyan." },
             ].map(({ icon: Icon, title, body }) => (
               <li key={title} className="bg-white px-6 py-4">
                 <p className="flex items-center gap-2 text-[13px] font-medium text-charcoal">
@@ -370,14 +458,62 @@ export default function CycleIntakeForm({
         </Card>
       )}
 
-      {phase === "reading" && <ReadingProgress url={url} status={readingStatus} onCancel={cancelReading} />}
+      {phase === "reading" && (
+        <div className="max-w-3xl">
+          <ReadingProgress url={url} status={readingStatus} onCancel={cancelReading} />
+        </div>
+      )}
 
       {phase === "review" && (
-        <Understood profile={profile} edited={edited} set={set} onContinue={toCycle} onReread={() => void readSite()} />
+        <Understood
+          profile={profile}
+          edited={edited}
+          set={set}
+          onContinue={toCycle}
+          onReread={() => void readSite()}
+          snapshot={{
+            state: researchState,
+            competitors: competitors.length,
+            verified: competitors.filter((c) => c.verified).length,
+            conversations: research?.conversations.length ?? 0,
+            leads: research?.leads.length ?? 0,
+            opportunities: research?.opportunities.length ?? 0,
+          }}
+          market={
+            <MarketSections
+              startIndex={6}
+              state={researchState}
+              research={research}
+              canScan={Boolean(analysisId)}
+              competitors={competitors}
+              onCompetitorsChange={(c) => {
+                setCompetitors(c);
+                setResearchDirty(true);
+              }}
+              queries={queries}
+              onQueriesChange={(q) => {
+                setQueries(q);
+                setResearchDirty(true);
+              }}
+              kept={kept}
+              onToggleKept={(id) =>
+                setKept((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(id)) next.delete(id);
+                  else next.add(id);
+                  return next;
+                })
+              }
+              onScan={() => void scanMarket(analysisId, Boolean(research))}
+              onUseOpportunity={useOpportunity}
+              dirty={researchDirty}
+            />
+          }
+        />
       )}
 
       {phase === "cycle" && (
-        <Card className="p-6 sm:p-8">
+        <Card className="max-w-3xl p-6 sm:p-8">
           <h2 className="font-serif text-2xl tracking-[-0.01em] text-forest-deep">Your first cycle for {profile.name || "your product"}</h2>
           <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-charcoal-soft">
             One objective, one number, two or three channels. Banyan drafts the strategy and the posts; nothing publishes until you approve it.
@@ -387,6 +523,29 @@ export default function CycleIntakeForm({
             <Field label="What are you shipping or announcing?" hint="A launch, a feature, a lesson. Leave it empty to introduce the product itself.">
               <Textarea value={update} onChange={(e) => setUpdate(e.target.value)} rows={3} maxLength={1000} placeholder="e.g. We shipped offline mode, so invoices go out even on a plane." />
             </Field>
+            {research && research.opportunities.some((o) => kept.has(o.id)) && (
+              <div>
+                <p className="text-[12px] font-medium text-charcoal-soft">Or start from an opportunity you kept</p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {research.opportunities
+                    .filter((o) => kept.has(o.id))
+                    .map((o) => {
+                      const chosen = update.startsWith(o.title);
+                      return (
+                        <button
+                          key={o.id}
+                          type="button"
+                          onClick={() => setUpdate(`${o.title}. ${o.firstStep}`.slice(0, 1000))}
+                          aria-pressed={chosen}
+                          className={`max-w-full truncate rounded-lg border px-2.5 py-1.5 text-left text-[13px] transition ${chosen ? "border-forest bg-forest/[0.06] text-forest-deep" : "border-bark/15 bg-white text-charcoal-soft hover:border-forest/30"}`}
+                        >
+                          {o.title}
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
 
             <div className="rounded-xl border border-bark/10 bg-ivory/40 p-4">
               <Field label="Objective" required hint={goalReason ? `Suggested. ${goalReason}` : "The outcome, not the activity."}>

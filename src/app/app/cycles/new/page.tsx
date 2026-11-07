@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireWorkspaceServer } from "@/lib/workspace";
 import { Badge, PageHeader } from "@/components/ui";
 import { intakeFromSavedProfile } from "@/lib/product/intake-profile";
+import { savedScan } from "@/lib/research/runner";
 import CycleIntakeForm from "./cycle-intake-form";
 
 export const metadata: Metadata = { title: "New cycle" };
@@ -16,6 +17,7 @@ export default async function NewCyclePage({
   const { url } = await searchParams;
   const ctx = await requireWorkspaceServer();
   const profile = await prisma.productProfile.findUnique({ where: { workspaceId: ctx.workspace.id } });
+  const scan = await savedScan(ctx.workspace.id, profile?.lastAnalysisId);
 
   const hasUsableProfile =
     profile &&
@@ -34,6 +36,8 @@ export default async function NewCyclePage({
       />
       <CycleIntakeForm
         initialProfile={hasUsableProfile ? intakeFromSavedProfile(profile) : null}
+        initialAnalysisId={scan.analysisId}
+        initialResearch={scan.research}
         initialUrl={url && /^https?:\/\//i.test(url) ? url : ""}
       />
     </>

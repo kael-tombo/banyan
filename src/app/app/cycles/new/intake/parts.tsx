@@ -144,3 +144,36 @@ export function ListField({
     </div>
   );
 }
+
+/** A numbered chapter of the 360 report. `id` is the anchor the section nav jumps to. */
+export function Section({
+  index,
+  title,
+  lede,
+  children,
+  id,
+  action,
+}: {
+  index: number;
+  title: string;
+  lede: string;
+  children: ReactNode;
+  id: string;
+  action?: ReactNode;
+}) {
+  return (
+    <section id={id} aria-labelledby={`${id}-h`} className="scroll-mt-24 border-t border-bark/10 pt-6 first:border-t-0 first:pt-0">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-1 basis-64 items-baseline gap-3">
+          <span className="font-mono text-xs text-muted" aria-hidden="true">{String(index).padStart(2, "0")}</span>
+          <div>
+            <h3 id={`${id}-h`} className="font-serif text-lg tracking-[-0.01em] text-forest-deep">{title}</h3>
+            <p className="text-[13px] leading-5 text-muted">{lede}</p>
+          </div>
+        </div>
+        {action}
+      </div>
+      <div className="grid grid-cols-1 gap-4 sm:pl-8">{children}</div>
+    </section>
+  );
+}

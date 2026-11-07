@@ -10,6 +10,7 @@ import Link from "next/link";
 import { ExploreFirst } from "./explore-first";
 import CycleIntakeForm from "@/app/app/cycles/new/cycle-intake-form";
 import { intakeFromSavedProfile } from "@/lib/product/intake-profile";
+import { savedScan } from "@/lib/research/runner";
 
 export const metadata: Metadata = { title: "Your first cycle" };
 
@@ -37,17 +38,18 @@ export default async function OnboardingPage({
   if (mode !== "detailed") {
     const usable = profile && profile.name.trim() && profile.description.trim() && profile.problem.trim() && profile.valueProp.trim();
     const initialProfile = usable && profile ? intakeFromSavedProfile(profile) : null;
+    const scan = workspace ? await savedScan(workspace.id, profile?.lastAnalysisId) : { analysisId: null, research: null };
     return (
       <main className="min-h-screen bg-canvas px-4 py-10 sm:py-14">
-        <div className="mx-auto max-w-3xl">
+        <div className="mx-auto max-w-5xl">
           <p className="text-[13px] font-medium text-moss">Welcome to Banyan</p>
-          <h1 className="mt-1 font-serif text-3xl tracking-[-0.015em] text-forest-deep sm:text-4xl">Your first cycle starts with one link.</h1>
+          <h1 className="mt-1 font-serif text-3xl tracking-[-0.015em] text-forest-deep sm:text-4xl">Your product and its market, in one read.</h1>
           <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-charcoal-soft">
-            Banyan reads your site so you don&apos;t have to describe your product twice. Check what it understood, say what
-            you&apos;re shipping, and the agents draft the strategy and three posts. Nothing is published until you approve it.
+            Paste your site. Banyan reads it, then maps your market: competitors (from their own sites), the public threads where
+            your buyers talk, people already asking for a tool like yours, and where to start. You check it, and your first cycle begins.
           </p>
           <div className="mt-8">
-            <CycleIntakeForm initialProfile={initialProfile} initialUrl={seedUrl} firstCycle />
+            <CycleIntakeForm initialProfile={initialProfile} initialUrl={seedUrl} firstCycle initialAnalysisId={scan.analysisId} initialResearch={scan.research} />
           </div>
           <p className="mt-6 text-xs text-charcoal-soft">
             Prefer to set everything up first?{" "}

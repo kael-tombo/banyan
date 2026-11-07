@@ -5,7 +5,7 @@ import { ArrowRight, ExternalLink, Globe2, RotateCcw } from "lucide-react";
 import { Button, Card, Input, Select, Textarea } from "@/components/ui";
 import type { ProductStage } from "@/lib/product/intake";
 import { coverage, missingRequired, type IntakeProfile } from "@/lib/product/intake-profile";
-import { ListField, ReviewField, SourceTag, pageLabel } from "./parts";
+import { ListField, ReviewField, Section, SourceTag, pageLabel } from "./parts";
 
 const STAGES: [ProductStage, string][] = [
   ["idea", "Idea"],
@@ -21,21 +21,6 @@ const SOCIAL_LABEL: Record<string, string> = {
 };
 
 type Setter = <K extends keyof IntakeProfile>(key: K, value: IntakeProfile[K]) => void;
-
-function Section({ index, title, lede, children, id }: { index: number; title: string; lede: string; children: ReactNode; id: string }) {
-  return (
-    <section aria-labelledby={id} className="border-t border-bark/10 pt-6 first:border-t-0 first:pt-0">
-      <div className="mb-4 flex items-baseline gap-3">
-        <span className="font-mono text-xs text-muted" aria-hidden="true">{String(index).padStart(2, "0")}</span>
-        <div>
-          <h3 id={id} className="font-serif text-lg tracking-[-0.01em] text-forest-deep">{title}</h3>
-          <p className="text-[13px] leading-5 text-muted">{lede}</p>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 gap-4 sm:pl-8">{children}</div>
-    </section>
-  );
-}
 
 /** The site's logo, if it loads; the first letter of the name if not. */
 function Mark({ src, name, color }: { src?: string; name: string; color?: string }) {
@@ -57,22 +42,64 @@ function Mark({ src, name, color }: { src?: string; name: string; color?: string
   );
 }
 
+export type MarketSnapshot = {
+  state: "idle" | "running" | "ready" | "failed";
+  competitors: number;
+  verified: number;
+  conversations: number;
+  leads: number;
+  opportunities: number;
+};
+
+/** One number of the 360 at a glance; a link to its chapter. */
+function Tile({ href, label, value, sub, busy, className = "" }: { href: string; label: string; value: string; sub?: string; busy?: boolean; className?: string }) {
+  return (
+    <a href={href} className={`group flex min-w-0 flex-col rounded-xl border border-bark/10 bg-white px-3 py-2.5 transition hover:border-forest/30 hover:bg-mist/40 ${className}`}>
+      <span className="text-[11px] font-medium text-muted group-hover:text-forest">{label}</span>
+      {busy ? (
+        <span className="mt-1.5 h-5 w-10 animate-pulse rounded bg-bark/10 motion-reduce:animate-none" aria-label="Scanning" />
+      ) : (
+        <span className="font-serif text-xl leading-tight text-forest-deep">{value}</span>
+      )}
+      {sub && !busy && <span className="truncate text-[11px] text-muted">{sub}</span>}
+    </a>
+  );
+}
+
+const NAV: { href: string; label: string; group: "product" | "market" }[] = [
+  { href: "#sec-product", label: "Product", group: "product" },
+  { href: "#sec-audience", label: "Audience", group: "product" },
+  { href: "#sec-position", label: "Positioning", group: "product" },
+  { href: "#sec-proof", label: "Proof & pricing", group: "product" },
+  { href: "#sec-voice", label: "Voice", group: "product" },
+  { href: "#sec-competitors", label: "Competitors", group: "market" },
+  { href: "#sec-conversations", label: "Conversations", group: "market" },
+  { href: "#sec-signals", label: "People in the market", group: "market" },
+  { href: "#sec-opportunities", label: "Opportunities", group: "market" },
+];
+
 export function Understood({
   profile,
   edited,
   set,
   onContinue,
   onReread,
+  market,
+  snapshot,
 }: {
   profile: IntakeProfile;
   edited: Set<string>;
   set: Setter;
   onContinue: () => void;
   onReread: () => void;
+  /** The market chapters (competitors, conversations, people, opportunities). */
+  market?: ReactNode;
+  snapshot?: MarketSnapshot;
 }) {
   const p = profile;
   const missing = missingRequired(p);
   const cov = coverage(p);
+  const scanning = snapshot?.state === "running";
   const tag = (key: keyof IntakeProfile, required = false) => {
     const v = p[key];
     const empty = Array.isArray(v) ? v.length === 0 : String(v ?? "").trim().length === 0;
@@ -88,7 +115,32 @@ export function Understood({
   };
 
   return (
-    <div className="space-y-5">
+    <div className="lg:grid lg:grid-cols-[176px_minmax(0,1fr)] lg:gap-8">
+      {/* Chapter nav: the report is long; this keeps every part one click away. */}
+      <nav aria-label="Report sections" className="hidden lg:block">
+        <div className="sticky top-6 space-y-4 text-[13px]">
+          {(["product", "market"] as const).map((group) => (
+            <div key={group}>
+              <p className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-muted">{group === "product" ? "Your product" : "Your market"}</p>
+              <ul className="space-y-0.5 border-l border-bark/10">
+                {NAV.filter((n) => n.group === group).map((n) => (
+                  <li key={n.href}>
+                    <a href={n.href} className="-ml-px block border-l border-transparent py-1 pl-3 text-charcoal-soft transition hover:border-forest hover:text-forest">
+                      {n.label}
+                      {group === "market" && scanning && <span className="ml-1.5 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-fig motion-reduce:animate-none" aria-hidden="true" />}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+          {missing.length > 0 && (
+            <p className="rounded-lg bg-clay/[0.06] px-2.5 py-2 text-[12px] leading-5 text-clay">{missing.length} field{missing.length === 1 ? "" : "s"} still need you</p>
+          )}
+        </div>
+      </nav>
+
+    <div className="min-w-0 space-y-5">
       {/* Identity: who Banyan thinks you are, at a glance. */}
       <Card flush>
         <div className="flex flex-wrap items-start gap-4 p-6">
@@ -140,19 +192,20 @@ export function Understood({
           </div>
         </div>
 
+        {/* The 360 at a glance: each tile jumps to its chapter. */}
+        <div className="grid grid-cols-2 gap-2 border-t border-bark/10 bg-ivory/50 px-6 py-4 sm:grid-cols-5">
+          <Tile className="col-span-2 sm:col-span-1" href="#sec-product" label="Profile" value={`${cov.read}/${cov.total}`} sub={fromSite ? `from ${p.pages.length === 1 ? "1 page" : `${p.pages.length} pages`}` : "your words"} />
+          <Tile href="#sec-competitors" label="Competitors" value={String(snapshot?.competitors ?? 0)} sub={snapshot ? `${snapshot.verified} read from their sites` : undefined} busy={scanning} />
+          <Tile href="#sec-conversations" label="Conversations" value={String(snapshot?.conversations ?? 0)} sub="public threads" busy={scanning} />
+          <Tile href="#sec-signals" label="People in market" value={String(snapshot?.leads ?? 0)} sub="asking or switching" busy={scanning} />
+          <Tile href="#sec-opportunities" label="Opportunities" value={String(snapshot?.opportunities ?? 0)} sub="with evidence" busy={scanning} />
+        </div>
         {fromSite && (
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-bark/10 bg-ivory/50 px-6 py-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="h-1.5 w-28 overflow-hidden rounded-full bg-bark/10" aria-hidden="true">
-                <div className="h-full rounded-full bg-forest transition-[width] duration-500" style={{ width: `${Math.round((cov.read / cov.total) * 100)}%` }} />
-              </div>
-              <p className="text-[13px] text-charcoal-soft">
-                <span className="font-medium text-charcoal">{cov.read} of {cov.total}</span> filled from{" "}
-                {p.pages.length === 1 ? "your home page" : `${p.pages.length} pages`}
-                <span className="text-muted"> ({p.pages.map(pageLabel).join(", ")})</span>
-              </p>
-            </div>
-            <button type="button" onClick={onReread} className="inline-flex items-center gap-1 text-[13px] text-charcoal-soft hover:text-charcoal">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-bark/10 px-6 py-2.5">
+            <p className="min-w-0 truncate text-[12px] text-muted">
+              Read {p.pages.map(pageLabel).join(", ")}
+            </p>
+            <button type="button" onClick={onReread} className="inline-flex items-center gap-1 text-[12px] text-charcoal-soft hover:text-charcoal">
               <RotateCcw size={12} aria-hidden="true" /> Read again
             </button>
           </div>
@@ -179,6 +232,7 @@ export function Understood({
         </div>
       )}
 
+      <p className="pt-2 text-[11px] font-medium uppercase tracking-[0.06em] text-muted">Your product</p>
       <Card>
         <div className="space-y-8">
           <Section index={1} id="sec-product" title="The product" lede="What it is and what it does for people, in your own terms.">
@@ -249,6 +303,13 @@ export function Understood({
         </div>
       </Card>
 
+      {market && (
+        <>
+          <p className="pt-2 text-[11px] font-medium uppercase tracking-[0.06em] text-muted">Your market</p>
+          {market}
+        </>
+      )}
+
       <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center justify-between gap-3 border-t border-bark/10 bg-canvas/90 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-xl sm:border sm:bg-white/90">
         <p className="text-[13px] text-charcoal-soft">
           {missing.length > 0 ? `Add ${missing.map((m) => m.label.toLowerCase()).join(", ")} to continue.` : "Looks right? Everything here becomes your context, and you can edit it later."}
@@ -257,6 +318,7 @@ export function Understood({
           Plan the cycle <ArrowRight size={15} aria-hidden="true" />
         </Button>
       </div>
+    </div>
     </div>
   );
 }
