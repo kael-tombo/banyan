@@ -12,6 +12,7 @@ import { releaseStaleReservations } from "@/lib/credits/service";
  *     never-enqueued jobs; the atomic claim prevents double delivery).
  *  1a. Return credit holds left by a run that crashed (blocker 09).
  *  1b. Fill in live URLs for confirmed posts that came back without one (BOS-027).
+ *  1c. Continuous cycles (R5, opt-in): start the next cycle where the policy allows it.
  *  2. Advance agent workflows — recover crashed leases, retry transient
  *     failures, run the next safe batch of tasks.
  *
@@ -28,12 +29,15 @@ export async function runMaintenanceSweep(): Promise<{
   creditsReleased?: number;
   emails?: { attempted: number; sent: number };
   digests?: { workspaces: number; queued: number };
+  continuous?: { checked: number; started: number; told: number };
 }> {
   const publishResult = { ...(await processDueSchedule()), urls: await backfillPublishedUrls().catch(() => undefined),
     creditsReleased: (await releaseStaleReservations().catch(() => ({ released: 0 }))).released,
     // Weekly autopilot summaries are queued first, so this same sweep can deliver them.
     digests: await import("@/lib/autonomy/digest-email").then((m) => m.sendDueAutonomyDigests()).catch(() => undefined),
     emails: await import("@/lib/email/outbox").then((m) => m.deliverDueEmails()).catch(() => undefined),
+    // Before workflows advance, so a cycle started here gets its first task in this same sweep.
+    continuous: await import("@/lib/autonomy/continuous-service").then((m) => m.runContinuousCycles()).catch(() => undefined),
   };
   try {
     const memberships = await prisma.membership.findMany({ select: { workspaceId: true }, distinct: ["workspaceId"] });

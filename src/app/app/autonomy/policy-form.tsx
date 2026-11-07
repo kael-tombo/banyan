@@ -21,6 +21,9 @@ export function PolicyForm({ policy, canEdit }: { policy: AutonomyPolicy; canEdi
   const [blackout, setBlackout] = useState(policy.blackoutDates.join(", "));
   const [autoPublish, setAutoPublish] = useState(policy.autoPublish);
   const [topics, setTopics] = useState((policy.escalateTopics ?? []).join(", "));
+  const [continuous, setContinuous] = useState(Boolean(policy.continuous));
+  const [cycleBudget, setCycleBudget] = useState(policy.continuous?.cycleBudget ?? 10);
+  const [maxUnattended, setMaxUnattended] = useState(policy.continuous?.maxUnattended ?? 2);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
@@ -29,6 +32,7 @@ export function PolicyForm({ policy, canEdit }: { policy: AutonomyPolicy; canEdi
   const dates = blackout.split(/[\s,;]+/).map((d) => d.trim()).filter(Boolean);
   const badDate = dates.find((d) => !/^\d{4}-\d{2}-\d{2}$/.test(d));
   const topicList = [...new Set(topics.split(/[,;\n]+/).map((t) => t.trim()).filter(Boolean))];
+  const badBudget = continuous && (!Number.isInteger(cycleBudget) || cycleBudget < 1 || cycleBudget > 500) ? "A cycle budget is 1 to 500 credits." : null;
   const badTopic = topicList.length > 20 ? "Keep it to 20 topics." : topicList.find((t) => t.length < 2 || t.length > 40) ? "Each topic needs 2 to 40 characters." : null;
 
   async function save(e: React.FormEvent) {
@@ -48,6 +52,7 @@ export function PolicyForm({ policy, canEdit }: { policy: AutonomyPolicy; canEdi
           blackoutDates: dates,
           autoPublish: supervised && autoPublish,
           escalateTopics: topicList,
+          continuous: supervised && continuous ? { cycleBudget, maxUnattended } : null,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -147,12 +152,41 @@ export function PolicyForm({ policy, canEdit }: { policy: AutonomyPolicy; canEdi
               </span>
             </span>
           </label>
+
+          <div className="rounded-xl border border-bark/15 p-3">
+            <label className="flex items-start gap-2 text-sm text-charcoal">
+              <input type="checkbox" className="mt-1" checked={continuous} onChange={(e) => setContinuous(e.target.checked)} />
+              <span>
+                Start the next cycle on its own
+                <span className="block text-xs text-charcoal-soft">
+                  When a cycle ends with a medium- or high-confidence recommendation, Banyan starts the next cycle with it, as if
+                  you had accepted it. Its strategy still waits for your approval. Banyan stops and tells you after an unusual
+                  number of incidents, a spot check you stopped, low-confidence advice, or too few credits. Pausing agents stops it.
+                </span>
+              </span>
+            </label>
+            {continuous && (
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <Field label="Credit budget per cycle" hint="Drafts in a cycle Banyan started stop when this is spent.">
+                  <Input type="number" inputMode="numeric" min={1} max={500} step={1} value={cycleBudget} onChange={(e) => setCycleBudget(Number(e.target.value))} />
+                </Field>
+                <Field label="Cycles in a row before you start one" hint="After this many, Banyan waits for you.">
+                  <Select value={maxUnattended} onChange={(e) => setMaxUnattended(Number(e.target.value))}>
+                    {[1, 2, 3, 4, 5, 6].map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </Select>
+                </Field>
+              </div>
+            )}
+            {badBudget && <p className="mt-2 text-xs text-clay">{badBudget}</p>}
+          </div>
         </div>
       </fieldset>
 
       {canEdit ? (
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit" disabled={saving || Boolean(badDate) || Boolean(badTopic) ||(supervised && channels.length === 0)}>
+          <Button type="submit" disabled={saving || Boolean(badDate) || Boolean(badTopic) || Boolean(badBudget) || (supervised && channels.length === 0)}>
             {saving ? "Saving…" : "Save policy"}
           </Button>
           {supervised && channels.length === 0 && <span className="text-xs text-charcoal-soft">Pick at least one channel.</span>}

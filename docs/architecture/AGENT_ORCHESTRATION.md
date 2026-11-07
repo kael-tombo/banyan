@@ -295,6 +295,28 @@ second product. How R2 answers the review:
     budget: two held, one refused; a returned hold frees room; goals do not share budgets); the end-to-end agent check
     (a writer draft costs 1, a template draft costs nothing).
 
+## R5 so far (2026-11-07): continuous cycles, opt-in
+
+STRATEGY.md keeps Level 3 out of the MVP's claims; this is its first mechanism, **off by default**, and the honest
+claim stays "approved execution": each new cycle's strategy still waits for the founder.
+
+- **Mandate**: the autonomy policy gains `continuous: { cycleBudget, maxUnattended } | null`. Only a supervised policy
+  set by a person can carry it; `setPolicy` drops it otherwise. Older stored policies parse with it off.
+- **Decision** (`src/lib/autonomy/continuous.ts`, pure): when the latest cycle has ended (achieved, missed, or past its
+  deadline) and its report has an open medium- or high-confidence recommendation, start the next cycle from the most
+  confident (oldest on a tie), with the policy's credit budget on the new goal (R4 enforces it on every draft).
+- **Stops**: quietly while agents are paused (the one-action stop), a cycle is running, another is open, or the report
+  is not in. **Stops and tells the founder** (once per cycle and reason) after `maxUnattended` Banyan-started cycles
+  in a row, more than ${MAX_INCIDENTS_PER_CYCLE} (2) agent incidents in the cycle, any spot check the founder stopped,
+  only low-confidence advice, a balance below the budget, or an unapproved product profile.
+- **Applied** (`src/lib/autonomy/continuous-service.ts`) by the maintenance sweep, before workflows advance. The start
+  goes through `startNextCycle` (`src/lib/cycle/start-next.ts`), the same path as the founder accepting a
+  recommendation, which claims the recommendation first: two sweeps at once start one cycle.
+- **Verified**: unit tests for every rule; `scripts/autonomy-check.ts` on Postgres (no mandate, no start; two
+  concurrent sweeps start one cycle with the budget and the change; the limit stops and tells once; paused starts nothing).
+- **Not yet**: auto-approving the next cycle's strategy (the remaining founder prompt per cycle), anomaly detection beyond
+  incident counts, and a measured multi-cycle run on a live model, which is R5's "done when".
+
 ## Roadmap
 
 | Step | What | Done when |
@@ -303,7 +325,7 @@ second product. How R2 answers the review:
 | **R2 · Worker on Node 24** | Worker image to `node:24-alpine`, pin `@opencode/sdk@2.2.6`, the OpenCode runtime behind `AGENT_RUNTIME=opencode`, first task type: `research` | A research task runs through OpenCode in a throwaway workspace, its notes carry provenance, usage lands in `ModelCall`, killing the worker mid-run duplicates nothing. **Built 2026-11-07; verified with a scripted model (including the kill) and once with a real Go model** |
 | **R3 · Creator team** | `writer` and `critic` agents per draft task (no `creator`: the workflow fans out); critic flags feed the autonomy policy | One draft per channel, critic flags visible on the draft, supervised approval unchanged. **Built 2026-11-07, LinkedIn and X; verified with a scripted model and twice with a real Go model** |
 | **R4 · Ask and budgets** | `banyan_ask_founder` with `waiting_input`, per-run token budgets, per-cycle credit budgets, an incident log | A run that needs an answer pauses and resumes in the same session; an over-budget run stops cleanly. **Built 2026-11-07: clean stops, the incident log, and asking (through the planner agent). Credit budgets built the same day: 1 credit per model-written draft, an optional per-goal budget** |
-| **R5 · Level 3** | Continuous cycles started by Banyan's scheduler inside the cycle budget, with sampling (spot checks, built) and incident review | Several measured cycles in one workspace without a founder prompt, every one inside its budget and policy |
+| **R5 · Level 3** | Continuous cycles started by Banyan's scheduler inside the cycle budget, with sampling (spot checks, built) and incident review | Several measured cycles in one workspace without a founder prompt, every one inside its budget and policy. **Started 2026-11-07: opt-in continuous cycles with budget, streak limit, incident and spot-check stops; strategy approval still the founder's** |
 | **R6 · Command center** | The founder's chat as an OpenCode session with read and propose tools | Questions about the product, its results and its drafts answered from recorded data |
 
 Order matters: R1 has no dependency on OpenCode, so it can ship before the Node 24 move, and R2 is the first point

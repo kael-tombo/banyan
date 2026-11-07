@@ -6,8 +6,8 @@ import { attemptPublication, UNUSABLE_CONNECTION_STATUSES } from "@/lib/publishi
 import { providerFor } from "@/lib/distribution/providers";
 import { spotCheckDue } from "@/lib/autonomy/trust";
 import {
-  decideApproval, describePolicy, isSupervised, nextSlot, parsePolicy,
-  type AutonomyEvent, type AutonomyPolicy, type PolicyInput,
+  decideApproval, describePolicy, isSupervised, nextSlot, parsePolicy, policyInput,
+  type AutonomyEvent, type AutonomyPolicy, type PolicyInput, type PolicyInputRaw,
 } from "@/lib/autonomy/policy";
 
 /**
@@ -28,10 +28,13 @@ export async function getPolicy(workspaceId: string): Promise<AutonomyPolicy> {
   return parsePolicy(ws?.autonomyPolicy);
 }
 
-export async function setPolicy(workspaceId: string, user: { id: string; name: string }, input: PolicyInput): Promise<AutonomyPolicy> {
+export async function setPolicy(workspaceId: string, user: { id: string; name: string }, raw: PolicyInputRaw): Promise<AutonomyPolicy> {
+  const input: PolicyInput = policyInput.parse(raw);
   const before = await getPolicy(workspaceId);
   const next: AutonomyPolicy = {
     ...input,
+    // Continuous cycles build on supervision; without it they are off (R5).
+    continuous: input.level === "supervised" ? input.continuous : null,
     channels: [...new Set(input.channels)],
     blackoutDates: [...new Set(input.blackoutDates)].sort(),
     version: before.version + 1,

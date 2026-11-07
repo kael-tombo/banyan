@@ -2,11 +2,8 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, guardRate, json, requireWorkspace } from "@/lib/api-utils";
 import { requireRole } from "@/lib/permissions";
-import { recordActivity } from "@/lib/activity";
 import { approvalState } from "@/lib/product/profile-review";
-import { startGoalWorkflow } from "@/lib/agents/orchestrator";
-import { nextCycleFrom } from "@/lib/next-cycle";
-import { triggerAutopilot } from "@/lib/agents/autopilot";
+import { startNextCycle } from "@/lib/cycle/start-next";
 
 /**
  * Accept a cycle's recommendation and start the next cycle with that change.
@@ -34,28 +31,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const approval = approvalState(profile);
   if (approval.needsApproval) return json({ error: approval.reason, code: "profile_not_approved" }, 409);
 
-  // Claim the recommendation first: a double click or a second tab cannot start two cycles.
-  const claimed = await prisma.recommendation.updateMany({ where: { id: rec.id, status: { in: ["open", "accepted"] } }, data: { status: "acted_upon" } });
-  if (claimed.count !== 1) return apiError("This recommendation has already been acted on.", 409);
-
-  const draft = nextCycleFrom(prev, rec, new Date());
-  const goal = await prisma.goal.create({
-    data: { workspaceId: ctx.workspace.id, ...draft, status: "planning", source: "user", createdBy: ctx.user.id },
-  });
-
-  await recordActivity({
+  const started = await startNextCycle({
     workspaceId: ctx.workspace.id,
-    type: "goal",
-    actorType: "user",
+    prev,
+    recommendation: rec,
+    source: "user",
+    createdBy: ctx.user.id,
     actorSummary: ctx.user.name,
     summary: `${ctx.user.name} started the next cycle of "${prev.objective}", changing one thing: ${rec.title}.`,
-    meta: { goalId: goal.id, previousGoalId: prev.id, recommendationId: rec.id },
   });
-  // One pipeline (docs/DECISION_ONE_CYCLE_PIPELINE.md): a cycle that ran on a strategy continues on one —
-  // the strategist drafts the next strategy with the change, for approval. Older goal-run cycles keep their workflow.
-  const strategyBacked = (await prisma.campaign.count({ where: { goalId: prev.id, strategyId: { not: null } } })) > 0;
-  if (strategyBacked) await triggerAutopilot({ kind: "cycle_strategy", workspaceId: ctx.workspace.id, goalId: goal.id });
-  else await startGoalWorkflow(goal.id, ctx.workspace.id);
+  if (!started) return apiError("This recommendation has already been acted on.", 409);
+  const { goal, path } = started;
 
-  return json({ goal: { id: goal.id, objective: goal.objective, deadline: goal.deadline }, path: strategyBacked ? "strategy" : "workflow" }, 201);
+  return json({ goal: { id: goal.id, objective: goal.objective, deadline: goal.deadline }, path }, 201);
 }

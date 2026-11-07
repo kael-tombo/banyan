@@ -33,6 +33,7 @@ export type ActivityType =
   | "autonomy"
   // The founder's after-the-fact verdict on a draft the policy approved (spot check)
   | "autonomy_spotcheck"
+  | "autonomy_continuous"
   // Organizations and products (ADR-005)
   | "organization"
   // An agent run that stopped before finishing: its budget, its deadline, or a failure (R4)

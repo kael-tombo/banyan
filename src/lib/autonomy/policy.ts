@@ -36,8 +36,19 @@ export const policyInput = z.object({
   autoPublish: z.boolean(),
   /** Topics that always come back to the founder (pricing, security, a customer's name…). */
   escalateTopics: z.array(z.string().trim().min(2).max(40)).max(20).default([]),
+  /**
+   * Continuous cycles (R5, Level 3, off by default): when a cycle ends with a confident recommendation, Banyan
+   * starts the next one itself, with this credit budget, at most maxUnattended times in a row before a person
+   * starts one. Needs a supervised policy. Null means cycles start only when a person accepts a recommendation.
+   */
+  continuous: z
+    .object({ cycleBudget: z.number().int().min(1).max(500), maxUnattended: z.number().int().min(1).max(6) })
+    .nullable()
+    .default(null),
 });
 export type PolicyInput = z.infer<typeof policyInput>;
+/** What a caller may send: optional fields (continuous, escalateTopics) take their defaults. */
+export type PolicyInputRaw = z.input<typeof policyInput>;
 
 export type AutonomyPolicy = PolicyInput & { version: number; setById: string | null; setAt: string | null };
 
@@ -50,6 +61,7 @@ export const DEFAULT_POLICY: AutonomyPolicy = {
   blackoutDates: [],
   autoPublish: false,
   escalateTopics: [],
+  continuous: null,
   setById: null,
   setAt: null,
 };
@@ -241,5 +253,8 @@ export function describePolicy(p: AutonomyPolicy): string {
   const b = p.blackoutDates.length ? `, not on ${p.blackoutDates.length} blackout date${p.blackoutDates.length === 1 ? "" : "s"}` : "";
   const act = p.autoPublish ? "approve and schedule" : "approve (you still press publish)";
   const t = p.escalateTopics?.length ? ` Drafts about ${p.escalateTopics.join(", ")} always come to you.` : "";
-  return `Supervised: Banyan may ${act} routine ${p.channels.map(label).join(" and ")} posts, at most ${p.maxPerDay} per channel per day${q}${b}.${t}`;
+  const c = p.continuous
+    ? ` When a cycle ends with a confident recommendation, Banyan starts the next one itself (up to ${p.continuous.maxUnattended} in a row, ${p.continuous.cycleBudget} credits each).`
+    : "";
+  return `Supervised: Banyan may ${act} routine ${p.channels.map(label).join(" and ")} posts, at most ${p.maxPerDay} per channel per day${q}${b}.${t}${c}`;
 }

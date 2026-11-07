@@ -8,6 +8,7 @@
 import { prisma } from "@/lib/db";
 import { setPolicy, superviseDrafts, autonomyEvents } from "@/lib/autonomy/service";
 import { pendingSpotChecks, recordSpotCheck } from "@/lib/autonomy/spot-checks";
+import { runContinuousCycles, CONTINUOUS_ACTIVITY } from "@/lib/autonomy/continuous-service";
 
 async function main() {
   let failures = 0;
@@ -104,8 +105,61 @@ async function main() {
     await prisma.organization.delete({ where: { id: ws.organizationId } }); // cascades to the product
     await prisma.user.delete({ where: { id: user.id } });
   }
+  await continuousScenario(check);
   console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) failed.`);
   process.exitCode = failures ? 1 : 0;
 }
 
 main().finally(() => prisma.$disconnect());
+
+/**
+ * R5: continuous cycles on a real database. A cycle ends with a high-confidence recommendation; the sweep
+ * starts exactly one next cycle with the policy's budget; a second sweep starts nothing; with the streak at
+ * the policy's limit the sweep stops and tells the founder once.
+ */
+async function continuousScenario(check: (ok: boolean, label: string, detail?: string) => void) {
+  const stamp = Date.now();
+  const user = await prisma.user.create({ data: { email: `continuous-${stamp}@check.local`, name: "Continuous Check" } });
+  const ws = await prisma.workspace.create({ data: { organization: { create: { name: "continuous-check", slug: `continuous-check-${stamp}` } }, name: "continuous-check", slug: `cc-${stamp}` } });
+  try {
+    await prisma.membership.create({ data: { userId: user.id, workspaceId: ws.id, role: "owner" } });
+    const day = 86_400_000;
+    const ended = await prisma.goal.create({
+      data: { workspaceId: ws.id, objective: "Get 20 signups", successMetric: "signups", status: "active", createdAt: new Date(Date.now() - 15 * day), deadline: new Date(Date.now() - day) },
+    });
+    const rec = await prisma.recommendation.create({ data: { workspaceId: ws.id, goalId: ended.id, title: "Post on Tuesdays", rationale: "Tuesday posts drew twice the clicks.", confidence: "high", status: "open" } });
+
+    // Supervised without continuous: the sweep leaves the cycle alone.
+    await setPolicy(ws.id, user, { level: "supervised", channels: ["linkedin"], maxPerDay: 1, quietHours: null, blackoutDates: [], autoPublish: false });
+    await runContinuousCycles();
+    check((await prisma.goal.count({ where: { workspaceId: ws.id } })) === 1, "without a continuous mandate, no cycle starts on its own");
+
+    await setPolicy(ws.id, user, { level: "supervised", channels: ["linkedin"], maxPerDay: 1, quietHours: null, blackoutDates: [], autoPublish: false, continuous: { cycleBudget: 8, maxUnattended: 1 } });
+    await Promise.all([runContinuousCycles(), runContinuousCycles()]); // two sweeps at once
+    const next = await prisma.goal.findMany({ where: { workspaceId: ws.id, source: "continuous" } });
+    check(next.length === 1, "two concurrent sweeps start exactly one next cycle", `${next.length} started`);
+    check(next[0]?.creditBudget === 8 && /Post on Tuesdays/.test(next[0]?.constraints ?? ""), "the next cycle carries the policy's budget and the one change");
+    check((await prisma.recommendation.findUniqueOrThrow({ where: { id: rec.id } })).status === "acted_upon", "the recommendation is marked acted upon");
+    await runContinuousCycles();
+    check((await prisma.goal.count({ where: { workspaceId: ws.id } })) === 2, "a later sweep starts nothing while the new cycle runs");
+
+    // End the unattended cycle with a new recommendation: the streak (1) is at the policy's limit (1).
+    await prisma.goal.update({ where: { id: next[0]!.id }, data: { status: "active", deadline: new Date(Date.now() - 1000) } });
+    await prisma.recommendation.create({ data: { workspaceId: ws.id, goalId: next[0]!.id, title: "Shorter posts", rationale: "Short posts did better.", confidence: "high", status: "open" } });
+    await runContinuousCycles();
+    await runContinuousCycles();
+    const events = await prisma.activityEvent.findMany({ where: { workspaceId: ws.id, type: CONTINUOUS_ACTIVITY } });
+    const told = events.filter((e) => JSON.parse(e.meta).kind === "stopped");
+    check((await prisma.goal.count({ where: { workspaceId: ws.id } })) === 2, "at the unattended limit, no further cycle starts");
+    check(told.length === 1 && /in a row/.test(told[0]!.summary), "the founder is told once why it stopped", told.map((t) => t.summary).join(" | "));
+
+    // Pausing agents stops everything.
+    await prisma.workspace.update({ where: { id: ws.id }, data: { agentsPausedAt: new Date() } });
+    await setPolicy(ws.id, user, { level: "supervised", channels: ["linkedin"], maxPerDay: 1, quietHours: null, blackoutDates: [], autoPublish: false, continuous: { cycleBudget: 8, maxUnattended: 5 } });
+    await runContinuousCycles();
+    check((await prisma.goal.count({ where: { workspaceId: ws.id } })) === 2, "paused agents start no cycle, even with room in the streak");
+  } finally {
+    await prisma.organization.delete({ where: { id: ws.organizationId } });
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+}
