@@ -39,6 +39,18 @@ const envSchema = z.object({
   // (e.g. {"X-Z-AI-From":"Z","X-Token":"…"}). Invalid JSON is ignored — the
   // provider must never crash on misconfiguration; the fallback path exists.
   OPENAI_EXTRA_HEADERS: z.string().default(""),
+  // Onboarding trend radar (docs/ONBOARDING_360.md). Each platform is read only
+  // when its credentials are set; without them the radar links to the
+  // platform's own search instead. All optional.
+  // YouTube Data API v3 key (Google Cloud console; free quota 10,000 units/day).
+  YOUTUBE_API_KEY: z.string().default(""),
+  // Reddit "script" or "web" app (reddit.com/prefs/apps), app-only OAuth. Commercial
+  // use needs Reddit's approval under its Data API terms.
+  REDDIT_CLIENT_ID: z.string().default(""),
+  REDDIT_CLIENT_SECRET: z.string().default(""),
+  // A Bluesky account handle and an app password (Settings → App passwords).
+  BLUESKY_HANDLE: z.string().default(""),
+  BLUESKY_APP_PASSWORD: z.string().default(""),
   // US-010: transactional email over SMTP (any vendor: Resend, Postmark, Brevo…),
   // e.g. smtps://user:pass@smtp.resend.com:465. Empty: the dev transport writes
   // each email to the server log, labelled "not sent", and nothing is delivered.

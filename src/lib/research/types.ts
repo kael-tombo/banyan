@@ -80,6 +80,8 @@ export type MarketResearch = {
   /** Sources that answered, and those that could not be reached. */
   sources: { name: string; ok: boolean }[];
   generatedAt: string;
+  /** The trend radar, added after the scan (src/lib/research/trends). Absent until it runs. */
+  trends?: import("./trends/types").TrendsReport;
 };
 
 export const EMPTY_RESEARCH: MarketResearch = {
