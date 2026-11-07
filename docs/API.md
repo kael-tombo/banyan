@@ -41,12 +41,17 @@ Rate limits below are per IP, in-process (single node).
 | `PATCH /api/profile/facts/[id]` | `{value?, provenance?}` | 60/min. User corrections reset verification. |
 | `DELETE /api/profile/facts/[id]` | — | 60/min. Removes a fact. |
 
-## Product intake
+## Product intake and the onboarding 360
+
+Full reference: [ONBOARDING_360.md](ONBOARDING_360.md).
 
 | Method & path | Body | Notes |
 | --- | --- | --- |
-| `POST /api/product/intake` | `{url}` | 8/min, `write`. Normalizes a bare domain to https, fetches exactly one public HTML page through the SSRF-safe fetcher (protocol/DNS/redirect/size guards), and returns `{snapshot, sourceUrl, fetchedAt, truncated}`. Reads title, Open Graph, meta description and h1 only; never invents problem, audience or positioning. No persistence. |
-| `POST /api/product/snapshot` | `{name, description, website?, stage, problem, valueProp, audience, audiencePain?, audienceOutcome?, sourceUrl?, channels?}` | 20/min, `write`. Saves the founder-reviewed `ProductProfile` and upserts `ProfileFact` rows with `user_provided` provenance. The founder's corrections are not observations from the page. |
+| `POST /api/product/analyze` | `{url}` | 8/min, `write`. Reads the founder's site: the home page (or its `www.`/bare-domain twin) plus up to 4 linked pages (pricing, about, features, customers, FAQ) through the SSRF-safe fetcher. With a model, prompt `product-analysis` v2; without one, the parser's readings only. Queue with Redis, inline without; `maxDuration` 60 s. Returns `{analysis}` (202). |
+| `GET /api/product/analyze/[id]` | — | Poll: status, pages, `result`, `method`, `research`, `researchStatus`, error. 404 across workspaces. |
+| `POST /api/product/analyze/[id]/research` | `{queries?, competitors?}` | 6 per 10 min, `write`. The market scan: competitors verified on their own sites, Hacker News and Stack Overflow threads, public buying signals, cited opportunities. Inline, `maxDuration` 60 s; returns `{research}`. 404 across workspaces, 409 before the site read finishes or while a scan runs, 502 on failure. The founder's `queries`/`competitors` replace the generated ones. |
+| `POST /api/product/snapshot` | `{name, description, website?, stage, problem, valueProp, audience, audiencePain?, audienceOutcome?, sourceUrl?, channels?, positioning?, category?, pricing?, tone?, primaryCta?, features?, differentiators?, problemsSolved?, proof?, analysisId?, competitors?, opportunities?}` | 20/min, `write`. Saves the founder-reviewed `ProductProfile` and upserts `ProfileFact` rows with `user_provided` provenance. Kept competitors become `competitor` facts (provenance by how they were found); kept opportunities become open `Recommendation`s (`agent:onboarding`). Optional fields are written only when sent. |
+| `POST /api/product/intake` | `{url}` | 8/min, `write`. Older one-page reader, **no longer used by the UI** (the journey still calls it for an SSRF check). Returns `{snapshot, sourceUrl, fetchedAt, truncated}`; no persistence. |
 
 ## Goals & the agent runtime
 

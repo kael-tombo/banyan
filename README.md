@@ -361,6 +361,7 @@ journey (42 checks) against a live server. See [`docs/TESTING.md`](docs/TESTING.
 | --- | --- |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | System design: layers, request lifecycle, agent runtime, provider boundaries, extension points |
 | [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) | All 23 entities, relationships, and every state machine |
+| [`docs/ONBOARDING_360.md`](docs/ONBOARDING_360.md) | Onboarding 360°: how Banyan reads a product and its market, sources, provenance, storage, API, privacy, and limits |
 | [`docs/API.md`](docs/API.md) | Full API reference: endpoints, auth, rate limits, conventions |
 | [`docs/TESTING.md`](docs/TESTING.md) | Unit suite map, E2E acceptance run, quality gates |
 | [`docs/SECURITY.md`](docs/SECURITY.md) | Threat model, controls in code, known gaps, reporting |

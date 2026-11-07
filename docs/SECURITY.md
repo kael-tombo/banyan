@@ -63,6 +63,18 @@ The single choke point for server-side fetches of user-supplied URLs
 - response size cap and no body echoing into errors or UI.
 Live-verified: metadata and loopback targets are blocked with no body echo.
 
+### Outbound reads during onboarding (`src/lib/product/`, `src/lib/research/`)
+Onboarding reads public pages and two public search APIs ([ONBOARDING_360.md](ONBOARDING_360.md) §9):
+- every request goes through `safeFetch` (the controls above), with size caps (founder pages 2 MB,
+  competitor pages 1.5 MB, API responses 1 MB) and 8–12 s timeouts;
+- what leaves Banyan: requests to the founder's site and competitors' home pages (`BanyanBot/1.0`), and
+  search terms and competitor names to `hn.algolia.com` and `api.stackexchange.com`. No account data;
+- page, competitor and post text is fenced as untrusted for the model and rendered escaped in the UI;
+- public posts are kept only as username, sentence, link and date inside the workspace's analysis record,
+  deleted with the workspace; Banyan never contacts anyone;
+- founder and competitor logos load from their own domains in the founder's browser (`no-referrer`);
+- rate limits: 8 site reads/min, 6 market scans per 10 min; one scan at a time per analysis.
+
 ### Secrets at rest & in transit
 - Channel connection configs are **AES-256-GCM encrypted**
   (`crypto.ts`) with `APP_SECRET`; API responses expose `hasKey` only.
@@ -107,6 +119,7 @@ Live-verified: metadata and loopback targets are blocked with no body echo.
 | 5 residual dependency advisories (`next@16`, `postcss` build chain, `zod@4`) | Major upgrades in the launch window are riskier than the residual exposure; the reachable zod path is closed by the 512 KB cap | Track upstream; upgrade post-launch (P3) |
 | Seed account with default password | Seed-only; runbook mandates rotation/removal | Operator checklist item |
 | Legal pages are template drafts | Not reviewable in-repo | Counsel review before public launch |
+| Third-party logos load in the founder's browser during onboarding | Shows the founder their own and competitors' marks; those sites see the founder's IP | Proxy or cache logos server-side if it matters |
 | Hosted Postgres at rest | Provider-managed; no field-level encryption beyond connection configs (AES-256-GCM) | Self-managed disk/at-rest encryption when self-hosting |
 
 ## 4. Reporting & handling

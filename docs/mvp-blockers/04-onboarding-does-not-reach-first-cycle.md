@@ -1,5 +1,11 @@
 # 04 — Onboarding stops before the first campaign and publication
 
+> **Status 2026-11-07:** onboarding *is* the first cycle. The founder pastes their URL, reviews a 360° read of
+> their product and market (site, competitors, public conversations, buying signals, cited opportunities), and
+> starts the cycle, optionally from a kept opportunity. Reference and limits: [ONBOARDING_360.md](../ONBOARDING_360.md).
+> Covered by unit tests and the CI journey; the screens were checked with live data but not clicked through as a
+> signed-in founder.
+
 ## Problem
 
 A new founder can sign up, submit a URL and approve a profile, but onboarding does not carry them into their

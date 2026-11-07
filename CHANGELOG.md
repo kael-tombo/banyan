@@ -8,7 +8,31 @@ follow [Keep a Changelog](https://keepachangelog.com); commit hashes refer to
 
 ## [Unreleased]
 
+### Added
+- **Onboarding 360°** (2026-11-07): onboarding reads the founder's site and maps the market around it, then
+  starts the first cycle from that context. Full reference, including limits: [docs/ONBOARDING_360.md](docs/ONBOARDING_360.md).
+  - **Whole-site read:** up to 5 pages in parallel (home, pricing, about, features, customers), structured
+    data, meta tags, hero, buttons, prices, proof, audience and pain phrases, stage hints, socials and logo;
+    `www.`/bare-domain fallback; JavaScript-only pages read from their meta tags. Prompt `product-analysis` v2
+    adds tagline, category, stage, pain, outcome, positioning, pricing, proof, call to action, tone and
+    alternatives. Live: 15 of 15 fields on cal.com and linear.app with a model; 8–10 of 15 without one.
+  - **Market scan:** competitors verified by reading their own sites; Hacker News and Stack Overflow threads;
+    public posts where someone wants an alternative, complains, compares or asks; 3–5 opportunities, each
+    citing its evidence (uncited ones are dropped). Prompts `market-scan` v1 and `market-opportunities` v1.
+  - **360 report UI:** product and market halves with a chapter nav, snapshot tiles, a source tag on every
+    field, editable competitors and search terms with "Rescan with my changes", Keep and "Make this my first
+    cycle" on each opportunity, and a cycle goal suggested from the site's main button.
+  - **Saved for the agents:** `ProductProfile.pricing` and `proofPoints` feed strategy facts and the claims
+    check; kept competitors become `competitor` facts with provenance; kept opportunities become open
+    recommendations. Migrations `20261107200000_product_profile_pricing_proof` and
+    `20261107210000_product_analysis_research`.
+  - **Known limits:** two public sources only (weak for consumer and non-English products), sparse buying
+    signals by design, English-only patterns, prompts not yet evaluated on the production model, the scan is
+    not refreshed and its threads and signals are shown only during onboarding (TD-20 to TD-25).
+
 ### Fixed
+- **Plain-language intake errors** (2026-11-07): an address with no website behind it said "Blocked: host could
+  not be resolved."; it now says the address doesn't point to a website yet and what to try.
 - **Provider blips no longer become template drafts** (2026-11-06): the router retries a
   transient failure once on the spot. It used to swallow every provider error, so a single 429
   gave the founder a template. Failures are told apart from "no provider configured".
