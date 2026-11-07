@@ -17,7 +17,7 @@ const patchSchema = z.object({
   cta: z.string().trim().min(3).max(200).optional(),
   channels: z.array(z.enum(["x", "linkedin", "shortvideo"])).min(1).max(3).optional(),
   formats: z.array(z.string().max(50)).min(1).max(10).optional(),
-  schedule: z.record(z.string()).optional(),
+  schedule: z.record(z.string(), z.string()).optional(),
   successMetric: z.string().trim().min(3).max(200).optional(),
   status: z.enum(["draft", "planned", "in_progress", "completed", "archived"]).optional(),
 });

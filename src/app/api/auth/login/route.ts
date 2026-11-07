@@ -6,7 +6,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 const schema = z.object({
-  email: z.string().trim().email(),
+  // Looked up, not format-checked: an address accepted at signup must always be able to sign in,
+  // even if a later validator is stricter (zod 4's email check is).
+  email: z.string().trim().min(3).max(320),
   password: z.string().min(1).max(200),
 });
 

@@ -18,7 +18,7 @@ const videoExtrasSchema = z
     caption: z.string().max(1000).optional(),
     cta: z.string().max(500).optional(),
     // Platform adaptations: channel → copy. Keys are validated against real channels below.
-    adaptations: z.record(z.string().max(6000)).optional(),
+    adaptations: z.record(z.string(), z.string().max(6000)).optional(),
   })
   .strict()
   .optional();

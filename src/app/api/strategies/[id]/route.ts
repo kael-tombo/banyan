@@ -15,7 +15,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return json({ strategy: await strategyView(s) });
 }
 
-const body = z.object({ body: z.record(z.unknown()) });
+const body = z.object({ body: z.record(z.string(), z.unknown()) });
 
 /** Save edits as the next version (US-043). The edited version is untouched. */
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

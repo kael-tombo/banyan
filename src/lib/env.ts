@@ -17,7 +17,7 @@ export const DEV_WORKER_SECRET = "banyan-worker-dev-secret";
 
 const envSchema = z.object({
   DATABASE_URL: z.string({
-    required_error:
+    error:
       "Required — set DATABASE_URL (aliases accepted: PRISMA_DATABASE_URL, POSTGRES_URL)",
   }).min(1, "Required — set DATABASE_URL (aliases accepted: PRISMA_DATABASE_URL, POSTGRES_URL)"),
   APP_SECRET: hex64,
