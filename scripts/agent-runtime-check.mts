@@ -181,6 +181,7 @@ function worker(workspaceId: string, taskId: string, type = "research", extraEnv
 }
 
 const { prisma } = await import("../src/lib/db");
+const { fold } = await import("../src/lib/credits/ledger");
 const checks: { name: string; ok: boolean; detail?: unknown }[] = [];
 const check = (name: string, ok: boolean, detail?: unknown) => {
   checks.push({ name, ok, detail });
@@ -224,6 +225,8 @@ try {
   check("The critic's flags are stored on the draft", REAL ? Array.isArray(criticFlags) : criticFlags.length === 1 && criticFlags[0].kind === "risky_topic", criticFlags);
   const ledgerC = await prisma.modelCall.findMany({ where: { workspaceId: wsC } });
   check("One ledger row for each of the two runs", ledgerC.filter((l) => l.provider === "opencode-runtime").map((l) => l.purpose).sort().join() === "content_draft,content_review", ledgerC.map((l) => ({ purpose: l.purpose, provider: l.provider, ok: l.ok })));
+  const creditsC = await prisma.creditEntry.findMany({ where: { workspaceId: wsC, reservationKey: { not: null } }, select: { kind: true, amount: true } });
+  check("The model-written draft cost one credit, and nothing stays held", creditsC.filter((e) => e.kind === "settle").reduce((s, e) => s + e.amount, 0) === 1 && fold(creditsC.filter((e) => e.kind !== "grant")).reserved === 0, creditsC);
 
   if (REAL) {
     // The planner may or may not ask. If it does, answer as a founder would and let it continue.
@@ -275,6 +278,8 @@ try {
     callsD.every((c) => c.model !== "fallback-model") && itemsD.length === 1 && outD?.isFallback === true && itemsD[0]!.status === "ready_for_review",
     { modelCalls: callsD.length, label: outD?.generatedLabel, items: itemsD.length }
   );
+  const creditsD = await prisma.creditEntry.findMany({ where: { workspaceId: wsD, reservationKey: { not: null } }, select: { kind: true, amount: true } });
+  check("A template draft costs nothing: its credit is returned", creditsD.some((e) => e.kind === "release") && !creditsD.some((e) => e.kind === "settle"), creditsD);
 
   // ---- Kill the worker mid-run, start it again
   const productB = `CheckCo-${randomBytes(3).toString("hex")}`;

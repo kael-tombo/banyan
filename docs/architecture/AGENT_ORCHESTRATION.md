@@ -282,9 +282,18 @@ second product. How R2 answers the review:
     the answer one more model call in the same session (it saw its own question) produces the plan, which waits for
     approval. 17/17. With the real Go model the planner chose not to ask and listed its gaps instead, so asking is
     proven with the scripted model only.
-- **Deferred, on purpose:**
-  - Per-cycle credit budgets. Workflow drafts are not charged credits today, so this needs a pricing decision, and the
-    design already places it as a Level 3 prerequisite (R5).
+- **Credit budgets** (built after the founder chose the price: workflow drafts cost what strategy drafts cost):
+  - Every `content_draft` task holds **1 credit** before any model work (`src/lib/credits/draft-charge.ts`). It is
+    spent only when a model wrote the draft; a template draft, a failed run or a crash returns it (the stale-hold
+    sweep covers crashes). One hold per attempt, keyed `goal:<goalId>:draft:<taskId>:a<attempt>`.
+  - A goal may set `creditBudget`: the most its drafts may hold or spend. The check runs under the same account lock
+    as the balance check, so concurrent drafts cannot both slip under it. Returned holds do not count.
+  - Short credits or a spent budget **block** the task with nothing started, saying what to change. The goal page
+    shows used / budget and lets a workflow controller set or remove it; raising or removing it re-queues the drafts it
+    blocked.
+  - **Verified:** unit tests; `scripts/credits-concurrency.ts` on Postgres (three drafts racing under a 2-credit
+    budget: two held, one refused; a returned hold frees room; goals do not share budgets); the end-to-end agent check
+    (a writer draft costs 1, a template draft costs nothing).
 
 ## Roadmap
 
@@ -293,7 +302,7 @@ second product. How R2 answers the review:
 | **R1 · Seam** | `AgentRuntime` interface, `direct` runtime wrapping today's handlers, agent-config builder and tool catalogue as pure, tested modules | No behaviour change; tests pin "no agent can reach a side-effect tool". **Partly done 2026-11-03/04**: `src/lib/agents/runtime/{types,tools,roster,select}.ts`, the ADR-007 governance modules (`src/lib/model/agent-run.ts`, `checkRunQuota`/`recordAgentRun` in the router, validated `AGENT_*` env) and their tests; the `direct` runtime adapter is next |
 | **R2 · Worker on Node 24** | Worker image to `node:24-alpine`, pin `@opencode/sdk@2.2.6`, the OpenCode runtime behind `AGENT_RUNTIME=opencode`, first task type: `research` | A research task runs through OpenCode in a throwaway workspace, its notes carry provenance, usage lands in `ModelCall`, killing the worker mid-run duplicates nothing. **Built 2026-11-07; verified with a scripted model (including the kill) and once with a real Go model** |
 | **R3 · Creator team** | `writer` and `critic` agents per draft task (no `creator`: the workflow fans out); critic flags feed the autonomy policy | One draft per channel, critic flags visible on the draft, supervised approval unchanged. **Built 2026-11-07, LinkedIn and X; verified with a scripted model and twice with a real Go model** |
-| **R4 · Ask and budgets** | `banyan_ask_founder` with `waiting_input`, per-run token budgets, per-cycle credit budgets, an incident log | A run that needs an answer pauses and resumes in the same session; an over-budget run stops cleanly. **Built 2026-11-07: clean stops, the incident log, and asking (through the planner agent). Credit budgets wait for a pricing decision** |
+| **R4 · Ask and budgets** | `banyan_ask_founder` with `waiting_input`, per-run token budgets, per-cycle credit budgets, an incident log | A run that needs an answer pauses and resumes in the same session; an over-budget run stops cleanly. **Built 2026-11-07: clean stops, the incident log, and asking (through the planner agent). Credit budgets built the same day: 1 credit per model-written draft, an optional per-goal budget** |
 | **R5 · Level 3** | Continuous cycles started by Banyan's scheduler inside the cycle budget, with sampling (spot checks, built) and incident review | Several measured cycles in one workspace without a founder prompt, every one inside its budget and policy |
 | **R6 · Command center** | The founder's chat as an OpenCode session with read and propose tools | Questions about the product, its results and its drafts answered from recorded data |
 

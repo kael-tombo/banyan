@@ -17,6 +17,7 @@ import { currentRuntimeSelection } from "@/lib/agents/runtime/select";
 import { draftWithAgents, type AgentDraft } from "@/lib/agents/runtime/opencode/drafting";
 import { env } from "@/lib/env";
 import { log as logEvent } from "@/lib/log";
+import { holdDraftCredit, settleDraftCredit } from "@/lib/credits/draft-charge";
 
 /**
  * Distribution handlers: campaign creation, channel-specific drafting, the
@@ -142,6 +143,32 @@ export async function handleContentDraft(ctx: HandlerContext): Promise<HandlerRe
     return { outcome: "blocked", reason: "No business profile configured.", actionable: "Complete your workspace profile so drafts are grounded in real context, then retry this task." };
   }
 
+  // R4: hold the draft's credit before any model work. Short credits or a spent goal budget block the task
+  // (a person can fix either and retry) with nothing started. Only a model-written draft keeps the credit.
+  const hold = await holdDraftCredit({ workspaceId: ctx.workspaceId, goalId: ctx.goalId, taskId: ctx.task.id, attempt: ctx.task.attempts, channel });
+  if (!hold.ok) {
+    log.push("credits", hold.reason);
+    return { outcome: "blocked", reason: hold.reason, actionable: hold.actionable };
+  }
+  let drafted: HandlerResult;
+  try {
+    drafted = await writeDraft(ctx, log, channel, format, campaign, { ...biz, profile: biz.profile });
+  } catch (err) {
+    await settleDraftCredit(ctx.workspaceId, hold.key, false);
+    throw err;
+  }
+  await settleDraftCredit(ctx.workspaceId, hold.key, drafted.outcome === "completed" && drafted.output.isFallback === false);
+  return drafted;
+}
+
+async function writeDraft(
+  ctx: HandlerContext,
+  log: ReturnType<typeof makeLogger>,
+  channel: Channel,
+  format: string,
+  campaign: Awaited<ReturnType<typeof prisma.campaign.findFirst>>,
+  biz: Awaited<ReturnType<typeof loadBusinessContext>> & { profile: NonNullable<Awaited<ReturnType<typeof loadBusinessContext>>["profile"]> },
+): Promise<HandlerResult> {
   // R3: with AGENT_RUNTIME=opencode on Node 24, a writer agent drafts and a critic from another model
   // family checks. Short-form video keeps the single call: its structured script is separate work.
   // Any failure falls back to the single call below, which fills the same draft rather than adding one.

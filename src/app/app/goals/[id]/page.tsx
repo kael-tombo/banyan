@@ -13,6 +13,10 @@ import GateActions from "./gate-actions";
 import AnswerQuestion from "./answer-question";
 import { openQuestion } from "@/lib/agents/questions";
 import ProvenanceBadge from "./provenance-badge";
+import CreditBudget from "./credit-budget";
+import { creditsUsedBy } from "@/lib/credits/service";
+import { goalDraftPrefix } from "@/lib/credits/draft-charge";
+import { canControlWorkflow } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +38,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
     include: { task: { select: { title: true, type: true } } },
   });
   const campaigns = await prisma.campaign.findMany({ where: { goalId: id }, select: { id: true, name: true, status: true } });
+  const creditsUsed = await creditsUsedBy(ctx.workspace.id, goalDraftPrefix(goal.id));
 
   // The loop's kept learning + its live stage counts — all from recorded rows.
   const [gatePasses, goalExperiments] = await Promise.all([
@@ -261,6 +266,13 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
           )}
         </Card>
       </div>
+
+      <Card className="mt-6" id="credit-budget">
+        <h2 className="font-medium text-charcoal">Credit budget for drafts</h2>
+        <div className="mt-2">
+          <CreditBudget goalId={goal.id} budget={goal.creditBudget} used={creditsUsed} canEdit={canControlWorkflow(ctx.membership.role)} />
+        </div>
+      </Card>
 
       {/* Execution plan: task graph */}
       <Card className="mt-6" id="tasks">

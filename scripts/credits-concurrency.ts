@@ -10,7 +10,8 @@
  */
 import { prisma } from "@/lib/db";
 import { fold } from "@/lib/credits/ledger";
-import { getBalance, reserveCredits, finalizeReservation, InsufficientCreditsError, releaseStaleReservations } from "@/lib/credits/service";
+import { getBalance, reserveCredits, finalizeReservation, InsufficientCreditsError, releaseStaleReservations, BudgetExceededError, creditsUsedBy } from "@/lib/credits/service";
+import { draftHoldKey, goalDraftPrefix, settleDraftCredit, WORKFLOW_DRAFT_CREDITS } from "@/lib/credits/draft-charge";
 
 async function main() {
   const ws = await prisma.workspace.create({ data: { organization: { create: { name: "credits-concurrency", slug: `credits-concurrency-${Date.now()}` } }, name: "credits-concurrency", slug: `cc-${Date.now()}` } });
@@ -49,6 +50,30 @@ async function main() {
     check(recovered.available === 10 && recovered.reserved === 0, `a hold left by a crashed run is returned in full (${recovered.available} available, ${recovered.reserved} held)`);
     await releaseStaleReservations();
     check((await getBalance(ws.id)).available === 10, "releasing again changes nothing");
+
+    // R4: a goal's drafts share its credit budget. Three drafts race under a 2-credit budget with
+    // credits to spare: exactly two holds succeed and the third is refused for the budget.
+    const goalA = { keyPrefix: goalDraftPrefix("goal-a"), limit: 2 };
+    const raced = await Promise.allSettled(["t1", "t2", "t3"].map((t) => reserveCredits(ws.id, WORKFLOW_DRAFT_CREDITS, draftHoldKey("goal-a", t, 1), { budget: goalA })));
+    const held = raced.filter((r) => r.status === "fulfilled").length;
+    const overBudget = raced.filter((r) => r.status === "rejected" && r.reason instanceof BudgetExceededError).length;
+    check(held === 2 && overBudget === 1, `three drafts under a 2-credit budget: two held, one refused (${held} held, ${overBudget} refused)`);
+    check((await creditsUsedBy(ws.id, goalA.keyPrefix)) === 2, "the budget shows 2 credits used");
+
+    // A template draft returns its hold, which frees room in the budget; a spent one keeps it.
+    const winners = ["t1", "t2", "t3"].filter((_, i) => raced[i].status === "fulfilled");
+    await settleDraftCredit(ws.id, draftHoldKey("goal-a", winners[0], 1), false);
+    await settleDraftCredit(ws.id, draftHoldKey("goal-a", winners[1], 1), true);
+    check((await creditsUsedBy(ws.id, goalA.keyPrefix)) === 1, "a returned hold no longer counts against the budget");
+    const retried = await reserveCredits(ws.id, 1, draftHoldKey("goal-a", "t4", 1), { budget: goalA }).then(() => true, () => false);
+    check(retried, "the freed credit lets the next draft through");
+
+    // Another goal's drafts are not counted against this budget.
+    const other = await reserveCredits(ws.id, 1, draftHoldKey("goal-b", "t1", 1), { budget: { keyPrefix: goalDraftPrefix("goal-b"), limit: 1 } }).then(() => true, () => false);
+    check(other, "one goal's spending does not count against another goal's budget");
+    const after = await getBalance(ws.id);
+    const ledgerAfter = fold(await prisma.creditEntry.findMany({ where: { workspaceId: ws.id }, select: { kind: true, amount: true } }));
+    check(ledgerAfter.available === after.available && ledgerAfter.reserved === after.reserved, "the balance still equals the ledger after budgeted holds");
   } finally {
     await prisma.organization.delete({ where: { id: ws.organizationId } }); // cascades to the product
     await prisma.$disconnect();
