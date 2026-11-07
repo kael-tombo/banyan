@@ -49,6 +49,10 @@ export type MarketSnapshot = {
   conversations: number;
   leads: number;
   opportunities: number;
+  trendsState?: "idle" | "running" | "ready" | "failed";
+  trending?: number;
+  livePlatforms?: number;
+  platforms?: number;
 };
 
 /** One number of the 360 at a glance; a link to its chapter. */
@@ -76,6 +80,7 @@ const NAV: { href: string; label: string; group: "product" | "market" }[] = [
   { href: "#sec-conversations", label: "Conversations", group: "market" },
   { href: "#sec-signals", label: "People in the market", group: "market" },
   { href: "#sec-opportunities", label: "Opportunities", group: "market" },
+  { href: "#sec-trending", label: "What's trending", group: "market" },
 ];
 
 export function Understood({
@@ -85,6 +90,7 @@ export function Understood({
   onContinue,
   onReread,
   market,
+  trending,
   snapshot,
 }: {
   profile: IntakeProfile;
@@ -94,6 +100,8 @@ export function Understood({
   onReread: () => void;
   /** The market chapters (competitors, conversations, people, opportunities). */
   market?: ReactNode;
+  /** The trend radar chapter. */
+  trending?: ReactNode;
   snapshot?: MarketSnapshot;
 }) {
   const p = profile;
@@ -193,12 +201,13 @@ export function Understood({
         </div>
 
         {/* The 360 at a glance: each tile jumps to its chapter. */}
-        <div className="grid grid-cols-2 gap-2 border-t border-bark/10 bg-ivory/50 px-6 py-4 sm:grid-cols-5">
-          <Tile className="col-span-2 sm:col-span-1" href="#sec-product" label="Profile" value={`${cov.read}/${cov.total}`} sub={fromSite ? `from ${p.pages.length === 1 ? "1 page" : `${p.pages.length} pages`}` : "your words"} />
+        <div className="grid grid-cols-2 gap-2 border-t border-bark/10 bg-ivory/50 px-6 py-4 sm:grid-cols-3 lg:grid-cols-6">
+          <Tile href="#sec-product" label="Profile" value={`${cov.read}/${cov.total}`} sub={fromSite ? `from ${p.pages.length === 1 ? "1 page" : `${p.pages.length} pages`}` : "your words"} />
           <Tile href="#sec-competitors" label="Competitors" value={String(snapshot?.competitors ?? 0)} sub={snapshot ? `${snapshot.verified} read from their sites` : undefined} busy={scanning} />
           <Tile href="#sec-conversations" label="Conversations" value={String(snapshot?.conversations ?? 0)} sub="public threads" busy={scanning} />
           <Tile href="#sec-signals" label="People in market" value={String(snapshot?.leads ?? 0)} sub="asking or switching" busy={scanning} />
           <Tile href="#sec-opportunities" label="Opportunities" value={String(snapshot?.opportunities ?? 0)} sub="with evidence" busy={scanning} />
+          <Tile href="#sec-trending" label="Trending" value={String(snapshot?.trending ?? 0)} sub={snapshot?.platforms ? `${snapshot.livePlatforms} of ${snapshot.platforms} platforms live` : "posts across platforms"} busy={scanning || snapshot?.trendsState === "running"} />
         </div>
         {fromSite && (
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-bark/10 px-6 py-2.5">
@@ -307,6 +316,7 @@ export function Understood({
         <>
           <p className="pt-2 text-[11px] font-medium uppercase tracking-[0.06em] text-muted">Your market</p>
           {market}
+          {trending}
         </>
       )}
 

@@ -10,6 +10,9 @@ import { BLANK_INTAKE, intakeFromAnalysis, suggestCycle, type IntakeProfile } fr
 import { ReadingProgress, type ReadingStatus } from "./intake/reading-progress";
 import { Understood } from "./intake/understood";
 import { MarketSections, type ResearchState } from "./intake/market-sections";
+import { TrendRadar, type TrendsState } from "./intake/trend-radar";
+import { googleTrendsLink } from "@/lib/research/trends/links";
+import { PLATFORM_LABEL, type ContentIdea, type TrendsReport } from "@/lib/research/trends/types";
 import type { Competitor, MarketResearch, Opportunity } from "@/lib/research/types";
 
 type Channel = "x" | "linkedin" | "shortvideo";
@@ -112,6 +115,10 @@ export default function CycleIntakeForm({
   const [kept, setKept] = useState<Set<string>>(new Set(initialResearch?.opportunities.map((o) => o.id) ?? []));
   const [researchDirty, setResearchDirty] = useState(false);
   const scanRun = useRef(0);
+  // The trend radar: runs after each market scan, kept with it.
+  const [trends, setTrends] = useState<TrendsReport | null>(initialResearch?.trends ?? null);
+  const [trendsState, setTrendsState] = useState<TrendsState>(initialResearch?.trends ? "ready" : "idle");
+  const trendsRun = useRef(0);
   const [phase, setPhase] = useState<Phase>("url");
   const [url, setUrl] = useState(initialUrl || initialProfile?.website || "");
   const [profile, setProfile] = useState<IntakeProfile>(initialProfile ?? BLANK_INTAKE);
@@ -233,9 +240,35 @@ export default function CycleIntakeForm({
       setKept(new Set(out.research.opportunities.map((o) => o.id)));
       setResearchDirty(false);
       setResearchState("ready");
+      // Fresh terms and competitors: the radar follows the scan.
+      setTrends(null);
+      void runTrends(id);
     } catch {
       if (token === scanRun.current) setResearchState("failed");
     }
+  }
+
+  /** Run (or refresh) the trend radar for the analysed product. */
+  async function runTrends(id: string | null = analysisId) {
+    if (!id) return;
+    const token = ++trendsRun.current;
+    setTrendsState("running");
+    try {
+      const res = await fetch(`/api/product/analyze/${id}/trends`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+      const out = (await res.json().catch(() => ({}))) as { trends?: TrendsReport; error?: string };
+      if (token !== trendsRun.current) return;
+      if (!res.ok || !out.trends) throw new Error(out.error || "The trend radar couldn't finish.");
+      setTrends(out.trends);
+      setTrendsState("ready");
+    } catch {
+      if (token === trendsRun.current) setTrendsState("failed");
+    }
+  }
+
+  /** "Make this my first cycle" on a content idea: the post becomes what this cycle distributes. */
+  function useIdea(idea: ContentIdea) {
+    setUpdate(`${PLATFORM_LABEL[idea.platform]} ${idea.format.toLowerCase()}: “${idea.hook}” ${idea.angle}`.slice(0, 1000));
+    toCycle();
   }
 
   /** "Make this my first cycle": the opportunity becomes what this cycle distributes. */
@@ -478,6 +511,10 @@ export default function CycleIntakeForm({
             conversations: research?.conversations.length ?? 0,
             leads: research?.leads.length ?? 0,
             opportunities: research?.opportunities.length ?? 0,
+            trendsState,
+            trending: trends ? trends.platforms.reduce((n, p) => n + p.items.length, 0) : 0,
+            livePlatforms: trends ? trends.platforms.filter((p) => p.status === "live").length : 0,
+            platforms: trends?.platforms.length ?? 0,
           }}
           market={
             <MarketSections
@@ -507,6 +544,17 @@ export default function CycleIntakeForm({
               onScan={() => void scanMarket(analysisId, Boolean(research))}
               onUseOpportunity={useOpportunity}
               dirty={researchDirty}
+            />
+          }
+          trending={
+            <TrendRadar
+              index={10}
+              state={trendsState}
+              trends={trends}
+              canRun={Boolean(analysisId) && researchState === "ready"}
+              googleTrends={googleTrendsLink([...competitors.filter((c) => c.verified).slice(0, 3).map((c) => c.name), ...(trends?.terms ?? queries).slice(0, 2)])}
+              onRun={() => void runTrends()}
+              onUseIdea={useIdea}
             />
           }
         />
