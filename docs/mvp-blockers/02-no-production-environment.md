@@ -30,6 +30,13 @@ needs a host that runs a long-lived worker — not a pure serverless platform.
 
 Recommendation: a single VM with Compose — it matches vision principle 9 (one app, one worker, one database).
 
+## Status (2026-11-07)
+
+The buildable steps are done: `docker-compose.prod.yml` (Caddy with automatic HTTPS, only 80/443 published,
+SocialFlow Lite public only for its browser paths), `deploy/Caddyfile`, `scripts/deploy.sh` (build, migrate, start,
+health check, roll back to the previous image) and `scripts/smoke-prod.sh`. Not yet run on a real server. The
+founder steps, in order, are in [LAUNCH_SETUP.md](../LAUNCH_SETUP.md).
+
 ## Plan, step by step
 
 1. **Buy/point the domain** (e.g. `app.banyan.ai`) and a short tracking domain if desired.

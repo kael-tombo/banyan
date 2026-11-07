@@ -32,6 +32,13 @@ RUN npx prisma generate \
  && npm run build:worker \
  && npm prune --omit=dev --legacy-peer-deps=false
 
+# ---- tools: source + dev dependencies for one-off operator scripts (scripts/smoke-prod.sh) ----
+# Never deployed: the runtime stage below copies only from build.
+FROM deps AS tools
+COPY . .
+ENV DATABASE_URL=file:./build-placeholder.db \n    APP_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+RUN npx prisma generate
+
 # ---- runtime: non-root, production dependencies only ----
 FROM base AS runtime
 ENV NODE_ENV=production \
