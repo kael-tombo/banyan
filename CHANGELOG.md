@@ -33,6 +33,10 @@ follow [Keep a Changelog](https://keepachangelog.com); commit hashes refer to
     Ad Library), X, Pinterest (Trends). Interest over 12 months from Wikipedia page views and a Google Trends
     comparison; hashtags per platform; native content ideas (prompt `content-ideas` v1) that cite a post
     from the same platform or say they're a suggestion; "Make this my first cycle" on any idea.
+  - **Four-step onboarding** (redesign): Your site → Confirm ("Is this you?": four essentials, everything else
+    collapsed, the market filling in beside it) → Your market (four headline findings, then tabs; pick an angle)
+    → First cycle (angle, goal, channels). A segmented progress bar, one sticky footer per step, and a slim
+    `/onboarding` frame replace the single 10-chapter page.
   - **Known limits:** the trend radar reads none of TikTok, Instagram, Facebook, LinkedIn, X or Pinterest (no
     public API; never scraped), and YouTube, Reddit and Bluesky only with credentials (TD-26 to TD-28). The
     market scan uses two public sources only (weak for consumer and non-English products), sparse buying

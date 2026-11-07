@@ -33,28 +33,34 @@ page or post it came from, is marked "inferred", or is the founder's own words.
 ## 2. The founder's flow
 
 Entry points: `/onboarding` (first visit; finishing it completes onboarding) and `/app/cycles/new` (any later
-cycle). Both render the same component, `CycleIntakeForm`.
+cycle). Both render the same component, `CycleIntakeForm`. Redesigned 2026-11-07 into **four steps, one job each**,
+after the single-page report proved too much at once: about 6,000 px of scrolling, 10 chapters and around 20 fields
+before the founder could act, with the most valuable parts (opportunities, trends) at the bottom.
 
-| Step | Screen | What happens |
+| Step | Job | What the founder sees |
 | --- | --- | --- |
-| 1. Your site | One address field, three promises (your site then your market · nothing made up · read-only) | Enter or "Read my site" starts the analysis. "No website yet? Start from scratch" opens an empty review. A saved profile can be reused. |
-| — | Reading | Real progress from the analysis status (`queued` → `reading` → `analysing`), a skeleton of what is coming, "Usually 10–30 seconds", Cancel. |
-| 2. Your 360 | One-page report | **Header:** logo, name, tagline, stage, social links, six tiles (Profile, Competitors, Conversations, People in market, Opportunities, Trending) that jump to their chapter and shimmer while the scan runs. **Chapter nav** on desktop. **Your product:** 01 Product · 02 Who it's for · 03 Problem and positioning · 04 Proof and pricing · 05 Voice and the ask. **Your market:** 06 Competitors · 07 Where your market talks · 08 People in the market · 09 Opportunities · 10 What's trending. A sticky bar holds "Plan the cycle". |
-| 3. Your first cycle | Objective, metric, target, window, channels | The objective is suggested from the site's main button ("Book a demo" → 5 demos; waitlist → 50 signups; trial → 20 trial signups; download → 50 installs; buy → 10 sales; otherwise 20 signups), with the reason shown. Kept opportunities appear as one-click topics. |
+| **1. Your site** | Enter the address | A centred promise ("Your product and its market, in one read." on `/onboarding`), one large address field, and four "what you'll get" cards (your product · your competitors · where buyers talk · what's trending and what to post). Alternatives: use the saved profile, or start from scratch. A read-only promise underneath. |
+| — | Reading | Real progress from the analysis status, a skeleton of what's coming, Cancel. |
+| **2. Confirm** ("Is this you?") | Check the facts | An identity card (logo, name, tagline, stage, website, socials; "15 of 15 fields read from home page, /about"; Read again). **The essentials**: what it does, who it's for, the problem, why it's worth it, each with its source tag; the card says "All set" or how many need you. **Everything else** (category, features, pain and outcome, positioning, differentiators, proof, pricing, tone, call to action) is one collapsed panel showing how many details were found. Beside it, a **market panel** fills in live while the founder checks (competitors read, conversations, people, opportunities, platforms read), ending with "Your briefing is ready". |
+| **3. Your market** ("Your market, in brief.") | Understand the market and pick an angle | Four **headline findings**, each opening its tab: best place to start (top opportunity), the closest competitor and their own promise, the most discussed thread, and people in the market (with a quote), or the interest trend when one is missing. Then **tabs with counts**: Opportunities (default) · Competitors · Conversations · People · Trending. Any opportunity or content idea can be made the first cycle's angle. Skipped when there is no site read. |
+| **4. First cycle** | Commit | Three cards: **the angle** (prefilled from the opportunity or idea picked, labelled with its source, with "Change"; or the kept opportunities as one-click choices); **the goal** (objective suggested from the site's main button, with the reason); **channels**. "Start the cycle". |
 
-Interaction details:
+Throughout:
 
-- The market scan **starts automatically** as soon as the product half is on screen; the founder can edit
-  meanwhile.
-- Every product field carries a **source tag**: "From /pricing", "Inferred · check it", "Needs you" (required
-  and empty), "Not on your site" (optional and empty, only after a site read), or "Your words" once edited.
-- Lists (features, differentiators, proof, search terms) are chips: × removes, Enter adds.
-- Competitors can be removed or added (name + site). Search terms can be edited. Either change turns the button
-  into **"Rescan with my changes"**, which reruns the scan with the founder's list.
-- Each opportunity has **Keep** (on by default) and **"Make this my first cycle"**.
-- "Plan the cycle" is never a dead button: with a required field missing, it scrolls to and focuses that field.
-- A returning founder sees their saved profile and, if one finished, their saved market scan.
-- Phone layout: tiles in two columns, no side nav, every chapter stacks; checked at 375 px.
+- **Progress bar** of four segments at the top; any step already reached can be reopened, later ones can't be
+  skipped to.
+- **One sticky footer** per step: Back, a one-line hint (what's missing, or the chosen angle), one primary action.
+  On phones the hint takes its own line.
+- The market scan and the trend radar **start automatically** after the site read and run while the founder is on
+  Confirm, so Step 3 is usually ready on arrival.
+- Every product field carries a **source tag**: "From /pricing", "Inferred · check it", "Needs you", "Not on your
+  site", or "Your words" once edited. Lists are chips (× removes, Enter adds).
+- The primary button is never dead: with a required field missing, it scrolls to and focuses that field.
+- In the market tabs, competitors can be removed or added and search terms edited; either turns the button into
+  **"Rescan with my changes"**.
+- A returning founder sees their saved profile and, if one finished, their saved market scan and trend radar.
+- The `/onboarding` page has a slim frame: the Banyan mark, "Detailed setup" and "Look around first".
+- Checked at desktop and phone (375 px) widths.
 
 ## 3. How it works
 
@@ -152,7 +158,7 @@ POST /api/goals             ──► the first cycle
 
 ### 3.3 What's trending (the trend radar)
 
-Chapter 10 of the report, added 2026-11-07. It runs automatically after each market scan
+The Trending tab of step 3, added 2026-11-07. It runs automatically after each market scan
 (`POST /api/product/analyze/[id]/trends`) and is kept with the scan.
 
 - **Search terms and competitors** come from the market scan (verified competitors and those named on the site).
@@ -192,7 +198,7 @@ Chapter 10 of the report, added 2026-11-07. It runs automatically after each mar
   nothing found here to build on". Without a model, one native-format idea per platform from a fixed template,
   built on that platform's top post when there is one. **"Make this my first cycle"** turns any idea into the
   cycle's topic.
-- **UI:** an interest strip with sparklines, platform tabs (platforms with live posts first; a count, key or link
+- **UI** (the Trending tab of step 3): an interest strip with sparklines, platform tabs (platforms with live posts first; a count, key or link
   icon shows each status), then for the selected platform: its note, the posts getting attention (video cards with
   thumbnails for YouTube), what to post, research links and hashtags. A sixth header tile counts trending posts
   and live platforms.
@@ -432,7 +438,7 @@ Live checks run during development (not in CI, since they depend on third-party 
 | Trend radar | `src/lib/research/trends/types.ts`, `providers.ts`, `links.ts`, `interest.ts`, `radar.ts`; prompt `src/lib/ai/prompts/content-ideas.v1.ts`; route `src/app/api/product/analyze/[id]/trends/route.ts`; UI `src/app/app/cycles/new/intake/trend-radar.tsx` |
 | Prompts | `src/lib/ai/prompts/product-analysis.v2.ts`, `market-scan.v1.ts`, `market-opportunities.v1.ts` |
 | API | `src/app/api/product/analyze/route.ts`, `analyze/[id]/route.ts`, `analyze/[id]/research/route.ts`, `snapshot/route.ts` |
-| UI | `src/app/app/cycles/new/cycle-intake-form.tsx`, `intake/reading-progress.tsx`, `intake/understood.tsx`, `intake/market-sections.tsx`, `intake/parts.tsx`; pages `src/app/onboarding/page.tsx`, `src/app/app/cycles/new/page.tsx` |
+| UI | `src/app/app/cycles/new/cycle-intake-form.tsx`, `intake/reading-progress.tsx`, `intake/confirm-step.tsx` (step 2), `intake/market-step.tsx` (step 3: briefing and tabs), `intake/market-sections.tsx` and `intake/trend-radar.tsx` (tab contents), `intake/parts.tsx` (source tags, lists, sections, step footer); pages `src/app/onboarding/page.tsx`, `src/app/app/cycles/new/page.tsx` |
 | Consumers | `src/lib/strategy/facts.ts`, `src/lib/content/claim-evidence.ts`, `src/lib/product-brief.ts`, `/app/opportunities` |
 
 ## 14. Next steps
