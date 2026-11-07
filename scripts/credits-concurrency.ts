@@ -74,8 +74,11 @@ async function main() {
     const after = await getBalance(ws.id);
     const ledgerAfter = fold(await prisma.creditEntry.findMany({ where: { workspaceId: ws.id }, select: { kind: true, amount: true } }));
     check(ledgerAfter.available === after.available && ledgerAfter.reserved === after.reserved, "the balance still equals the ledger after budgeted holds");
+    // TD-17: a workspace with model usage must still be deletable; the finally below proves it.
+    await prisma.modelCall.create({ data: { workspaceId: ws.id, purpose: "content_draft", provider: "check", model: "check" } });
   } finally {
-    await prisma.organization.delete({ where: { id: ws.organizationId } }); // cascades to the product
+    await prisma.organization.delete({ where: { id: ws.organizationId } }); // cascades to the product, and its model usage
+    check((await prisma.modelCall.count({ where: { workspaceId: ws.id } })) === 0, "deleting a workspace removes its model usage instead of failing (TD-17)");
     await prisma.$disconnect();
   }
   console.log(failures === 0 ? "ALL CREDIT CHECKS PASSED" : `${failures} CREDIT CHECK(S) FAILED`);

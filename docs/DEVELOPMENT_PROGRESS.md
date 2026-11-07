@@ -4,7 +4,24 @@ Running log of MVP delivery. A story moves to Done only when its acceptance crit
 says how. Story definitions: [USER_STORIES.md](USER_STORIES.md). Status source of truth:
 `scripts/backlog/stories-*.mjs` (re-render with `node scripts/backlog/render.mjs`).
 
-## Phase status
+## Current status (2026-11-07)
+
+The phase table below is the snapshot from 2026-11-01/02 and says phases 6–10 are "Not started"; the code has
+moved past it. What holds now, each item verified in CI on `mvp/socialflow-foundation` (PR #5 into `main`):
+
+| Area | State | Evidence |
+| --- | --- | --- |
+| 6 — Strategy and content | Built: cited strategy with review/approve/reject/edit; drafts from the approved strategy; claims gate at approval | Unit tests; the founder journey in CI (148 checks over HTTP against a production build) |
+| 7 — Campaign execution | Built: one campaign lifecycle; export mode and SocialFlow publishing (REST and MCP) with status sync, cancel, retry, no double posting | `scripts/socialflow-integration-check.ts` against SocialFlow Lite in CI |
+| 8 — Credits and analytics | Built: credit ledger with reservations, per-goal draft budgets, cycle report, activation report | `scripts/credits-concurrency.ts` on Postgres in CI; `npm run report:activation` |
+| 9 — Hardening | Buildable part done: CI (4 jobs), security headers, role guards, redacted logs, backups, dependency audit | [mvp-blockers/10](mvp-blockers/10-production-hardening.md) |
+| Agents | Supervised autonomy (Level 2), agent runtime R1–R4, R5 started (opt-in continuous cycles) | [architecture/AGENT_ORCHESTRATION.md](architecture/AGENT_ORCHESTRATION.md) |
+| 10 — Release | **Blocked on the founder:** developer apps, host and domain, production model key, email vendor, Stripe | [mvp-blockers/README.md](mvp-blockers/README.md) |
+
+Not verified anywhere yet: a real cycle with real LinkedIn/X accounts, a production host, a production model key, and
+a browser pass of the onboarding and cycle-report screens.
+
+## Phase status (snapshot, 2026-11-01/02)
 
 | Phase | Status | Evidence |
 | --- | --- | --- |

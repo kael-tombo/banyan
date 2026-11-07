@@ -700,7 +700,8 @@ model ModelCall {
   attempt          Int       @default(1)
   schemaValid      Boolean?
   createdAt        DateTime  @default(now())
-  workspace        Workspace @relation(fields: [workspaceId], references: [id])
+  // Usage rows go with their workspace, so deleting a workspace (or an account) never fails on them (TD-17).
+  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([workspaceId, createdAt])
   @@index([workspaceId, promptName, promptVersion])
