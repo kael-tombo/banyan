@@ -233,8 +233,29 @@ second product. How R2 answers the review:
   produced the research brief and five notes, all labelled hypothesis with the task as source, and one ledger row
   (3,381 input and 877 output tokens). Reproduce with `AGENT_CHECK_REAL_MODEL=opencode-go/glm-5.3-flash`; the kill
   scenario runs only against the scripted model.
-- **Not built in R2:** the other tools (`channel_rules`, `results`, proposal tools) and the other agents; research
-  only. `banyan_web_search` stays unregistered until a web provider is verified.
+- **Not built in R2:** the other tools and agents; research only. `banyan_web_search` stays unregistered until a web
+  provider is verified.
+
+## R3 as built (2026-11-07)
+
+- **Drafts:** each `content_draft` task (LinkedIn and X; short-form video keeps the single call) runs a `writer` agent,
+  then a `critic` agent, as two runs of the same attempt. `src/lib/agents/runtime/opencode/drafting.ts`.
+- **No `creator` agent.** Fan-out stays with the workflow, one task per channel, so it is bounded by the graph rather
+  than chosen by a model (the 2026-11-06 review's concern). The roster keeps `creator` for later.
+- **Tools:** `banyan_channel_rules` (format guide, limit, voice, banned terms, the campaign's allowed claims),
+  `banyan_propose_draft` (one draft per task, found by its source, revisable while still `draft`, and it returns the
+  checks the founder will see), `banyan_flag` (kind, exact quote, note; deduplicated, at most 10, safe under parallel
+  calls). Channel, format and campaign come from the task, never the model.
+- **Critic flags** are stored in the draft's `checks` as `code: "critic"`. The autonomy policy holds any flagged draft,
+  and the draft page lists them with the live checks. If the critic fails, an "unchecked" flag holds the draft too.
+- **Failures:** if the writer fails after saving, the single call fills that same draft, so no duplicate. Two runs need
+  two quota units, checked before either starts. Each run writes its own ledger row (`content_draft`, `content_review`).
+- **Verified:** unit tests; the end-to-end check with a scripted model (12/12, the critic on a different model family);
+  and with `opencode-go/glm-5.3-flash` twice. On the real model the critic flagged features the writer had claimed but
+  the product context did not back, both times. One real research run fell back because the model wrote more angles
+  than the brief allows; over-long lists are now cut, and the next run passed.
+- **Not done:** the critic in these real runs used the same model family as the writer, because only Go models were
+  available. Production requires another family and refuses otherwise.
 
 ## Roadmap
 
@@ -242,7 +263,7 @@ second product. How R2 answers the review:
 | --- | --- | --- |
 | **R1 · Seam** | `AgentRuntime` interface, `direct` runtime wrapping today's handlers, agent-config builder and tool catalogue as pure, tested modules | No behaviour change; tests pin "no agent can reach a side-effect tool". **Partly done 2026-11-03/04**: `src/lib/agents/runtime/{types,tools,roster,select}.ts`, the ADR-007 governance modules (`src/lib/model/agent-run.ts`, `checkRunQuota`/`recordAgentRun` in the router, validated `AGENT_*` env) and their tests; the `direct` runtime adapter is next |
 | **R2 · Worker on Node 24** | Worker image to `node:24-alpine`, pin `@opencode/sdk@2.2.6`, the OpenCode runtime behind `AGENT_RUNTIME=opencode`, first task type: `research` | A research task runs through OpenCode in a throwaway workspace, its notes carry provenance, usage lands in `ModelCall`, killing the worker mid-run duplicates nothing. **Built 2026-11-07; verified with a scripted model (including the kill) and once with a real Go model** |
-| **R3 · Creator team** | `creator`, `writer` and `critic` agents; critic flags feed the autonomy policy | One draft per channel, critic flags visible on the draft, supervised approval unchanged |
+| **R3 · Creator team** | `writer` and `critic` agents per draft task (no `creator`: the workflow fans out); critic flags feed the autonomy policy | One draft per channel, critic flags visible on the draft, supervised approval unchanged. **Built 2026-11-07, LinkedIn and X; verified with a scripted model and twice with a real Go model** |
 | **R4 · Ask and budgets** | `banyan_ask_founder` with `waiting_input`, per-run token budgets, per-cycle credit budgets, an incident log | A run that needs an answer pauses and resumes in the same session; an over-budget run stops cleanly |
 | **R5 · Level 3** | Continuous cycles started by Banyan's scheduler inside the cycle budget, with sampling (spot checks, built) and incident review | Several measured cycles in one workspace without a founder prompt, every one inside its budget and policy |
 | **R6 · Command center** | The founder's chat as an OpenCode session with read and propose tools | Questions about the product, its results and its drafts answered from recorded data |

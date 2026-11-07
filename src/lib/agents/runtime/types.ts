@@ -41,6 +41,8 @@ export type AgentTaskSpec = {
   agent: RuntimeAgent;
   brief: string;
   budget: Budget;
+  /** What the task is about (e.g. channel, format, campaignId). Tools read it; the model never supplies it. */
+  context?: Record<string, string>;
 };
 
 export interface AgentRuntime {

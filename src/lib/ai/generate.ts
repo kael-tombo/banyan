@@ -348,7 +348,7 @@ export function buildContextPost(req: ContentGenRequest): string {
  * drafted separately, so each one gets a different opening move; that keeps
  * an X thread and a LinkedIn post from starting with the same sentence.
  */
-const FORMAT_GUIDE: Partial<Record<Channel, Record<string, string>>> = {
+export const FORMAT_GUIDE: Partial<Record<Channel, Record<string, string>>> = {
   x: {
     single: "one post under 260 characters. Open with the sharpest version of the problem; end with the call to action.",
     thread: "4 to 6 posts separated by a blank line, each under 260 characters, numbered 1/, 2/ … Post 1 is a short, blunt claim or question about the problem (no product name in post 1). Middle posts show how it works, one fact each. The last post is the call to action.",

@@ -27,13 +27,14 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 if (Number(process.versions.node.split(".")[0]) < 24) throw new Error(`Needs Node 24; this is ${process.versions.node}.`);
 if (process.env.AGENT_CHECK_THROWAWAY_DB !== "1") throw new Error("Set AGENT_CHECK_THROWAWAY_DB=1 to confirm DATABASE_URL is a throwaway database this check may write to.");
 
-// ---- Child: one worker process running one research task ----
+// ---- Child: one worker process running one task (research, or a LinkedIn draft) ----
 
 if (role === "child") {
-  const [workspaceId, taskId] = process.argv.slice(3);
-  const { handleResearch } = await import("../src/lib/agents/handlers/planning");
-  const result = await handleResearch({
-    task: { id: taskId, workspaceId, goalId: null, campaignId: null, dedupeKey: taskId, type: "research", title: "Research", agentRole: "researcher", status: "running", inputs: {}, expectedOutput: "", output: null, verification: { kind: "nonempty" }, requiresApproval: false, dependsOn: [], attempts: 1, maxAttempts: 3, lastError: null, leasedUntil: null, startedAt: new Date() },
+  const [workspaceId, taskId, type = "research"] = process.argv.slice(3);
+  const drafting = type === "content_draft";
+  const handler = drafting ? (await import("../src/lib/agents/handlers/distribution")).handleContentDraft : (await import("../src/lib/agents/handlers/planning")).handleResearch;
+  const result = await handler({
+    task: { id: taskId, workspaceId, goalId: null, campaignId: null, dedupeKey: taskId, type, title: drafting ? "Draft" : "Research", agentRole: drafting ? "writer" : "researcher", status: "running", inputs: drafting ? { channel: "linkedin", format: "insight" } : {}, expectedOutput: "", output: null, verification: { kind: "nonempty" }, requiresApproval: false, dependsOn: [], attempts: 1, maxAttempts: 3, lastError: null, leasedUntil: null, startedAt: new Date() },
     workspaceId: workspaceId!,
     goalId: null,
     userId: null,
@@ -82,6 +83,17 @@ async function model(req: IncomingMessage, res: ServerResponse) {
     chunk({}, "tool_calls");
     end();
   };
+  if (all.includes("You are Banyan's writer")) {
+    if (toolTurns === 0) return tool("banyan_channel_rules", {});
+    if (toolTurns === 1) return tool("banyan_propose_draft", { body: `${product} turns a messy weekly schedule into a plan your team can follow. Try it this week.` });
+    chunk({ role: "assistant", content: "Saved." }, "stop");
+    return end();
+  }
+  if (all.includes("You are Banyan's critic")) {
+    if (toolTurns === 0) return tool("banyan_flag", { kind: "risky_topic", excerpt: "messy weekly schedule", note: "Make sure this does not read as a dig at the reader." });
+    chunk({ role: "assistant", content: "Reviewed." }, "stop");
+    return end();
+  }
   if (toolTurns === 0) return tool("banyan_read_context", {});
   if (toolTurns === 1) return tool("banyan_record_note", { text: `People who build ${product} hear about tools from peers in small communities.`, provenance: "hypothesis" });
   if (hangProduct === product) {
@@ -131,8 +143,8 @@ const childEnv = {
   ...realEnv,
 };
 
-function worker(workspaceId: string, taskId: string) {
-  const child = spawn(process.execPath, ["--import", "tsx", "scripts/agent-runtime-check.mts", "child", workspaceId, taskId], { env: childEnv, stdio: ["ignore", "pipe", "pipe"] });
+function worker(workspaceId: string, taskId: string, type = "research") {
+  const child = spawn(process.execPath, ["--import", "tsx", "scripts/agent-runtime-check.mts", "child", workspaceId, taskId, type], { env: childEnv, stdio: ["ignore", "pipe", "pipe"] });
   let out = "";
   let err = "";
   child.stdout.on("data", (d) => (out += d));
@@ -177,9 +189,24 @@ try {
   const ledgerA = await ledgerFor(wsA);
   check("One ledger row records the run's usage", ledgerA.length === 1 && ledgerA[0]!.provider === "opencode-runtime" && ledgerA[0]!.promptTokens > 0 && ledgerA[0]!.ok, ledgerA.map((l) => ({ provider: l.provider, model: l.model, promptTokens: l.promptTokens, completionTokens: l.completionTokens, ok: l.ok })));
 
+  // ---- A LinkedIn draft: a writer agent, then a critic
+  const productC = `CheckCo-${randomBytes(3).toString("hex")}`;
+  const wsC = await makeWorkspace(productC);
+  const taskC = `task_${randomBytes(4).toString("hex")}`;
+  const c = await worker(wsC, taskC, "content_draft").done;
+  const outC = c.result?.output;
+  const items = await prisma.contentItem.findMany({ where: { workspaceId: wsC } });
+  const item = items[0];
+  check("The draft task ran through the writer and the critic", /OpenCode writer agent.*checked by the critic/.test(outC?.generatedLabel ?? ""), { label: outC?.generatedLabel, code: c.code, logs: c.result ? undefined : c.err });
+  check("One draft, waiting for review, from the writer", items.length === 1 && item?.status === "ready_for_review" && item.sourceRef === `task:${taskC}` && (item.body ?? "").length > 20, items.map((i) => ({ status: i.status, length: i.body.length })));
+  const criticFlags = JSON.parse(item?.checks ?? "[]").filter((f: { code: string }) => f.code === "critic");
+  check("The critic's flags are stored on the draft", REAL ? Array.isArray(criticFlags) : criticFlags.length === 1 && criticFlags[0].kind === "risky_topic", criticFlags);
+  const ledgerC = await prisma.modelCall.findMany({ where: { workspaceId: wsC } });
+  check("One ledger row for each of the two runs", ledgerC.filter((l) => l.provider === "opencode-runtime").map((l) => l.purpose).sort().join() === "content_draft,content_review", ledgerC.map((l) => ({ purpose: l.purpose, provider: l.provider, ok: l.ok })));
+
   if (REAL) {
     console.log("\nReal-model output, for a person to read:");
-    console.log(JSON.stringify({ brief: outA?.data, notes: notesA.map((n) => n.value) }, null, 2));
+    console.log(JSON.stringify({ brief: outA?.data, notes: notesA.map((n) => n.value), draft: item?.body, criticFlags: criticFlags.map((f: { message: string }) => f.message) }, null, 2));
     throw new Error("__real_done__");
   }
 

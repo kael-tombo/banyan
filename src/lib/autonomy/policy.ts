@@ -125,6 +125,8 @@ export function decideApproval(c: ApprovalCandidate, p: AutonomyPolicy): Approva
   if (c.flags.some((f) => f.code === "unsupported_claim")) reasons.push("It makes a claim nothing in your evidence backs.");
   if (c.flags.some((f) => f.code === "banned_term")) reasons.push("It uses a term your brand voice says to avoid.");
   if (c.flags.some((f) => f.code === "over_limit")) reasons.push("It is longer than the channel allows.");
+  if (c.flags.some((f) => f.code === "critic" && f.kind === "unchecked")) reasons.push("The critic could not review it.");
+  else if (c.flags.some((f) => f.code === "critic")) reasons.push("The critic flagged something in it.");
   if (c.isFallback) reasons.push("The template fallback wrote it, not the model; it needs your eye.");
   if (!c.channelHasPublished && c.channel !== "shortvideo") reasons.push(`It would be your first post on ${label(c.channel)}; the first one is always yours to approve.`);
   const topics = matchTopics(c.text ?? "", p.escalateTopics ?? []);

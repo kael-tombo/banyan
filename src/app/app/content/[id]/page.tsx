@@ -1,5 +1,5 @@
 import { readGenerationMeta } from "@/lib/content/generation-meta";
-import { bannedTerms, checkDraft } from "@/lib/content/checks";
+import { bannedTerms, checkDraft, parseFlags } from "@/lib/content/checks";
 import { loadClaimEvidence } from "@/lib/content/claim-evidence";
 import { isChannel } from "@/lib/formats";
 import type { Metadata } from "next";
@@ -97,7 +97,8 @@ export default async function ContentEditorPage({ params }: { params: Promise<{ 
           sourceRef: item.sourceRef,
           videoExtras,
           angle: item.angle,
-          flags: flags.map((f) => f.message),
+          // Live checks on the current text, plus what the critic agent recorded on the draft it reviewed.
+          flags: [...flags.map((f) => f.message), ...parseFlags(item.checks).filter((f) => f.code === "critic").map((f) => f.message)],
         }}
         revisions={revisions.map((r) => ({ id: r.id, title: r.title, body: r.body.slice(0, 200), note: r.note, authorType: r.authorType, createdAt: r.createdAt.toISOString() }))}
         publications={publications.map((p) => ({

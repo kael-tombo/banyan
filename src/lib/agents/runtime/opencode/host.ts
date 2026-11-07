@@ -4,7 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { env } from "@/lib/env";
 import { log } from "@/lib/log";
 import { buildOpenCodeConfig, modelTiers } from "../roster";
-import { readContext, recordNote, ToolRefused, type NoteInput } from "./banyan-tools";
+import { channelRules, flagDraft, proposeDraft, readContext, recordNote, ToolRefused, type DraftTask, type NoteInput } from "./banyan-tools";
 import { OpenCodeAgentRuntime, taskForSession, type OpenCodeHost } from "./runtime";
 
 /**
@@ -32,14 +32,22 @@ let runtime: OpenCodeAgentRuntime | null = null;
 
 /** Tools as the plugin registers them. Exported for tests and the live check. */
 export function banyanToolDefinitions(workspaceId: string, hostRef: () => OpenCodeHost | null) {
-  const taskOf = async (sessionID: string): Promise<string> => {
+  const taskContext = async (sessionID: string): Promise<DraftTask> => {
     const known = taskForSession(sessionID);
-    if (known) return known.taskId;
+    if (known) return { ...known.context, taskId: known.taskId };
     // Resumed by the host after a restart, before any worker reattached: the session says which task.
-    const session = await hostRef()?.sessions.get({ sessionID });
-    const taskId = session?.metadata?.taskId;
-    if (typeof taskId !== "string") throw new ToolRefused("This session has no Banyan task.");
-    return taskId;
+    const metadata = (await hostRef()?.sessions.get({ sessionID }))?.metadata ?? {};
+    if (typeof metadata.taskId !== "string") throw new ToolRefused("This session has no Banyan task.");
+    const text = (key: string) => (typeof metadata[key] === "string" ? (metadata[key] as string) : undefined);
+    return { taskId: metadata.taskId, channel: text("channel"), format: text("format"), campaignId: text("campaignId") };
+  };
+  const taskOf = async (sessionID: string): Promise<string> => (await taskContext(sessionID)).taskId;
+  const asJson = async (work: () => Promise<unknown>) => {
+    try {
+      return JSON.stringify(await work());
+    } catch (err) {
+      return JSON.stringify(refusal(err));
+    }
   };
   const refusal = (err: unknown) => {
     if (err instanceof ToolRefused) return { refused: err.message };
@@ -54,6 +62,12 @@ export function banyanToolDefinitions(workspaceId: string, hostRef: () => OpenCo
         return JSON.stringify(refusal(err));
       }
     },
+    banyan_channel_rules: async (context: { sessionID: string }) =>
+      channelRules(workspaceId, await taskContext(context.sessionID)).catch((err) => `Refused: ${refusal(err).refused}`),
+    banyan_propose_draft: async (input: { body: string }, context: { sessionID: string }) =>
+      asJson(async () => proposeDraft(workspaceId, await taskContext(context.sessionID), input)),
+    banyan_flag: async (input: { kind: string; excerpt: string; note: string }, context: { sessionID: string }) =>
+      asJson(async () => flagDraft(workspaceId, await taskContext(context.sessionID), input)),
   };
 }
 
@@ -110,6 +124,39 @@ async function createHost(): Promise<OpenCodeHost> {
           output: S.Struct({ text: S.String }),
           execute: async (input: NoteInput, context: { sessionID: string }) => {
             const text = await impl.banyan_record_note(input, context);
+            return { output: { text }, content: text };
+          },
+        });
+        tools.add({
+          name: "banyan_channel_rules",
+          options: { codemode: false },
+          description: "Read the rules for this task's channel: format guide, length limit, brand voice, banned terms, call to action and the campaign's allowed claims.",
+          input: S.Struct({}),
+          output: S.Struct({ text: S.String }),
+          execute: async (_input: unknown, context: { sessionID: string }) => {
+            const text = await impl.banyan_channel_rules(context);
+            return { output: { text }, content: text };
+          },
+        });
+        tools.add({
+          name: "banyan_propose_draft",
+          options: { codemode: false },
+          description: "Save this task's post as a draft for the founder's review. Calling it again replaces the text. It is never published by this tool. Returns the checks the founder will see; fix them and save again.",
+          input: S.Struct({ body: S.String }),
+          output: S.Struct({ text: S.String }),
+          execute: async (input: { body: string }, context: { sessionID: string }) => {
+            const text = await impl.banyan_propose_draft(input, context);
+            return { output: { text }, content: text };
+          },
+        });
+        tools.add({
+          name: "banyan_flag",
+          options: { codemode: false },
+          description: "Flag one problem in the draft: kind is unsupported_claim, off_voice, banned_term or risky_topic; quote the exact words as excerpt and explain in note. Do not rewrite the draft.",
+          input: S.Struct({ kind: S.Literals(["unsupported_claim", "off_voice", "banned_term", "risky_topic"]), excerpt: S.String, note: S.String }),
+          output: S.Struct({ text: S.String }),
+          execute: async (input: { kind: string; excerpt: string; note: string }, context: { sessionID: string }) => {
+            const text = await impl.banyan_flag(input, context);
             return { output: { text }, content: text };
           },
         });

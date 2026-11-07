@@ -11,6 +11,11 @@ import { createTasksFromSpecs, loadBusinessContext, makeLogger, safeJSON } from 
 import { priorLearningLines } from "@/lib/learning-memory";
 import type { HandlerContext, HandlerResult } from "@/lib/agents/types";
 import type { StrategyOutput } from "@/lib/agents/handlers/planning";
+import { contextBlock } from "@/lib/agents/handlers/common";
+import { currentRuntimeSelection } from "@/lib/agents/runtime/select";
+import { draftWithAgents, type AgentDraft } from "@/lib/agents/runtime/opencode/drafting";
+import { env } from "@/lib/env";
+import { log as logEvent } from "@/lib/log";
 
 /**
  * Distribution handlers: campaign creation, channel-specific drafting, the
@@ -136,6 +141,56 @@ export async function handleContentDraft(ctx: HandlerContext): Promise<HandlerRe
     return { outcome: "blocked", reason: "No business profile configured.", actionable: "Complete your workspace profile so drafts are grounded in real context, then retry this task." };
   }
 
+  // R3: with AGENT_RUNTIME=opencode on Node 24, a writer agent drafts and a critic from another model
+  // family checks. Short-form video keeps the single call: its structured script is separate work.
+  // Any failure falls back to the single call below, which fills the same draft rather than adding one.
+  const selection = currentRuntimeSelection();
+  let agentNote = "";
+  let agentDraft: AgentDraft | null = null;
+  if (selection.runtime === "opencode" && channel !== "shortvideo") {
+    agentDraft = await draftWithAgents({ workspaceId: ctx.workspaceId, taskId: ctx.task.id, attempt: ctx.task.attempts, channel, format, campaignId: campaign?.id ?? null, context: contextBlock(biz) }).catch(
+      (err: Error): AgentDraft => {
+        logEvent("error", "agent_run_failed", { purpose: "content_draft", taskId: ctx.task.id, error: err.message.slice(0, 500) }, "worker");
+        return { ok: false, reason: `The agent runtime failed: ${err.message.slice(0, 200)}`, itemId: null };
+      }
+    );
+    if (agentDraft.ok) {
+      const item = await prisma.contentItem.update({
+        where: { id: agentDraft.itemId },
+        data: {
+          status: "ready_for_review",
+          generationMeta: generationMetaJson({ provider: "opencode-runtime", model: agentDraft.model, isFallback: false, label: agentDraft.label }, { taskId: ctx.task.id }),
+        },
+      });
+      await prisma.contentRevision.create({
+        data: { contentItemId: item.id, title: item.title, body: item.body, note: `Agent draft — ${agentDraft.label}`, authorType: "ai", meta: JSON.stringify({ taskId: ctx.task.id }) },
+      });
+      await syncCampaignLifecycle(campaign?.id);
+      const flagged = agentDraft.reviewed ? `, ${agentDraft.criticFlags} critic flag(s)` : ", not checked by the critic";
+      await recordActivity({
+        workspaceId: ctx.workspaceId,
+        type: "content_created",
+        actorType: "ai",
+        summary: `Draft created for ${channel} (${format})${flagged} — ${agentDraft.label}.`,
+        meta: { contentItemId: item.id, taskId: ctx.task.id },
+      });
+      return {
+        outcome: "completed",
+        output: {
+          summary: `Draft created for ${channel}/${format}${flagged}. Awaiting human approval before anything publishes.`,
+          refs: { contentItemId: item.id },
+          data: { contentItemId: item.id, channel, format, criticFlags: agentDraft.criticFlags, reviewed: agentDraft.reviewed },
+          generatedLabel: agentDraft.label,
+          isFallback: false,
+        },
+      };
+    }
+    agentNote = ` Agent runtime unavailable, so a single call served this: ${agentDraft.reason}`;
+  } else if (env.AGENT_RUNTIME === "opencode" && channel !== "shortvideo") {
+    agentNote = ` ${selection.reason}`;
+  }
+  const partialId = agentDraft && !agentDraft.ok ? agentDraft.itemId : null;
+
   const voice = safeJSON<{ tone?: string; language?: string; themes?: string; avoid?: string; cta?: string }>(biz.profile.brandVoice ?? "{}", {});
   const result = await generateContent({
     channel,
@@ -165,7 +220,18 @@ export async function handleContentDraft(ctx: HandlerContext): Promise<HandlerRe
   });
   log.push("generated", result.label);
 
-  const item = await prisma.contentItem.create({
+  const item = partialId
+    ? // The writer saved a draft before failing: fill that one, so a fallback never adds a second.
+      await prisma.contentItem.update({
+        where: { id: partialId },
+        data: {
+          body: result.body,
+          status: "ready_for_review",
+          generationMeta: generationMetaJson(result, { taskId: ctx.task.id }),
+          videoExtras: result.videoExtras ? JSON.stringify(result.videoExtras) : "{}",
+        },
+      })
+    : await prisma.contentItem.create({
     data: {
       workspaceId: ctx.workspaceId,
       campaignId: campaign?.id ?? null,
@@ -189,7 +255,7 @@ export async function handleContentDraft(ctx: HandlerContext): Promise<HandlerRe
     workspaceId: ctx.workspaceId,
     type: "content_created",
     actorType: "ai",
-    summary: `Draft created for ${channel} (${format}) — ${result.label}.`,
+    summary: `Draft created for ${channel} (${format}) — ${result.label}.${agentNote}`,
     meta: { contentItemId: item.id, taskId: ctx.task.id },
   });
 

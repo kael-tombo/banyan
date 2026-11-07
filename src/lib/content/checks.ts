@@ -15,7 +15,12 @@ export const X_POST_LIMIT = 280;
 export type DraftFlag =
   | { code: "banned_term"; term: string; message: string }
   | { code: "over_limit"; limit: number; length: number; message: string }
-  | { code: "unsupported_claim"; kind: ClaimKind; phrase: string; key: string; message: string };
+  | { code: "unsupported_claim"; kind: ClaimKind; phrase: string; key: string; message: string }
+  /** Stored by the critic agent (R3). "unchecked" means the critic could not review the draft. */
+  | { code: "critic"; kind: CriticKind; excerpt: string; message: string };
+
+export const CRITIC_KINDS = ["unsupported_claim", "off_voice", "banned_term", "risky_topic", "unchecked"] as const;
+export type CriticKind = (typeof CRITIC_KINDS)[number];
 
 /** Terms from the brand voice "avoid" field: comma, semicolon or line separated. */
 export function bannedTerms(avoid: string | null | undefined): string[] {

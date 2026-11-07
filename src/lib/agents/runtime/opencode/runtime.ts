@@ -58,7 +58,8 @@ export function sessionIdFor(spec: Pick<AgentTaskSpec, "taskId" | "runId">): str
 }
 
 /** Which Banyan task a session serves. Tools read it, since their input never names a task or workspace. */
-const tasksBySession = new Map<string, { workspaceId: string; taskId: string }>();
+export type SessionTask = { workspaceId: string; taskId: string; context: Record<string, string> };
+const tasksBySession = new Map<string, SessionTask>();
 export function taskForSession(sessionID: string) {
   return tasksBySession.get(sessionID);
 }
@@ -80,14 +81,14 @@ export class OpenCodeAgentRuntime implements AgentRuntime {
     const started = Date.now();
     const host = await this.opts.host();
     const sessionID = sessionIdFor(spec);
-    tasksBySession.set(sessionID, { workspaceId: spec.workspaceId, taskId: spec.taskId });
+    tasksBySession.set(sessionID, { workspaceId: spec.workspaceId, taskId: spec.taskId, context: spec.context ?? {} });
     try {
       await host.sessions.create({
         id: sessionID,
         agent: spec.agent,
         title: `${spec.agent} ${spec.taskId}`,
         location: { directory: this.opts.sandbox },
-        metadata: { workspaceId: spec.workspaceId, taskId: spec.taskId, runId: spec.runId },
+        metadata: { ...spec.context, workspaceId: spec.workspaceId, taskId: spec.taskId, runId: spec.runId },
       });
       // A resumed attempt already has its prompt: sending it again would ask for the work twice.
       if (!(await this.messages(host, sessionID)).some((m) => m.type === "user")) {

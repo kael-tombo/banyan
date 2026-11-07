@@ -142,7 +142,7 @@ describe("OpenCodeAgentRuntime", () => {
       seen = taskForSession(sessionIdFor(spec()));
     });
     await runtime(host).run(spec());
-    expect(seen).toEqual({ workspaceId: "ws_1", taskId: "task_1" });
+    expect(seen).toEqual({ workspaceId: "ws_1", taskId: "task_1", context: {} });
     expect(taskForSession(sessionIdFor(spec()))).toBeUndefined();
   });
 });

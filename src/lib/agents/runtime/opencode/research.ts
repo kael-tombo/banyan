@@ -1,9 +1,8 @@
 import type { z, ZodTypeAny } from "zod";
 import { extractJSON } from "@/lib/ai/provider";
-import { env } from "@/lib/env";
 import { log } from "@/lib/log";
-import { checkRunQuota, recordAgentRun } from "@/lib/model/router";
-import { ROSTER } from "../roster";
+import { checkRunQuota } from "@/lib/model/router";
+import { modelsOf, runAgentTask } from "./agent-task";
 
 /**
  * The research task as an agent run (roadmap R2's first task type). The researcher reads the
@@ -24,6 +23,7 @@ export function researchBrief(context: string): string {
     "Record each hypothesis angle with banyan_record_note (provenance hypothesis), one finding per note.",
     "You have no web access: everything you produce is a hypothesis, never a market fact or statistic.",
     'Finish with ONLY JSON: {"questions": [string], "hypothesisAngles": [string], "sourcesNeeded": [string], "labelledAs": "hypothesis"}',
+    "At most 10 questions, 6 hypothesis angles and 10 sources.",
   ].join("\n");
 }
 
@@ -31,40 +31,32 @@ export async function researchWithAgent<S extends ZodTypeAny>(args: { workspaceI
   const quota = await checkRunQuota(args.workspaceId);
   if (!quota.allowed) return { ok: false, reason: quota.reason ?? "Daily model quota reached." };
 
-  // Loaded here so a deployment on the direct runtime never imports the SDK's wrapper.
-  const { getOpenCodeRuntime } = await import("./host");
-  const result = await getOpenCodeRuntime().run({
+  const parse = (summary: string) => args.schema.safeParse(clampLists(extractJSON(summary)));
+  const result = await runAgentTask({
     workspaceId: args.workspaceId,
     taskId: args.taskId,
     runId: `attempt-${args.attempt}`,
     agent: "researcher",
     brief: researchBrief(args.context),
-    budget: { maxSteps: ROSTER.researcher.steps, maxTokens: env.AGENT_RUN_MAX_TOKENS },
+    purpose: "research",
+    attempt: args.attempt,
+    succeeded: (r) => r.status === "completed" && parse(r.summary).success,
   });
 
-  const parsed = result.status === "completed" ? args.schema.safeParse(extractJSON(result.summary)) : null;
-  const ok = !!parsed?.success;
-  const error = ok ? null : result.status !== "completed" ? `Agent run ${result.status}: ${result.summary.slice(0, 200)}` : "The agent's final answer was not the research brief.";
+  const parsed = result.status === "completed" ? parse(result.summary) : null;
+  if (!parsed?.success) {
+    const error = result.status !== "completed" ? `Agent run ${result.status}: ${result.summary.slice(0, 200)}` : "The agent's final answer was not the research brief.";
+    log("warn", "agent_run_fallback", { purpose: "research", status: result.status, error, answer: result.summary.slice(0, 300), sessionRef: result.sessionRef }, "worker");
+    return { ok: false, reason: error };
+  }
+  return { ok: true, data: parsed.data as z.output<S>, label: `OpenCode researcher agent (${modelsOf(result)})`, notes: result.proposals.length, sessionRef: result.sessionRef };
+}
 
-  if (result.usage.steps > 0) {
-    await recordAgentRun({
-      workspaceId: args.workspaceId,
-      purpose: "research",
-      runtime: "opencode",
-      perModel: result.perModel,
-      reportedCostUsd: result.costUsd > 0 ? result.costUsd : undefined,
-      steps: result.usage.steps,
-      toolCalls: result.usage.toolCalls,
-      latencyMs: result.latencyMs,
-      ok,
-      error,
-      attempt: args.attempt,
-    });
-  }
-  if (!ok || !parsed?.success) {
-    log("warn", "agent_run_fallback", { purpose: "research", status: result.status, error, sessionRef: result.sessionRef }, "worker");
-    return { ok: false, reason: error ?? "The agent run did not finish." };
-  }
-  const models = [...new Set(result.perModel.map((m) => m.model))].join("+") || "unknown model";
-  return { ok: true, data: parsed.data as z.output<S>, label: `OpenCode researcher agent (${models})`, notes: result.proposals.length, sessionRef: result.sessionRef };
+/** Lists past the brief's limits are cut rather than discarded: the run that wrote them was paid for. */
+export function clampLists(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const limits: Record<string, number> = { questions: 10, hypothesisAngles: 6, sourcesNeeded: 10 };
+  const out: Record<string, unknown> = { ...(value as Record<string, unknown>) };
+  for (const [key, max] of Object.entries(limits)) if (Array.isArray(out[key])) out[key] = (out[key] as unknown[]).slice(0, max);
+  return out;
 }
