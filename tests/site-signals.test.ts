@@ -149,3 +149,20 @@ describe("onboarding review from an analysis", () => {
     expect(suggestCycle({ primaryCta: "", stage: "launched" }).metric).toBe("signups");
   });
 });
+
+describe("the no-model read finds category, competitors and search terms in plain words", () => {
+  it("takes the category from the title, competitors the page names, and short search terms", async () => {
+    const { titleTail, alternativesNamed } = await import("@/lib/product/analyze");
+    const { basicQueries } = await import("@/lib/research/market");
+    expect(titleTail("Cal.com | Scheduling Software for Online Bookings", "Cal.com")).toBe("Scheduling Software for Online Bookings");
+    expect(titleTail("Resend · Email for developers", "Resend")).toBe("Email for developers");
+    expect(titleTail("Home", "Acme")).toBe("");
+    expect(alternativesNamed(["Simple, privacy-friendly Google Analytics alternative"], "Plausible")).toEqual(["Google Analytics"]);
+    expect(alternativesNamed(["The open alternative to Calendly for teams"], "Cal.com")).toEqual(["Calendly"]);
+    const html = `<html><head><title>Cal.com | Scheduling Software for Online Bookings</title><script type="application/ld+json">{"@type":"SoftwareApplication","name":"Cal.com","applicationCategory":"BusinessApplication"}</script></head><body><h1>Where people Intro call 30m Booked 12:30 AM 12:30 PM find the time to meet</h1><h2>Booking pages</h2><h2>Round robin</h2><h2>Finding a time took a week of emails. Now it's one link.</h2></body></html>`;
+    const fetch: Fetcher = async () => ({ status: 200, headers: new Headers({ "content-type": "text/html" }), text: html, truncated: false });
+    const out = await analyzeProduct("cal.com", { fetch });
+    expect(out.result.category).toBe("Scheduling Software for Online Bookings");
+    expect(basicQueries(out.result)).toEqual(["scheduling bookings", "booking pages", "round robin"]);
+  });
+});

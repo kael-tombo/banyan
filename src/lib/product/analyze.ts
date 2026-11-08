@@ -243,6 +243,13 @@ export function basicAnalysis(pages: { url: string; html: string }[], signals?: 
   if (sig.proof.length) provenance.proof = home.url;
   if (sig.ctas[0]) provenance.primary_cta = home.url;
   if (sig.stageHint) provenance.stage = "inferred";
+  // Structured data often gives only a code ("BusinessApplication"); the title's
+  // second half usually names the category in words ("Scheduling Software for Online Bookings").
+  const tail = titleTail(sig.title, snap.name);
+  const category = sig.category && /\s/.test(sig.category) ? sig.category : tail || sig.category;
+  if (category) provenance.category = home.url;
+  const alternatives = alternativesNamed([tail, sig.headline, sig.lead, sig.metaDescription], snap.name);
+  if (alternatives.length) provenance.alternatives = home.url;
   return {
     product_name: snap.name || new URL(home.url).hostname,
     description,
@@ -254,7 +261,7 @@ export function basicAnalysis(pages: { url: string; html: string }[], signals?: 
     missing_information: missing,
     provenance,
     tagline,
-    category: sig.category,
+    category,
     stage: sig.stageHint ?? "",
     audience_pain: pain,
     audience_outcome: "",
@@ -263,9 +270,40 @@ export function basicAnalysis(pages: { url: string; html: string }[], signals?: 
     proof: sig.proof.slice(0, 6),
     primary_cta: sig.ctas[0] ?? "",
     tone: "",
-    alternatives: [],
+    alternatives,
     site: siteSummary(sig),
   };
+}
+
+/** "Cal.com | Scheduling Software for Online Bookings" → "Scheduling Software for Online Bookings". */
+export function titleTail(title: string, name: string): string {
+  const parts = title.split(/\s+[|–—·-]\s+|:\s+/).map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) return "";
+  const slug = (x: string) => x.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const rest = parts.filter((p) => slug(p) !== slug(name) && !slug(p).startsWith(slug(name)));
+  const best = rest.sort((a, b) => b.length - a.length)[0] ?? "";
+  const words = best.split(/\s+/).length;
+  return words >= 2 && words <= 10 ? best.slice(0, 120) : "";
+}
+
+/** Competitors a page names itself: "Google Analytics alternative", "alternative to Calendly". */
+export function alternativesNamed(texts: string[], ownName: string): string[] {
+  const out: string[] = [];
+  const patterns = [
+    /\b(?:alternative to|instead of|replacement for|switch(?:ing)? from)\s+([A-Z][\w.]*(?:\s[A-Z][\w.]*){0,2})/g,
+    /\b([A-Z][\w.]*(?:\s[A-Z][\w.]*){0,2})\s+alternative\b/g,
+  ];
+  const generic = /^(The|A|An|Simple|Open|Free|Better|Best|Modern|Privacy|Easy|Fast|Lightweight|Great)$/;
+  for (const t of texts) {
+    for (const re of patterns) {
+      for (const m of (t || "").matchAll(re)) {
+        const name = m[1].split(/\s+/).filter((w, i, all) => !(i === 0 && generic.test(w) && all.length > 1)).join(" ");
+        if (!name || generic.test(name) || name.toLowerCase() === ownName.toLowerCase() || out.includes(name)) continue;
+        out.push(name);
+      }
+    }
+  }
+  return out.slice(0, 4);
 }
 
 export type Fetcher = (url: string) => Promise<SafeFetchResult>;

@@ -67,22 +67,30 @@ const STOP_WORDS = new Set(["the", "and", "for", "with", "your", "you", "our", "
 /** Without a model: search terms from the category, tagline and first features. */
 export function basicQueries(a: ProductAnalysisResult): string[] {
   const out: string[] = [];
+  const own = a.product_name.toLowerCase();
+  // Two words at most: without a model, a thread title must contain every word.
   const add = (s: string) => {
-    const words = s.toLowerCase().replace(/[^a-z0-9\s-]/g, " ").split(/\s+/).filter((w) => w.length > 2 && !STOP_WORDS.has(w));
-    const q = words.slice(0, 3).join(" ");
+    const words = s
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length > 2 && !STOP_WORDS.has(w) && !FILLER.has(w) && !own.includes(w));
+    const q = words.slice(0, 2).join(" ");
     if (q.length >= 4 && !out.includes(q)) out.push(q);
   };
   // Structured-data categories ("BusinessApplication") say little; prefer words.
   if (a.category && /\s/.test(a.category)) add(a.category);
-  if (a.tagline) add(a.tagline);
-  for (const f of a.features.slice(0, 2)) add(f);
+  // Short feature names ("Booking pages", "Round robin") are the words people search.
+  for (const f of a.features.filter((x) => x.split(/\s+/).length <= 3).slice(0, 3)) add(f);
+  // A long hero line is where screenshot text hides ("Intro call 30m Booked 12:30 AM").
+  if (a.tagline && a.tagline.split(/\s+/).length <= 8) add(a.tagline);
   return out.slice(0, 3);
 }
 
 const looksDeveloper = (a: ProductAnalysisResult) =>
   /\b(developers?|engineers?|api|sdk|cli|open[- ]source|devops|github)\b/i.test([a.category, a.description, a.target_audience.join(" ")].join(" "));
 
-const FILLER = new Set(["software", "tool", "tools", "app", "apps", "platform", "solution", "solutions", "service", "online", "best", "saas"]);
+const FILLER = new Set(["software", "tool", "tools", "app", "apps", "platform", "solution", "solutions", "service", "online", "best", "saas", "simple", "alternative", "system", "free"]);
 
 /** Drop filler words that no thread title contains. */
 export function cleanQuery(q: string): string {
