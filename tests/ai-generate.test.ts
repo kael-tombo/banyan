@@ -156,3 +156,53 @@ describe("generateContent pre-flight validation", () => {
     ).rejects.toBeInstanceOf(AIError);
   });
 });
+
+describe("the no-model fallback reads like a post (signed-in run, 2026-11-08)", () => {
+  // What cal.com's profile and the template planner's campaign looked like in the run.
+  const calcom = {
+    profile: {
+      name: "Cal.com",
+      description: "The highest-rated scheduling system that helps you grow your business and better find time.",
+      valueProp: "The highest-rated scheduling system that helps you grow your business and better find time.",
+      audience: "small businesses; small teams & startups with combined scheduling needs; larger teams looking for more control",
+      problem: "Finding a meeting time takes a week of back-and-forth emails.",
+      proof: ["Trusted by teams that meet at scale."],
+    },
+    campaign: {
+      name: "Get 20 qualified signups in 14 days — wave 1",
+      objective: "Get 20 qualified signups",
+      targetAudience: "small businesses",
+      keyMessage: "Hypothesis: small businesses need a direct, problem-first articulation of the core problem.",
+      evidence: "Hypotheses under test (labelled, unvalidated): Hypothesis theme: the real cost of the core problem",
+      cta: "Get started",
+    },
+    brandVoice: { cta: "Get started" },
+  };
+
+  it("LinkedIn: the pain, what was built, real proof, the ask; no hypotheses, no audience list", () => {
+    const body = buildContextPost({ ...calcom, channel: "linkedin", format: "insight" });
+    expect(body).toBe(
+      [
+        "Finding a meeting time takes a week of back-and-forth emails.",
+        "That's why we built Cal.com: the highest-rated scheduling system that helps you grow your business and better find time.",
+        "Trusted by teams that meet at scale.",
+        "Get started.",
+      ].join("\n\n"),
+    );
+    expect(body).not.toMatch(/hypothes|unvalidated|stand behind|;/i);
+  });
+
+  it("X single fits 280 characters and ends with the ask", () => {
+    const body = buildContextPost({ ...calcom, channel: "x", format: "single" });
+    expect(body.length).toBeLessThanOrEqual(280);
+    expect(body.startsWith("Finding a meeting time")).toBe(true);
+    expect(body.endsWith("Get started.")).toBe(true);
+  });
+
+  it("the video hook names the problem; the script never pastes the audience list", () => {
+    const { extras } = normalizeVideoExtras("TEMPLATE DRAFT", { profile: calcom.profile, brandVoice: calcom.brandVoice, campaign: { cta: "Get started" } }, { fallback: true });
+    expect(extras.hook).toBe("Finding a meeting time takes a week of back-and-forth emails.");
+    expect(extras.script).toContain("That's why we built Cal.com");
+    expect(extras.script).not.toContain(";");
+  });
+});

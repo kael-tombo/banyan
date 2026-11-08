@@ -244,6 +244,10 @@ async function writeDraft(
       valueProp: biz.profile.valueProp,
       audience: biz.profile.audience || campaign?.targetAudience || "the target audience",
       positioning: biz.profile.positioning ?? undefined,
+      // For the no-model fallback: the founder's own problem, pain and stated proof.
+      problem: biz.profile.problem || undefined,
+      audiencePain: biz.profile.audiencePain || undefined,
+      proof: safeJSON<string[]>(biz.profile.proofPoints ?? "[]", []),
     },
     brandVoice: voice,
   });

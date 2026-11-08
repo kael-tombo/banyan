@@ -15,7 +15,7 @@ export type VideoExtras = z.infer<typeof videoExtrasSchema>;
 
 /** The subset of generation context needed to build a grounded video skeleton. */
 type VideoContext = {
-  profile: { name: string; description: string; valueProp: string; audience: string; positioning?: string };
+  profile: { name: string; description: string; valueProp: string; audience: string; positioning?: string; problem?: string; audiencePain?: string; proof?: string[] };
   brandVoice: { cta?: string };
   campaign?: { cta?: string } | null;
 };
@@ -29,17 +29,14 @@ function firstSentence(text: string): string {
 /** A context-grounded skeleton — never invents claims, metrics or testimonials. */
 function contextVideo(ctx: VideoContext): VideoExtras {
   const product = ctx.profile.name.trim() || "The product";
-  const audience = ctx.profile.audience.trim() || "your audience";
-  const problem = (ctx.profile.valueProp || ctx.profile.description || `${product} in one minute`).trim();
-  const description = ctx.profile.description.trim();
-  const cta = (ctx.brandVoice.cta || ctx.campaign?.cta || `Try ${product}`).trim();
-  const hook = `A quick look at ${product} for ${audience}`.slice(0, 120);
-  const script = [
-    `If you're ${audience}, ${problem}`,
-    description && description !== problem ? description : "",
-    `That is what ${product} is for.`,
-    cta,
-  ].filter(Boolean).join(" ").slice(0, 6000);
+  const t = contextText({ profile: ctx.profile, campaign: ctx.campaign ? { cta: ctx.campaign.cta } as ContentGenRequest["campaign"] : null, brandVoice: ctx.brandVoice });
+  const cta = t.cta.replace(/[.!?]+$/, "");
+  const audience = t.audience;
+  // The first three seconds name the problem in the audience's words, when the founder gave one.
+  const hasPain = Boolean((ctx.profile.audiencePain || ctx.profile.problem || "").trim());
+  const hook = (hasPain ? t.pain : `A quick look at ${product} for ${audience}`).slice(0, 120);
+  const opener = hasPain ? t.pain : `A quick look at ${product}, built for ${audience}.`;
+  const script = [opener, t.built, t.proof, t.cta].filter(Boolean).join(" ").slice(0, 6000);
   const safeScript = script.length >= 20 ? script : `${product} is built for ${audience}. ${cta}`;
   const sentences = safeScript.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
   const scenes = (sentences.length > 1 ? sentences.slice(1, 4) : [safeScript]).map((scene, i) => ({
@@ -279,6 +276,10 @@ export type ContentGenRequest = {
     valueProp: string;
     audience: string;
     positioning?: string;
+    /** The founder's problem and pain, and proof their site states: used by the no-model fallback. */
+    problem?: string;
+    audiencePain?: string;
+    proof?: string[];
   };
   brandVoice: {
     tone?: string;
@@ -304,43 +305,68 @@ function clipAtWord(text: string, limit: number): string {
 }
 
 /**
- * A context-grounded post for the no-credentials fallback. It uses only the
- * founder-provided profile and campaign fields (plus recorded campaign
- * evidence, when present) — never invented testimonials, metrics or traction.
+ * A context-grounded post for the no-model fallback, written like a founder
+ * would: the pain in the audience's words, what the product does about it,
+ * one piece of proof the founder's site states (if any), and the call to
+ * action. It uses only the founder's profile and recorded campaign evidence:
+ * never invented testimonials, metrics or traction, and never the planner's
+ * hypotheses (they are assumptions, not something to stand behind).
  */
 export function buildContextPost(req: ContentGenRequest): string {
-  const product = req.profile.name.trim() || "Our product";
-  const audience = req.profile.audience.trim() || "the people we build for";
-  const value = req.profile.valueProp.trim() || req.profile.description.trim() || `${product} for ${audience}`;
-  const description = req.profile.description.trim();
-  const keyMessage = req.campaign?.keyMessage?.trim() || description;
-  const evidence = req.campaign?.evidence?.trim();
-  const cta = (req.brandVoice.cta || req.campaign?.cta || `Try ${product}`).trim();
-  const lead = `${audience}: ${value}`;
-
+  const t = contextText(req);
+  const unique = (parts: string[]) => parts.filter((p, i, all) => Boolean(p) && all.indexOf(p) === i);
   if (req.channel === "x" && req.format === "single") {
-    const suffix = `\n\n${clipAtWord(cta, 80)}`;
-    const hook = clipAtWord(lead, Math.max(40, 280 - suffix.length));
-    return `${hook}${suffix}`.slice(0, 280);
+    const close = ` ${t.cta}`;
+    const body = unique([t.pain, t.built]).join(" ");
+    return (clipAtWord(body, Math.max(60, 280 - close.length)) + close).slice(0, 280);
   }
-
   if (req.channel === "x" && req.format === "thread") {
-    const posts = [
-      lead,
-      keyMessage && keyMessage !== value ? keyMessage : "",
-      evidence ? `What we can stand behind: ${evidence}` : "",
-      cta,
-    ].filter(Boolean);
+    const posts = unique([t.pain, t.built, t.keyMessage, t.proof, t.cta]);
     return posts.map((post, i) => `${i + 1}/ ${clipAtWord(post, 250)}`).join("\n\n").slice(0, 10_000);
   }
+  // Paragraphs stay paragraphs: clip only if the post runs over the limit.
+  const post = unique([t.pain, t.built, t.keyMessage, t.proof, t.cta]).join("\n\n");
+  return post.length <= 3000 ? post : clipAtWord(post, 3000);
+}
 
-  const lines = [
-    lead,
-    keyMessage && keyMessage !== value ? keyMessage : "",
-    evidence ? `What we can stand behind: ${evidence}` : "",
-    `If that is the problem you are working on, ${cta}.`,
-  ].filter(Boolean);
-  return clipAtWord(lines.join("\n\n"), 3000);
+function asSentence(x: string): string {
+  const v = x.replace(/\s+/g, " ").trim();
+  if (!v) return "";
+  return /[.!?…]$/.test(v) ? v : `${v}.`;
+}
+
+/** "The highest-rated system…" → "the highest-rated system…"; "Cal.com …" or "API …" stays. */
+function lcFirst(x: string): string {
+  return /^[A-Z][a-z]+\b/.test(x) && !/^[A-Z][a-z]*[A-Z.]/.test(x) ? x[0].toLowerCase() + x.slice(1) : x;
+}
+
+/** Planner output that is an assumption, not something a post may assert. */
+function isHypothesis(x: string): boolean {
+  return /\bhypothes|\bunvalidated\b|\bassumption\b/i.test(x);
+}
+
+/** The pieces a fallback post (or video script) is built from, cleaned for reading. */
+export function contextText(req: Pick<ContentGenRequest, "profile" | "campaign" | "brandVoice">) {
+  const product = req.profile.name.trim() || "our product";
+  // "small businesses; small teams & startups; larger teams" → "small businesses".
+  const audience = (req.profile.audience || "").split(/;|\n/)[0].trim() || "the people we build for";
+  const value = (req.profile.valueProp || req.profile.description || "").trim();
+  const painRaw = (req.profile.audiencePain || req.profile.problem || "").trim();
+  const keyMessageRaw = req.campaign?.keyMessage?.trim() ?? "";
+  const evidenceRaw = req.campaign?.evidence?.trim() ?? "";
+  const proofRaw = req.profile.proof?.find((p) => p.trim().length > 0)?.trim() ?? "";
+  const cta = asSentence((req.brandVoice.cta || req.campaign?.cta || `Try ${product}`).trim());
+  const valueClause = lcFirst(value).replace(/[.!?]+$/, "");
+  return {
+    product,
+    audience,
+    pain: painRaw ? asSentence(painRaw) : asSentence(`For ${audience}, the same problem keeps coming up`),
+    built: valueClause ? asSentence(`That's why we built ${product}: ${valueClause}`) : asSentence(`That's why we built ${product}`),
+    keyMessage: keyMessageRaw && !isHypothesis(keyMessageRaw) && keyMessageRaw !== value ? asSentence(keyMessageRaw) : "",
+    // Recorded campaign evidence first, then the proof the founder's own site states.
+    proof: evidenceRaw && !isHypothesis(evidenceRaw) ? asSentence(evidenceRaw) : proofRaw ? asSentence(proofRaw) : "",
+    cta,
+  };
 }
 
 /**
