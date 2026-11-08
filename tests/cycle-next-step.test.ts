@@ -48,3 +48,10 @@ describe("the cycle's next step", () => {
     expect(step({ approved: 3, published: 2, manualPending: 1, firstManualId: "c9" })).toMatchObject({ who: "you", action: { href: "/app/content/c9" } });
   });
 });
+
+describe("drafts before the gate", () => {
+  it("asks for reviews while drafts wait, even with the gate open", () => {
+    expect(step({ drafts: 3, pendingReview: 3, gateWaiting: true })).toMatchObject({ title: "Review 3 drafts", action: { href: "/app/approvals" } });
+    expect(step({ drafts: 3, pendingReview: 0, gateWaiting: true }).title).toBe("Close the execution gate");
+  });
+});

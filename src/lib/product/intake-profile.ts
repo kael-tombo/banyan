@@ -250,3 +250,8 @@ export function intakeFromSavedProfile(p: SavedProfile): IntakeProfile {
     method: "saved",
   };
 }
+
+/** Trailing punctuation and spaces off, so "…on." + "." never becomes "on..". Letters are kept. */
+export function trimEnd(s: string): string {
+  return s.trim().replace(/[.!?…\s]+$/u, "");
+}

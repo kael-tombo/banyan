@@ -308,7 +308,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
         ) : (
           <ul className="mt-4 space-y-3.5">
             {performance.map((row) => (
-              <li key={row.campaignId} className="grid gap-2 sm:grid-cols-[minmax(0,2fr),3fr]">
+              <li key={row.campaignId} className="grid gap-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
                 <div className="min-w-0">
                   <Link href={`/app/campaigns/${row.campaignId}`} className="truncate text-sm font-medium text-charcoal hover:text-forest">
                     {row.campaignName}

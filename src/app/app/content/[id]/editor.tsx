@@ -233,7 +233,7 @@ export function ContentEditor({
   void canEdit;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
       {/* Editor column */}
       <div className="flex flex-col gap-4">
         <Card>
@@ -307,9 +307,13 @@ export function ContentEditor({
             <Field label="Body" hint={charHint ?? undefined}>
               <Textarea disabled={locked} value={body} onChange={(e) => { setBody(e.target.value); setDirty(true); }} rows={Math.max(6, Math.min(20, Math.ceil(body.length / 90)))} />
             </Field>
-            <Field label="Source material (optional)" hint="Link the external page or note this draft is based on.">
-              <Input disabled={locked} value={sourceRef} onChange={(e) => { setSourceRef(e.target.value); setDirty(true); }} maxLength={500} placeholder="https://…" />
-            </Field>
+            {sourceRef.startsWith("task:") ? (
+              <p className="text-[12px] text-muted">Written by Banyan from this cycle&apos;s approved plan. The task is linked in the audit trail.</p>
+            ) : (
+              <Field label="Source material (optional)" hint="Link the external page or note this draft is based on.">
+                <Input disabled={locked} value={sourceRef} onChange={(e) => { setSourceRef(e.target.value); setDirty(true); }} maxLength={500} placeholder="https://…" />
+              </Field>
+            )}
 
             <ErrorNote>{error}</ErrorNote>
             {notice && <div role="status" className="rounded-md border border-forest/20 bg-forest/5 px-3 py-2 text-sm text-forest-deep">{notice}</div>}
@@ -649,7 +653,7 @@ export function ContentEditor({
               <dd className="text-charcoal-soft">
                 {provenance.campaignEvidence
                   ? `Campaign evidence: ${provenance.campaignEvidence.slice(0, 90)}`
-                  : item.sourceRef
+                  : item.sourceRef && !item.sourceRef.startsWith("task:")
                     ? `Source link: ${item.sourceRef.slice(0, 90)}`
                     : "None linked."}
               </dd>

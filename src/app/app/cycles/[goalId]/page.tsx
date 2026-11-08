@@ -12,7 +12,7 @@ import {
 import GoalLive from "@/app/app/goals/[id]/goal-live";
 import GateActions from "@/app/app/goals/[id]/gate-actions";
 import CycleRetry from "./cycle-retry";
-import { isManualChannel } from "@/lib/formats";
+import { isManualChannel, postLabel } from "@/lib/formats";
 import { nextStep } from "@/lib/cycle/next-step";
 import { parseChannelConstraint } from "@/lib/agents/channels";
 
@@ -404,7 +404,7 @@ export default async function CyclePage({ params, searchParams }: { params: Prom
                     <StatusBadge status={item.status} />
                     {isManualChannel(item.channel) && <Badge variant="warm">you post it</Badge>}
                   </div>
-                  <Link href={`/app/content/${item.id}`} className="font-medium leading-snug text-forest-deep hover:underline">{item.title}</Link>
+                  <Link href={`/app/content/${item.id}`} className="font-medium leading-snug text-forest-deep hover:underline">{postLabel(item).name}</Link>
                   {item.body && <p className="line-clamp-3 text-[13px] leading-5 text-charcoal-soft">{item.body}</p>}
                   {pub && <PublicationState publication={pub} compact />}
                   {item.rejectionReason && item.status === "rejected" && <p className="text-xs leading-relaxed text-clay">Reason: {item.rejectionReason}</p>}
@@ -430,7 +430,7 @@ export default async function CyclePage({ params, searchParams }: { params: Prom
                 return (
                   <li key={pub.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5 first:pt-0 last:pb-0">
                     <div>
-                      <p className="text-sm font-medium text-charcoal">{item?.title ?? "Post"}</p>
+                      <p className="text-sm font-medium text-charcoal">{item ? postLabel(item).name : "Post"}</p>
                       <p className="mt-0.5 text-xs text-charcoal-soft">{channelLabel(item?.channel ?? "")} · confirmed {pub.publishedAt ? pub.publishedAt.toLocaleString() : "by the provider"}</p>
                     </div>
                     {pub.externalUrl ? (

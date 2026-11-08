@@ -48,9 +48,6 @@ export function nextStep(f: CycleFacts): NextStep {
   if (f.strategyStatus === "proposed") {
     return { who: "you", title: "Review the strategy", body: "Channels, angles, cadence and what success looks like. Approve it and Banyan writes the three posts from it.", action: { label: "Review the strategy", href: "/app/strategy" } };
   }
-  if (f.gateWaiting) {
-    return { who: "you", title: "Close the execution gate", body: "Every draft has a decision. Closing the gate lets Banyan publish what you approved; it cannot approve anything for you.", action: { label: "Close the gate", gate: true } };
-  }
   if (f.pendingReview > 0) {
     return {
       who: "you",
@@ -58,6 +55,9 @@ export function nextStep(f: CycleFacts): NextStep {
       body: "Read each post, edit anything, then approve or reject it. Approval is recorded per post.",
       action: { label: f.pendingReview === 1 ? "Review it" : `Review ${f.pendingReview}`, href: "/app/approvals" },
     };
+  }
+  if (f.gateWaiting && f.pendingReview === 0) {
+    return { who: "you", title: "Close the execution gate", body: "Every draft has a decision. Closing the gate lets Banyan publish what you approved; it cannot approve anything for you.", action: { label: "Close the gate", gate: true } };
   }
   if (f.publishBlocked) {
     return { who: "you", title: "Connect a channel to publish", body: "Your approved posts are ready, but no verified connection can publish them. Connect LinkedIn or X, or post natively and record the link.", action: { label: "Open Publishing", href: "/app/publishing" } };

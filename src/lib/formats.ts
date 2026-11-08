@@ -94,3 +94,22 @@ export function contentBodySchema(channel: Channel) {
     .min(5)
     .max(CHANNEL_LIMITS[channel], `Body exceeds the ${CHANNEL_LIMITS[channel]} character limit for ${channel}`);
 }
+
+/**
+ * A post's name as a founder reads it. Generated drafts are titled like
+ * "Get 20 signups in 14 days — wave 1 — linkedin insight"; those become
+ * "LinkedIn · Professional insight". A title the founder wrote is kept.
+ */
+export function postLabel(item: { title: string; channel: string; format: string }): { name: string; generated: boolean } {
+  const channel = isChannel(item.channel) ? CHANNEL_META[item.channel].label : item.channel;
+  const format = isChannel(item.channel) ? CHANNEL_FORMATS[item.channel].find((f) => f.key === item.format)?.label : undefined;
+  const pretty = format ? `${channel} · ${format}` : channel;
+  const generated = /\s—\s(wave|cycle)\s\d+\s—\s/i.test(item.title) || item.title.trim() === "" || item.title.toLowerCase().endsWith(`${item.channel} ${item.format}`.toLowerCase());
+  return { name: generated ? pretty : item.title, generated };
+}
+
+/** The first line of a post, for previews (no markdown, one line, capped). */
+export function firstLine(body: string, max = 140): string {
+  const line = body.split(/\n+/).map((l) => l.trim()).find(Boolean) ?? "";
+  return line.length > max ? `${line.slice(0, max - 1).replace(/\s+\S*$/, "")}…` : line;
+}

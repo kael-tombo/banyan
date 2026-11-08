@@ -178,3 +178,12 @@ describe("screenshot text is not a tagline", () => {
     expect(out.result.value_proposition).not.toMatch(/12:30/);
   });
 });
+
+describe("cycle text", () => {
+  it("drops trailing punctuation but never the last letter", async () => {
+    const { trimEnd } = await import("@/lib/product/intake-profile");
+    expect(trimEnd("Get 20 qualified signups in 14 days")).toBe("Get 20 qualified signups in 14 days");
+    expect(trimEnd("Answer what they still disagree on. ")).toBe("Answer what they still disagree on");
+    expect(trimEnd("Wait for it…")).toBe("Wait for it");
+  });
+});

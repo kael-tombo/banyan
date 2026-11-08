@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowRight, Check, Globe2, Loader2, MessageSquare, PenLine, ShieldCheck, Sparkles, Swords, TrendingUp, UserRound } from "lucide-react";
 import { Badge, Button, Card, ErrorNote, Field, Input, Textarea } from "@/components/ui";
 import type { ProductAnalysisResult } from "@/lib/product/analyze";
-import { BLANK_INTAKE, intakeFromAnalysis, suggestCycle, type IntakeProfile } from "@/lib/product/intake-profile";
+import { BLANK_INTAKE, intakeFromAnalysis, suggestCycle, trimEnd, type IntakeProfile } from "@/lib/product/intake-profile";
 import { ReadingProgress, type ReadingStatus } from "./intake/reading-progress";
 import { ConfirmStep } from "./intake/confirm-step";
 import { MarketStep, type Angle, type MarketTab } from "./intake/market-step";
@@ -426,8 +426,8 @@ export default function CycleIntakeForm({
       const snapshotBody = (await snapshotRes.json().catch(() => ({}))) as { error?: string };
       if (!snapshotRes.ok) throw new Error(snapshotBody.error || "Could not save the product profile.");
 
-      const said = update.trim().replace(/[.!?…s]+$/, "");
-      const rawInput = [objective.trim().replace(/[.!?…s]+$/, ""), `This cycle distributes ${said || `the product ${profile.name.trim()}`}.`].join(". ");
+      const said = trimEnd(update);
+      const rawInput = [trimEnd(objective), `This cycle distributes ${said || `the product ${profile.name.trim()}`}.`].join(". ");
       const goalRes = await fetch("/api/goals", {
         method: "POST",
         headers: { "content-type": "application/json" },
