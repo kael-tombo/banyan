@@ -6,7 +6,7 @@ import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Select, Statu
 import { CHANNEL_META, CHANNEL_FORMATS, isChannel } from "@/lib/formats";
 import { PublicationState } from "@/components/PublicationState";
 import { ADAPTATION_TARGETS, adaptationLimit, type TimelineSegment, type ReviewCheck } from "@/lib/video-script";
-import { CalendarClock, Save, Sparkles, Send, Ban, CheckCircle2, Clock, Eye, Film, Layers, ShieldCheck } from "lucide-react";
+import { CalendarClock, Save, Sparkles, Send, Ban, CheckCircle2, Clock, Eye, ExternalLink, Film, Layers, ShieldCheck } from "lucide-react";
 
 type VideoExtras = { hook?: string; script?: string; scenes?: { scene: string; visual: string }[]; onScreenText?: string; caption?: string; cta?: string };
 
@@ -21,6 +21,12 @@ type ItemShape = {
 type PubShape = {
   id: string; status: string; provider: string; manual: boolean; externalId: string | null; externalUrl: string | null;
   attempts: number; lastError: string | null; scheduledFor: string | null; publishedAt: string | null; createdAt: string;
+};
+
+/** The platform's own composer, for posting by hand. */
+const COMPOSE_URL: Record<string, string | undefined> = {
+  linkedin: "https://www.linkedin.com/feed/?shareActive=true",
+  x: "https://x.com/compose/post",
 };
 
 export function ContentEditor({
@@ -55,6 +61,7 @@ export function ContentEditor({
   const [manualUrl, setManualUrl] = useState("");
   const [handoffNote, setHandoffNote] = useState<string | null>(null);
   const [trackedLink, setTrackedLink] = useState<string | null>(null);
+  const canAutoPublish = item.channel !== "shortvideo" && connections.some((c) => c.status !== "error");
   const [tone, setTone] = useState("");
   const [adaptTexts, setAdaptTexts] = useState<Record<string, string>>(adaptations);
   const [adaptDirty, setAdaptDirty] = useState(false);
@@ -511,9 +518,57 @@ export function ContentEditor({
         </Card>
 
         <Card>
-          <h2 className="mb-3 flex items-center gap-2 font-medium text-charcoal"><Clock size={15} className="text-moss" aria-hidden="true" /> Schedule &amp; publish</h2>
+          <h2 className="mb-3 flex items-center gap-2 font-medium text-charcoal"><Clock size={15} className="text-moss" aria-hidden="true" /> {canAutoPublish ? "Schedule & publish" : "Post it"}</h2>
           <div className="flex flex-col gap-3 text-sm">
-            {item.status === "approved" && (
+            {["draft", "ready_for_review", "rejected"].includes(item.status) && (
+              <p className="text-xs text-charcoal-soft">Publishing unlocks once you approve this post.</p>
+            )}
+
+            {/* No connection for this channel: posting by hand is the path, so it leads, step by step. */}
+            {!canAutoPublish && ["approved", "scheduled"].includes(item.status) && (
+              <ol className="flex flex-col gap-3">
+                <li className="flex gap-2.5">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-forest text-[11px] font-semibold text-ivory">1</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-medium text-charcoal">Copy the post</p>
+                    <p className="text-[12px] leading-5 text-muted">It comes with a tracked link, so Banyan can count the clicks it brings.</p>
+                    <div className="mt-1.5 flex flex-wrap gap-2">
+                      <Button size="sm" onClick={() => exportPost("copy")} disabled={!!busy}>Copy post</Button>
+                      <Button size="sm" variant="ghost" onClick={() => exportPost("download")} disabled={!!busy}>Download .md</Button>
+                    </div>
+                    {handoffNote && <p className="mt-1 text-[12px] text-forest">{handoffNote}</p>}
+                    {trackedLink && <p className="mt-1 break-all font-mono text-[11px] text-charcoal-soft">Tracked link: {trackedLink}</p>}
+                  </div>
+                </li>
+                <li className="flex gap-2.5">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-forest text-[11px] font-semibold text-ivory">2</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-medium text-charcoal">{item.channel === "shortvideo" ? "Record it and post it" : `Publish it on ${item.channel === "x" ? "X" : "LinkedIn"}`}</p>
+                    {COMPOSE_URL[item.channel] ? (
+                      <a href={COMPOSE_URL[item.channel]} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-[13px] font-medium text-forest hover:underline">
+                        Open {item.channel === "x" ? "X" : "LinkedIn"} to post <ExternalLink size={12} aria-hidden="true" />
+                      </a>
+                    ) : (
+                      <p className="text-[12px] leading-5 text-muted">Banyan wrote the script; recording and uploading are yours, on whichever platform you use.</p>
+                    )}
+                  </div>
+                </li>
+                <li className="flex gap-2.5">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-forest text-[11px] font-semibold text-ivory">3</span>
+                  <form onSubmit={recordManual} className="min-w-0 flex-1">
+                    <label htmlFor="manual-url" className="text-[13px] font-medium text-charcoal">Paste the live link</label>
+                    <div className="mt-1.5 flex flex-col gap-2">
+                      <Input id="manual-url" placeholder={item.channel === "x" ? "https://x.com/you/status/…" : item.channel === "linkedin" ? "https://www.linkedin.com/posts/…" : "https://…"} value={manualUrl} onChange={(e) => setManualUrl(e.target.value)} inputMode="url" />
+                      <Button size="sm" type="submit" disabled={!!busy || !manualUrl.trim()}>Mark as posted</Button>
+                    </div>
+                    <p className="mt-1 text-[12px] leading-5 text-muted">Recorded as posted by you, never as confirmed by a platform.</p>
+                  </form>
+                </li>
+              </ol>
+            )}
+
+            {/* With a connection: Banyan publishes, the founder picks when. */}
+            {canAutoPublish && item.status === "approved" && (
               <div className="flex flex-col gap-2">
                 <Field label={'Schedule for (UTC — workspace: ${timezone})'.replace("${timezone}", timezone)}>
                   <Input type="datetime-local" value={scheduleAt} onChange={(e) => setScheduleAt(e.target.value)} aria-label="Schedule time" />
@@ -522,7 +577,7 @@ export function ContentEditor({
                 <Button size="sm" variant="primary" onClick={publishNow} disabled={!!busy}>Publish now</Button>
               </div>
             )}
-            {item.status === "scheduled" && (
+            {item.status === "scheduled" && canAutoPublish && (
               <div className="flex flex-col gap-2">
                 {publications.some((p) => p.status === "scheduled" && p.externalId) ? (
                   <p className="text-xs text-charcoal-soft">
@@ -536,38 +591,29 @@ export function ContentEditor({
             )}
             {item.status === "failed" && (
               <div className="flex flex-col gap-2">
-                <p className="text-xs text-clay">The previous attempt failed. Check the publication log.</p>
-                <Button size="sm" onClick={publishNow} disabled={!!busy}>Retry publish now</Button>
+                <p className="text-xs text-clay">The previous attempt failed. Check the publication log below.</p>
+                {canAutoPublish && <Button size="sm" onClick={publishNow} disabled={!!busy}>Retry publish now</Button>}
               </div>
             )}
-            {["draft", "ready_for_review", "rejected"].includes(item.status) && (
-              <p className="text-xs text-charcoal-soft">Publishing controls unlock once the item is approved.</p>
-            )}
-            {["approved", "scheduled"].includes(item.status) && (
-              <details open>
-                <summary className="cursor-pointer text-xs font-medium text-charcoal">Export and publish it yourself</summary>
+            {item.status === "published" && <p className="text-xs text-moss">Posted. Its live link and clicks are in the log below.</p>}
+
+            {canAutoPublish && ["approved", "scheduled", "failed"].includes(item.status) && (
+              <details>
+                <summary className="cursor-pointer text-xs font-medium text-charcoal">Or post it yourself and record the link</summary>
                 <div className="mt-2 flex flex-col gap-2">
-                  <p className="text-xs text-charcoal-soft">
-                    Automated publishing through SocialFlow.ai is not available yet. Export this post with its tracked link,
-                    publish it in any tool, then record the live URL below. That recording is what marks it published.
-                  </p>
                   <div className="flex flex-wrap gap-2">
-                    <Button size="sm" variant="secondary" onClick={() => exportPost("copy")} disabled={!!busy}>Copy package</Button>
-                    <Button size="sm" variant="secondary" onClick={() => exportPost("download")} disabled={!!busy}>Download .md</Button>
+                    <Button size="sm" variant="secondary" onClick={() => exportPost("copy")} disabled={!!busy}>Copy post</Button>
+                    <Button size="sm" variant="ghost" onClick={() => exportPost("download")} disabled={!!busy}>Download .md</Button>
                   </div>
                   {trackedLink && <p className="break-all font-mono text-xs text-charcoal-soft">Tracked link: {trackedLink}</p>}
                   {handoffNote && <p className="text-xs text-charcoal-soft">{handoffNote}</p>}
+                  <form onSubmit={recordManual} className="flex flex-col gap-2">
+                    <Input placeholder="Live link after you post it" value={manualUrl} onChange={(e) => setManualUrl(e.target.value)} aria-label="Live URL" />
+                    <Button size="sm" variant="secondary" type="submit" disabled={!!busy || !manualUrl.trim()}>Mark as posted</Button>
+                  </form>
                 </div>
               </details>
             )}
-            <details>
-              <summary className="cursor-pointer text-xs font-medium text-charcoal">Record a manual publication</summary>
-              <form onSubmit={recordManual} className="mt-2 flex flex-col gap-2">
-                <Input placeholder="live post URL after you publish it yourself" value={manualUrl} onChange={(e) => setManualUrl(e.target.value)} aria-label="Live URL" />
-                <Button size="sm" variant="secondary" type="submit" disabled={!!busy}>Record live URL</Button>
-                <p className="text-xs text-charcoal-soft">Recorded distinctly as manual — a user-confirmed publication, never fabricated by the system.</p>
-              </form>
-            </details>
           </div>
         </Card>
 

@@ -227,7 +227,8 @@ export default async function CyclePage({ params, searchParams }: { params: Prom
     pendingReview: pendingReview.length,
     gateWaiting: Boolean(gateTask),
     approved: approvedContent.length,
-    published: providerPublications.length,
+    // A link the founder recorded counts as published too; only measurement differs.
+    published: providerPublications.length + manualRecords.length,
     publishBlocked,
     otherBlocked: blockedTasks.filter((t) => t.type !== "publish").length,
     hasOpenWork,
@@ -237,6 +238,7 @@ export default async function CyclePage({ params, searchParams }: { params: Prom
     trackedLinks: links.length,
     hasRecommendation: Boolean(recommendation),
     hasLiveConnection: liveConnections > 0,
+    toPost: content.filter((c) => c.status === "approved" || c.status === "scheduled").length,
   });
   const STEP_TONE: Record<typeof step.who, { ring: string; label: string; chip: string }> = {
     you: { ring: "border-forest/30", label: "Your move", chip: "bg-forest text-ivory" },

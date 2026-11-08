@@ -27,6 +27,8 @@ export type CycleFacts = {
   hasRecommendation: boolean;
   /** A verified or configured LinkedIn/X connection exists; without one nothing goes out automatically. */
   hasLiveConnection?: boolean;
+  /** Approved posts with no live link yet (neither confirmed by a provider nor recorded by the founder). */
+  toPost?: number;
 };
 
 export type NextStep = {
@@ -71,10 +73,11 @@ export function nextStep(f: CycleFacts): NextStep {
       body: "This usually takes a few minutes. You can leave this page; everything waits for your review when it's ready.",
     };
   }
-  if (f.approved > 0 && f.published === 0 && f.hasLiveConnection === false) {
+  const toPost = f.toPost ?? (f.published === 0 ? f.approved : 0);
+  if (toPost > 0 && f.hasLiveConnection === false) {
     return {
       who: "you",
-      title: f.approved === 1 ? "Post your approved post" : `Post your ${f.approved} approved posts`,
+      title: f.published > 0 ? `Post the last ${toPost === 1 ? "one" : toPost}` : toPost === 1 ? "Post your approved post" : `Post your ${toPost} approved posts`,
       body: "No publishing connection is set up, so Banyan can't post for you. Open each post, publish it on the platform, and paste the live link back; or connect LinkedIn or X and Banyan does it.",
       action: { label: "Open Publishing", href: "/app/publishing" },
     };

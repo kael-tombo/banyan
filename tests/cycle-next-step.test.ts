@@ -62,3 +62,11 @@ describe("approved posts with nowhere to go", () => {
     expect(step({ drafts: 3, approved: 3, hasOpenWork: true, hasLiveConnection: true })).toMatchObject({ who: "banyan", title: "Publishing what you approved" });
   });
 });
+
+describe("posting by hand", () => {
+  it("counts down as the founder records live links, then moves to results", () => {
+    expect(step({ drafts: 3, approved: 3, toPost: 3, hasLiveConnection: false }).title).toBe("Post your 3 approved posts");
+    expect(step({ drafts: 3, approved: 3, toPost: 1, published: 2, hasLiveConnection: false }).title).toBe("Post the last one");
+    expect(step({ drafts: 3, approved: 3, toPost: 0, published: 3, hasLiveConnection: false })).toMatchObject({ who: "banyan", title: "Measuring results" });
+  });
+});
