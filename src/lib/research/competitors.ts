@@ -99,16 +99,53 @@ export async function readCompetitor(c: CompetitorCandidate, fetch: (url: string
     if (!pageNamesCompetitor(c.name, res.text, url)) return base;
     const sig = extractSiteSignals(res.text, url);
     const snap = extractProductSnapshot(res.text, url);
+    // Plans usually live on /pricing, not the home page: read it when the home page states none.
+    let prices = sig.prices;
+    const pricingUrl = prices.length === 0 ? pricingLink(res.text, url) : null;
+    if (pricingUrl) {
+      try {
+        const p = await fetch(pricingUrl);
+        const pType = (p.headers.get("content-type") ?? "").toLowerCase();
+        if (p.status >= 200 && p.status < 300 && (!pType || pType.includes("html"))) prices = extractSiteSignals(p.text, pricingUrl).prices;
+      } catch {
+        /* pricing is best-effort */
+      }
+    }
     return {
       ...base,
       verified: true,
       tagline: sig.headline && sig.headline !== snap.name ? sig.headline : "",
       description: (snap.description || sig.lead).slice(0, 300),
-      pricing: sig.prices.slice(0, 2).join(" · ").slice(0, 200),
+      pricing: prices.slice(0, 3).join(" · ").slice(0, 240),
       cta: sig.ctas[0] ?? "",
       logo: sig.logo,
     };
   } catch {
     return base;
   }
+}
+
+/** The competitor's own pricing page, linked from its home page (same site only). */
+export function pricingLink(html: string, baseUrl: string): string | null {
+  let base: URL;
+  try {
+    base = new URL(baseUrl);
+  } catch {
+    return null;
+  }
+  const root = base.hostname.replace(/^www\./, "");
+  for (const m of html.matchAll(/<a\b[^>]*href\s*=\s*["']([^"'#]+)["']/gi)) {
+    try {
+      const u = new URL(m[1], base);
+      if (!/^https?:$/.test(u.protocol) || u.hostname.replace(/^www\./, "") !== root) continue;
+      if (/^\/(pricing|plans|price)\/?$/i.test(u.pathname)) {
+        u.search = "";
+        u.hash = "";
+        return u.toString();
+      }
+    } catch {
+      /* malformed href */
+    }
+  }
+  return null;
 }

@@ -190,3 +190,17 @@ describe("opportunity prose", () => {
     expect(stripRefs("people searching for alternatives [E7-E13], and more")).toBe("people searching for alternatives, and more");
   });
 });
+
+describe("competitor pricing", () => {
+  it("reads the competitor's /pricing page when the home page states no price", async () => {
+    const { readCompetitor, pricingLink } = await import("@/lib/research/competitors");
+    const home = `<title>Calendly</title><h1>Scheduling made simple</h1><a href="/pricing">Pricing</a><a href="https://other.example/pricing">x</a>`;
+    expect(pricingLink(home, "https://calendly.com/")).toBe("https://calendly.com/pricing");
+    const pages: Record<string, string> = {
+      "https://calendly.com/": home,
+      "https://calendly.com/pricing": `<h2>Standard</h2><p>Standard is $10 per seat per month.</p>`,
+    };
+    const c = await readCompetitor({ name: "Calendly", domain: "calendly.com", source: "suggested" }, async (u) => page(pages[u] ?? "", pages[u] ? 200 : 404));
+    expect(c.pricing).toBe("Standard is $10 per seat per month.");
+  });
+});
