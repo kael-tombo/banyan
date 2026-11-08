@@ -198,7 +198,7 @@ export default async function CyclePage({ params, searchParams }: { params: Prom
       key: "approval",
       label: "Your approval",
       state: gateTask || pendingReview.length > 0 ? "waiting" : approvedContent.length > 0 ? "done" : "pending",
-      hint: gateTask ? "Gate waiting" : pendingReview.length > 0 ? `${pendingReview.length} to review` : approvedContent.length > 0 ? `${approvedContent.length} approved` : "After the drafts",
+      hint: pendingReview.length > 0 ? `${pendingReview.length} to review` : gateTask ? "Ready to publish" : approvedContent.length > 0 ? `${approvedContent.length} approved` : "After the drafts",
     },
     {
       key: "publish",

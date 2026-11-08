@@ -1,7 +1,7 @@
 import { readGenerationMeta } from "@/lib/content/generation-meta";
 import { bannedTerms, checkDraft, parseFlags } from "@/lib/content/checks";
 import { loadClaimEvidence } from "@/lib/content/claim-evidence";
-import { isChannel, postLabel } from "@/lib/formats";
+import { cycleName, isChannel, postLabel } from "@/lib/formats";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -66,7 +66,7 @@ export default async function ContentEditorPage({ params }: { params: Promise<{ 
       <PageHeader
         eyebrow={item.status === "ready_for_review" ? "Review this post" : "Post"}
         title={postLabel(item).name}
-        description={item.campaign?.goalId ? `For the cycle “${item.campaign.name.replace(/s—s(wave|cycle)sd+$/i, "")}”. Read it as your audience would, edit anything, then approve or reject it on the right.` : `${item.campaign ? `Campaign: ${item.campaign.name}. ` : ""}Edit anything, then approve or reject it.`}
+        description={item.campaign?.goalId ? `For the cycle “${cycleName(item.campaign.name)}”. Read it as your audience would, edit anything, then decide on the right.` : `${item.campaign ? `Campaign: ${cycleName(item.campaign.name)}. ` : ""}Edit anything, then decide on the right.`}
         actions={isChannelStatus(item.status) ? <StatusBadge status={item.status} /> : null}
       />
       {/* Generation metadata honesty line */}

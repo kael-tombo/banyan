@@ -35,11 +35,17 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     prisma.contentItem.count({
       where: { workspaceId: membership.workspace.id, status: "ready_for_review" },
     }),
+    // A gate counts once it can actually be closed: while its cycle still has drafts to
+    // review, those drafts are the decisions (Approvals shows the gate as "opens once…").
     prisma.agentTask.count({
       where: {
         workspaceId: membership.workspace.id,
         type: "approval_gate",
         status: "waiting_approval",
+        OR: [
+          { goalId: null },
+          { goal: { is: { campaigns: { none: { items: { some: { status: { in: ["ready_for_review", "rejected"] } } } } } } } },
+        ],
       },
     }),
     prisma.strategy.count({ where: { workspaceId: membership.workspace.id, status: "proposed" } }),

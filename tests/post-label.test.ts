@@ -14,3 +14,11 @@ describe("post names a founder can read", () => {
     expect(firstLine("word ".repeat(60), 20).length).toBeLessThanOrEqual(20);
   });
 });
+
+describe("cycle names", () => {
+  it("drops the generated wave suffix", async () => {
+    const { cycleName } = await import("@/lib/formats");
+    expect(cycleName("Get 20 qualified signups in 14 days — wave 1")).toBe("Get 20 qualified signups in 14 days");
+    expect(cycleName("Spring launch")).toBe("Spring launch");
+  });
+});

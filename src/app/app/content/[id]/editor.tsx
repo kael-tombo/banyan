@@ -408,41 +408,9 @@ export function ContentEditor({
 
       {/* Workflow column */}
       <div className="flex flex-col gap-4">
-        {/* Agent-style review checklist — derived state, labeled honestly */}
+        {/* The decision first: it's what the founder came here to do. */}
         <Card>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="flex items-center gap-2 font-medium text-charcoal"><ShieldCheck size={15} className="text-forest" aria-hidden="true" /> Review checklist</h2>
-            <Badge variant={reviewChecks.humanReviewRequired ? "warm" : "forest"}>
-              {reviewChecks.humanReviewRequired ? "Human review required" : "All checks pass"}
-            </Badge>
-          </div>
-          <ul className="mt-3 space-y-2.5">
-            {reviewChecks.checks.map((c) => (
-              <li key={c.key} className="flex items-start gap-2">
-                <span className="mt-0.5 shrink-0" aria-hidden="true">
-                  {c.state === "ready" ? (
-                    <CheckCircle2 size={14} className="text-forest" />
-                  ) : c.state === "needs_review" ? (
-                    <Ban size={14} className="text-clay" />
-                  ) : (
-                    <Eye size={14} className="text-fig-deep" />
-                  )}
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-xs font-semibold text-charcoal">{c.label}</span>
-                  <span className="mt-0.5 block text-[11px] leading-relaxed text-charcoal-soft">{c.detail}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-3 border-t border-bark/10 pt-2 text-[11px] leading-relaxed text-charcoal-soft">
-            These are deterministic checks over recorded state — provenance, evidence linkage, a claim lint, and the
-            human gate. They slow publishing down for a human look; they never clear copy on their own.
-          </p>
-        </Card>
-
-        <Card>
-          <h2 className="mb-3 flex items-center gap-2 font-medium text-charcoal"><Eye size={15} className="text-clay" aria-hidden="true" /> Review &amp; approval</h2>
+          <h2 className="mb-3 flex items-center gap-2 font-serif text-lg text-forest-deep"><Eye size={16} className="text-forest" aria-hidden="true" /> Your decision</h2>
           <div className="flex flex-col gap-2 text-sm">
             <div className="flex items-center gap-2"><span className="text-charcoal-soft">Status:</span><StatusBadge status={item.status} /></div>
             {item.angle && <p className="text-xs text-charcoal-soft"><span className="font-medium text-charcoal">Strategy angle:</span> {item.angle}</p>}
@@ -507,6 +475,39 @@ export function ContentEditor({
             )}
             <p className="text-xs text-charcoal-soft">Approval is enforced by the publishing pipeline: unapproved content cannot reach any external platform, whatever the UI shows.</p>
           </div>
+        </Card>
+
+        {/* Agent-style review checklist — derived state, labeled honestly */}
+        <Card>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 font-medium text-charcoal"><ShieldCheck size={15} className="text-forest" aria-hidden="true" /> Review checklist</h2>
+            <Badge variant={reviewChecks.humanReviewRequired ? "warm" : "forest"}>
+              {reviewChecks.humanReviewRequired ? "Human review required" : "All checks pass"}
+            </Badge>
+          </div>
+          <ul className="mt-3 space-y-2.5">
+            {reviewChecks.checks.map((c) => (
+              <li key={c.key} className="flex items-start gap-2">
+                <span className="mt-0.5 shrink-0" aria-hidden="true">
+                  {c.state === "ready" ? (
+                    <CheckCircle2 size={14} className="text-forest" />
+                  ) : c.state === "needs_review" ? (
+                    <Ban size={14} className="text-clay" />
+                  ) : (
+                    <Eye size={14} className="text-fig-deep" />
+                  )}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-xs font-semibold text-charcoal">{c.label}</span>
+                  <span className="mt-0.5 block text-[11px] leading-relaxed text-charcoal-soft">{c.detail}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-3 border-t border-bark/10 pt-2 text-[11px] leading-relaxed text-charcoal-soft">
+            These are deterministic checks over recorded state — provenance, evidence linkage, a claim lint, and the
+            human gate. They slow publishing down for a human look; they never clear copy on their own.
+          </p>
         </Card>
 
         <Card>

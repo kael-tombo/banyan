@@ -113,3 +113,8 @@ export function firstLine(body: string, max = 140): string {
   const line = body.split(/\n+/).map((l) => l.trim()).find(Boolean) ?? "";
   return line.length > max ? `${line.slice(0, max - 1).replace(/\s+\S*$/, "")}…` : line;
 }
+
+/** "Get 20 signups in 14 days — wave 1" → "Get 20 signups in 14 days": the cycle as the founder named it. */
+export function cycleName(campaignName: string): string {
+  return campaignName.replace(/\s+[—–-]\s+(wave|cycle)\s+\d+\s*$/i, "").trim();
+}
