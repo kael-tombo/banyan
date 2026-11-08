@@ -62,6 +62,17 @@ Throughout:
 - The `/onboarding` page has a slim frame: the Banyan mark, "Detailed setup" and "Look around first".
 - Checked at desktop and phone (375 px) widths.
 
+### After onboarding: the cycle page
+
+"Start the cycle" opens `/app/cycles/[goalId]?welcome=1`: a short "Your first cycle has started" note, then a
+**"Your next step" card** chosen by a pure, tested rule list (`src/lib/cycle/next-step.ts`): whose move it is
+(yours, Banyan's, blocked, finished), what it is, and one action. A decision the founder owns always comes before
+progress: approve the plan, review the strategy, review the drafts, close the gate, connect a channel, record the
+short video, start the next cycle. Below it, the seven stages on one progress line (plain words, brand colours),
+the execution controls, and only the sections that have something (plan, the three posts as cards, publishing,
+results, what's blocking, the next move); everything still to come sits in one "Later in this cycle" list. The
+title is the objective exactly as written, with the target, deadline, channels and chosen angle as chips.
+
 ## 3. How it works
 
 ```
@@ -117,6 +128,11 @@ POST /api/goals             ──► the first cycle
   long are trimmed at a word boundary instead of rejecting the answer; a wrong type is still invalid and is retried
   once. Fields the model leaves empty but the parser read (price, button, tagline, category, pain, proof, stage)
   are filled from the parser.
+- **Without a model**, the parser also takes the category from the title's second half when structured data only
+  gives a code ("Cal.com | Scheduling Software for Online Bookings"), reads competitors the page names itself ("the
+  Google Analytics alternative", "an alternative to Calendly"), and leaves out a hero that contains clock times or
+  durations or runs on (product-screenshot text such as "Intro call 30m Booked 12:30 AM"). Market search terms
+  are then two words from the category and short feature names; a one-word term ("Routing") is never searched.
 - **Without a model**, the parser's result is used and labelled: "Read without an AI model: Banyan copied what
   your pages state and left the rest for you."
 
@@ -382,7 +398,7 @@ spent, every step falls back to the parser and rules, and says so.
 | **Signals and threads stop at onboarding** | They are kept on the analysis but shown nowhere else in the app yet (no Market page, no alerts). |
 | **Saving replaces earlier onboarding output** | Each submit replaces competitor facts with source `onboarding 360` and *open* onboarding recommendations. Accepted or dismissed ones are kept. |
 | **The detailed setup is unchanged** | `/onboarding?mode=detailed` (the older wizard) has no 360. |
-| **No end-to-end browser test signed in** | The flow is covered by unit tests and the CI journey (HTTP). The screens were checked with live cal.com data on a temporary dev page at desktop and phone widths, not clicked through as a signed-in founder (no database on the dev machine). |
+| **Signed-in browser checks are manual** | Done on 2026-11-08: a real browser, signed in on a local production build against the local database, walked cal.com from the address to a started cycle, and found four bugs that tests had missed (all fixed). It is not automated in CI, which runs the journey over HTTP only, and it ran on the no-model path (production refuses the development model). |
 | **Accessibility** | Labels, `aria-live` progress, focus on the first missing field, reduced-motion handling and keyboard-usable chips are in place; no screen-reader audit has been done. |
 | **Old intake route** | `/api/product/intake` is now unused by the UI and could be removed once the journey's SSRF check moves to `/api/product/analyze`. |
 

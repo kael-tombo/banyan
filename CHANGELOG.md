@@ -37,6 +37,9 @@ follow [Keep a Changelog](https://keepachangelog.com); commit hashes refer to
     collapsed, the market filling in beside it) → Your market (four headline findings, then tabs; pick an angle)
     → First cycle (angle, goal, channels). A segmented progress bar, one sticky footer per step, and a slim
     `/onboarding` frame replace the single 10-chapter page.
+  - **Cycle page leads with the next step** (the page after onboarding): a "Your next step" card from tested rules,
+    a readable progress line, sections only once they have something, "Later in this cycle" for the rest, a
+    first-cycle welcome, and the objective as written for a title.
   - **Known limits:** the trend radar reads none of TikTok, Instagram, Facebook, LinkedIn, X or Pinterest (no
     public API; never scraped), and YouTube, Reddit and Bluesky only with credentials (TD-26 to TD-28). The
     market scan uses two public sources only (weak for consumer and non-English products), sparse buying
