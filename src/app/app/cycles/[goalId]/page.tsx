@@ -27,6 +27,9 @@ function parseJSON<T>(value: string | null | undefined, fallback: T): T {
   }
 }
 
+/** Plan and strategy states in words ("planned" alone read as "Plan planned"). */
+const PLAN_WORDS: Record<string, string> = { planned: "Waiting for you", proposed: "Waiting for you", approved: "Approved", rejected: "Rejected", draft: "Being drafted" };
+
 type StageState = "done" | "waiting" | "active" | "blocked" | "pending";
 
 const STAGE_STATE: Record<StageState, { node: string; text: string }> = {
@@ -188,7 +191,7 @@ export default async function CyclePage({ params, searchParams }: { params: Prom
         : strategy
           ? strategy.status === "approved" ? "done" : strategy.status === "proposed" ? "waiting" : "pending"
           : hasOpenWork ? "active" : "pending",
-      hint: goal.plan ? `Plan ${goal.plan.status}` : strategy ? `v${strategy.version} ${strategy.status}` : hasOpenWork ? "Being drafted" : "Not started",
+      hint: goal.plan ? PLAN_WORDS[goal.plan.status] ?? goal.plan.status : strategy ? `v${strategy.version} ${PLAN_WORDS[strategy.status] ?? strategy.status}`.trim() : hasOpenWork ? "Being drafted" : "Not started",
     },
     { key: "drafts", label: "Three posts", state: content.length >= 3 ? "done" : content.length > 0 ? "active" : "pending", hint: content.length > 0 ? `${content.length} of 3 drafted` : "After the strategy" },
     {

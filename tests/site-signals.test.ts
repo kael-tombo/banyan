@@ -164,6 +164,8 @@ describe("the no-model read finds category, competitors and search terms in plai
     const out = await analyzeProduct("cal.com", { fetch });
     expect(out.result.category).toBe("Scheduling Software for Online Bookings");
     expect(basicQueries(out.result)).toEqual(["scheduling bookings", "booking pages", "round robin"]);
+    // A one-word feature ("Routing") is never a search term on its own.
+    expect(basicQueries({ ...out.result, features: ["Routing", "Booking pages"] })).not.toContain("routing");
   });
 });
 

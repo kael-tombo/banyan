@@ -75,8 +75,10 @@ export function basicQueries(a: ProductAnalysisResult): string[] {
       .replace(/[^a-z0-9\s-]/g, " ")
       .split(/\s+/)
       .filter((w) => w.length > 2 && !STOP_WORDS.has(w) && !FILLER.has(w) && !own.includes(w));
+    // One word ("Routing") matches anything: BGP routing, model routing. Two or nothing.
+    if (words.length < 2) return;
     const q = words.slice(0, 2).join(" ");
-    if (q.length >= 4 && !out.includes(q)) out.push(q);
+    if (!out.includes(q)) out.push(q);
   };
   // Structured-data categories ("BusinessApplication") say little; prefer words.
   if (a.category && /\s/.test(a.category)) add(a.category);
