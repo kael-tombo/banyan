@@ -347,7 +347,7 @@ fi
 contains "$BODY" '"reserved":0' "nothing stays held after the run"
 req GET /app/approvals "$JAR3"
 contains "$BODY" "Strategy v2" "drafts wait in the approvals queue"
-contains "$BODY" "1 strategy to approve" "the strategy proposal is listed in Approvals with the drafts"
+contains "$BODY" "is ready for review" "the strategy proposal is listed in Approvals with the drafts"
 req GET /app/usage "$JAR3"
 contains "$BODY" "content_draft" "draft generation is recorded in the model-usage ledger"
 
