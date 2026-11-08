@@ -55,3 +55,10 @@ describe("drafts before the gate", () => {
     expect(step({ drafts: 3, pendingReview: 0, gateWaiting: true }).title).toBe("Close the execution gate");
   });
 });
+
+describe("approved posts with nowhere to go", () => {
+  it("says it's the founder's move when no connection can publish, instead of 'Banyan is on it'", () => {
+    expect(step({ drafts: 3, approved: 3, hasOpenWork: true, hasLiveConnection: false })).toMatchObject({ who: "you", title: "Post your 3 approved posts", action: { href: "/app/publishing" } });
+    expect(step({ drafts: 3, approved: 3, hasOpenWork: true, hasLiveConnection: true })).toMatchObject({ who: "banyan", title: "Publishing what you approved" });
+  });
+});

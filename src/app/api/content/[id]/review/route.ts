@@ -8,6 +8,7 @@ import { loadClaimEvidence } from "@/lib/content/claim-evidence";
 import { unsupportedClaims, unvouched } from "@/lib/content/claims";
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { cycleName, postLabel } from "@/lib/formats";
 
 const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("submit") }),          // draft → ready_for_review
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
   const { id } = await params;
-  const item = await prisma.contentItem.findFirst({ where: { id, workspaceId: ctx.workspace.id } });
+  const item = await prisma.contentItem.findFirst({ where: { id, workspaceId: ctx.workspace.id }, include: { campaign: { select: { name: true } } } });
   if (!item) return apiError("Content not found.", 404);
 
   const parsed = await readJson(req, schema);
@@ -83,7 +84,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       type: "approval",
       actorType: "user",
       actorSummary: ctx.user.email,
-      summary: `"${item.title}" approved by ${ctx.user.name} (human).${vouched.length ? ` They vouched for ${vouched.length} unsupported claim${vouched.length === 1 ? "" : "s"}: ${vouched.map((v) => `"${v.phrase}"`).join(", ")}.` : ""} Publishing may proceed only through the configured connection.`,
+      summary: `${postLabel(item).generated ? `${postLabel(item).name}${item.campaign ? ` for “${cycleName(item.campaign.name)}”` : ""}` : `“${item.title}”`} approved by ${ctx.user.name}.${vouched.length ? ` They vouched for ${vouched.length} unsupported claim${vouched.length === 1 ? "" : "s"}: ${vouched.map((v) => `"${v.phrase}"`).join(", ")}.` : ""} It can now be published.`,
       meta: { contentItemId: item.id, approverId: ctx.user.id, vouchedClaims: vouched },
     });
   } else if (parsed.data.action === "reject") {
@@ -92,14 +93,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       type: "rejection",
       actorType: "user",
       actorSummary: ctx.user.email,
-      summary: `"${item.title}" rejected: ${parsed.data.reason}`,
+      summary: `${postLabel(item).generated ? `${postLabel(item).name}${item.campaign ? ` for “${cycleName(item.campaign.name)}”` : ""}` : `“${item.title}”`} rejected: ${parsed.data.reason}`,
       meta: { contentItemId: item.id },
     });
   } else {
     await recordActivity({
       workspaceId: ctx.workspace.id,
       type: "approval",
-      summary: `"${item.title}" moved to ${target} by ${ctx.user.name}.`,
+      summary: `${postLabel(item).generated ? `${postLabel(item).name}${item.campaign ? ` for “${cycleName(item.campaign.name)}”` : ""}` : `“${item.title}”`} moved to ${target} by ${ctx.user.name}.`,
       meta: { contentItemId: item.id },
     });
   }

@@ -25,6 +25,8 @@ export type CycleFacts = {
   clicks: number;
   trackedLinks: number;
   hasRecommendation: boolean;
+  /** A verified or configured LinkedIn/X connection exists; without one nothing goes out automatically. */
+  hasLiveConnection?: boolean;
 };
 
 export type NextStep = {
@@ -67,6 +69,14 @@ export function nextStep(f: CycleFacts): NextStep {
       who: "banyan",
       title: f.drafts === 0 ? "Banyan is writing your strategy and posts" : `Banyan is writing: ${f.drafts} of 3 posts drafted`,
       body: "This usually takes a few minutes. You can leave this page; everything waits for your review when it's ready.",
+    };
+  }
+  if (f.approved > 0 && f.published === 0 && f.hasLiveConnection === false) {
+    return {
+      who: "you",
+      title: f.approved === 1 ? "Post your approved post" : `Post your ${f.approved} approved posts`,
+      body: "No publishing connection is set up, so Banyan can't post for you. Open each post, publish it on the platform, and paste the live link back; or connect LinkedIn or X and Banyan does it.",
+      action: { label: "Open Publishing", href: "/app/publishing" },
     };
   }
   if (f.approved > 0 && f.published === 0 && f.hasOpenWork) {

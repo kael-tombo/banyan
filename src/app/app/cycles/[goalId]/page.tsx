@@ -138,6 +138,8 @@ export default async function CyclePage({ params, searchParams }: { params: Prom
       })
     : [];
   const linkIds = links.map((l) => l.id);
+  // Whether anything can go out automatically: a usable LinkedIn or X connection.
+  const liveConnections = await prisma.channelConnection.count({ where: { workspaceId: ctx.workspace.id, channel: { in: ["x", "linkedin"] }, status: { in: ["verified", "configured"] } } });
   const events = linkIds.length
     ? await prisma.metricEvent.groupBy({
         by: ["type"],
@@ -234,6 +236,7 @@ export default async function CyclePage({ params, searchParams }: { params: Prom
     clicks,
     trackedLinks: links.length,
     hasRecommendation: Boolean(recommendation),
+    hasLiveConnection: liveConnections > 0,
   });
   const STEP_TONE: Record<typeof step.who, { ring: string; label: string; chip: string }> = {
     you: { ring: "border-forest/30", label: "Your move", chip: "bg-forest text-ivory" },
