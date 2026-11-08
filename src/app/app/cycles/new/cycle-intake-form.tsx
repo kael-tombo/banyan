@@ -444,7 +444,8 @@ export default function CycleIntakeForm({
         // Best effort: the cycle exists either way; onboarding can be finished later from Settings.
         await fetch("/api/profile", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ timeZone }) }).catch(() => null);
       }
-      router.push(`/app/cycles/${goalBody.goal.id}`);
+      // The first cycle opens with a short welcome that says what happens next.
+      router.push(`/app/cycles/${goalBody.goal.id}${firstCycle ? "?welcome=1" : ""}`);
       router.refresh();
     } catch (err) {
       setError((err as Error).message);
@@ -527,7 +528,7 @@ export default function CycleIntakeForm({
 
           <div className="mx-auto mt-8 max-w-xl">
             <label htmlFor="intake-url" className="sr-only">Your product&apos;s website</label>
-            <div className="flex flex-col gap-2 rounded-2xl border border-bark/12 bg-white p-2 shadow-[0_12px_32px_-16px_rgba(14,42,33,0.25)] sm:flex-row">
+            <div className="flex flex-col gap-2 rounded-2xl border border-bark/12 bg-white p-2 shadow-[0_12px_32px_-16px_rgba(14,42,33,0.25)] transition focus-within:border-forest/55 focus-within:ring-4 focus-within:ring-forest/10 sm:flex-row">
               <div className="relative flex-1">
                 <Globe2 size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" aria-hidden="true" />
                 <input
@@ -544,7 +545,7 @@ export default function CycleIntakeForm({
                   inputMode="url"
                   autoComplete="url"
                   autoFocus
-                  className="h-12 w-full rounded-xl bg-transparent pl-11 pr-3 text-[17px] text-charcoal placeholder:text-muted focus:outline-none"
+                  className="h-12 w-full rounded-xl bg-transparent pl-11 pr-3 text-[17px] text-charcoal placeholder:text-muted focus:outline-none focus-visible:outline-none"
                 />
               </div>
               <Button type="button" onClick={readSite} disabled={busy} className="h-12 rounded-xl px-6 text-[15px]">
