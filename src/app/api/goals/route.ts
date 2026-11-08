@@ -20,6 +20,9 @@ const createSchema = z.object({
   metricTarget: z.number().int().min(0).max(1_000_000).nullable().optional(),
   deadlineDays: z.number().int().min(1).max(365).optional(),
   channels: z.array(z.enum(["x", "linkedin", "shortvideo"])).min(1).max(3).optional(),
+  // The objective exactly as the founder wrote it in the cycle intake; wins over extraction,
+  // which would otherwise fold the angle into the title.
+  objective: z.string().trim().min(5).max(300).optional(),
 });
 
 const GOAL_PARSE_SCHEMA = z.object({
@@ -140,7 +143,7 @@ export async function POST(req: NextRequest) {
   const goal = await prisma.goal.create({
     data: {
       workspaceId: ctx.workspace.id,
-      objective: extracted.objective.slice(0, 300),
+      objective: (parsed.data.objective || extracted.objective).slice(0, 300),
       description: parsed.data.description ?? "",
       successMetric,
       metricTarget,

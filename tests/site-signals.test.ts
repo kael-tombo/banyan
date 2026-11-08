@@ -166,3 +166,13 @@ describe("the no-model read finds category, competitors and search terms in plai
     expect(basicQueries(out.result)).toEqual(["scheduling bookings", "booking pages", "round robin"]);
   });
 });
+
+describe("screenshot text is not a tagline", () => {
+  it("drops a hero that contains clock times or durations", async () => {
+    const html = `<html><head><title>Cal.com | Scheduling Software for Online Bookings</title></head><body><h1>Where people Intro call 30m Booked 12:30 AM 12:30 PM find the time to meet</h1><p>The highest-rated scheduling system that helps you grow your business.</p></body></html>`;
+    const fetch: Fetcher = async () => ({ status: 200, headers: new Headers({ "content-type": "text/html" }), text: html, truncated: false });
+    const out = await analyzeProduct("cal.com", { fetch });
+    expect(out.result.tagline).toBe("");
+    expect(out.result.value_proposition).not.toMatch(/12:30/);
+  });
+});

@@ -218,9 +218,14 @@ export function basicAnalysis(pages: { url: string; html: string }[], signals?: 
   const statesPrice = /[$€£]\s?\d|\d\s?(usd|eur|gbp)\b|per (month|year|user|seat)|\/mo\b|free plan|free tier|free for/.test(allText);
   const pricing = statesPrice ? sig.prices.slice(0, 4).join(" · ") : "";
   // The hero headline is the site's own promise; the lead usually explains it.
-  const tagline = sig.headline && sig.headline !== snap.name ? sig.headline : "";
-  const description = snap.description || sig.lead;
-  const valueProp = snap.valueProp || tagline || sig.lead.slice(0, 500);
+  // A hero that contains clock times or durations ("Intro call 30m Booked 12:30 AM") is
+  // product-screenshot text, not a promise; so is one that runs on. Leave it for the founder.
+  const mockup = /\b\d{1,2}:\d{2}\b|\b\d+\s?(m|min|h|hr)\b|\b(AM|PM)\b/.test(sig.headline) || sig.headline.split(/\s+/).length > 14;
+  const tagline = sig.headline && sig.headline !== snap.name && !mockup ? sig.headline : "";
+  // The base reader falls back to the <h1> when there is no meta description; skip that too when it's screenshot text.
+  const fromMockupHero = (t: string) => mockup && Boolean(t) && t.replace(/\s+/g, " ").slice(0, 24) === sig.headline.replace(/\s+/g, " ").slice(0, 24);
+  const description = (fromMockupHero(snap.description) ? "" : snap.description) || sig.lead;
+  const valueProp = (fromMockupHero(snap.valueProp) ? "" : snap.valueProp) || tagline || sig.lead.slice(0, 500);
   const audience = sig.audiencePhrases.slice(0, 3);
   const pain = sig.painPhrases[0] ?? "";
   const missing = [

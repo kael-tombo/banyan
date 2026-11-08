@@ -79,7 +79,7 @@ function ScanPanel({ scan, onOpen }: { scan: ScanProgress; onOpen: () => void })
         {allDone ? "Your briefing is ready." : scan.state === "idle" ? "Mapped once your site is read." : "Mapping it while you check this…"}
       </p>
       <ul className="mt-2 divide-y divide-bark/10" aria-live="polite">
-        <ScanRow label="Competitors, read from their sites" value={`${scan.verified}/${scan.competitors}`} busy={marketBusy} done={marketDone} />
+        <ScanRow label="Competitors, read from their sites" value={scan.competitors ? `${scan.verified} of ${scan.competitors}` : "0"} busy={marketBusy} done={marketDone} />
         <ScanRow label="Public conversations" value={String(scan.conversations)} busy={marketBusy} done={marketDone} />
         <ScanRow label="People asking or switching" value={String(scan.leads)} busy={marketBusy} done={marketDone} />
         <ScanRow label="Opportunities with evidence" value={String(scan.opportunities)} busy={marketBusy} done={marketDone} />

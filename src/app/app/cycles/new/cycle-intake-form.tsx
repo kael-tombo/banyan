@@ -426,11 +426,12 @@ export default function CycleIntakeForm({
       const snapshotBody = (await snapshotRes.json().catch(() => ({}))) as { error?: string };
       if (!snapshotRes.ok) throw new Error(snapshotBody.error || "Could not save the product profile.");
 
-      const rawInput = [objective.trim(), `This cycle distributes ${update.trim() || `the product ${profile.name.trim()}`}.`].join(". ");
+      const said = update.trim().replace(/[.!?…s]+$/, "");
+      const rawInput = [objective.trim().replace(/[.!?…s]+$/, ""), `This cycle distributes ${said || `the product ${profile.name.trim()}`}.`].join(". ");
       const goalRes = await fetch("/api/goals", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ rawInput, description: update.trim(), successMetric: metric.trim(), metricTarget: targetNum, deadlineDays: daysNum, channels }),
+        body: JSON.stringify({ rawInput, objective: objective.trim(), description: update.trim(), successMetric: metric.trim(), metricTarget: targetNum, deadlineDays: daysNum, channels }),
       });
       const goalBody = (await goalRes.json().catch(() => ({}))) as { goal?: { id: string }; error?: string };
       if (!goalRes.ok || !goalBody.goal) throw new Error(goalBody.error || "Could not start the cycle.");
@@ -545,7 +546,8 @@ export default function CycleIntakeForm({
                   inputMode="url"
                   autoComplete="url"
                   autoFocus
-                  className="h-12 w-full rounded-xl bg-transparent pl-11 pr-3 text-[17px] text-charcoal placeholder:text-muted focus:outline-none focus-visible:outline-none"
+                  className="h-12 w-full rounded-xl bg-transparent pl-11 pr-3 text-[17px] text-charcoal placeholder:text-muted focus:outline-none"
+                  style={{ outline: "none" }}
                 />
               </div>
               <Button type="button" onClick={readSite} disabled={busy} className="h-12 rounded-xl px-6 text-[15px]">
