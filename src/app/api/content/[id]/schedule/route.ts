@@ -1,8 +1,11 @@
+import { requireRole } from "@/lib/permissions";
+import { syncCampaignLifecycle } from "@/lib/campaign/lifecycle-service";
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { canTransitionContent } from "@/lib/state-machines";
 import { NextRequest } from "next/server";
 import { z } from "zod";
+import { cancelPendingPublication } from "@/lib/publishing/status-sync";
 
 const schema = z.object({
   scheduledFor: z.string().datetime({ offset: true }).optional().nullable(), // UTC ISO
@@ -14,6 +17,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (csrf) return csrf;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
+  const forbidden = requireRole(ctx.membership.role, "control");
+  if (forbidden) return apiError(forbidden, 403);
   const { id } = await params;
   const item = await prisma.contentItem.findFirst({ where: { id, workspaceId: ctx.workspace.id }, include: { publications: true } });
   if (!item) return apiError("Content not found.", 404);
@@ -25,16 +30,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!["scheduled", "approved", "failed"].includes(item.status)) {
       return apiError(`Nothing to cancel in status "${item.status}".`, 400);
     }
-    // Pending scheduled publication is cancelled.
-    await prisma.publication.updateMany({
-      where: { contentItemId: item.id, status: "scheduled" },
-      data: { status: "blocked", lastError: "Schedule cancelled by user." },
-    });
+    // Pending scheduled publication is cancelled, in SocialFlow first if it already holds the post (BOS-029).
+    const cancelled = await cancelPendingPublication(item.id, ctx.workspace.id, ctx.user.id);
+    if (!cancelled.ok) return apiError(cancelled.message, cancelled.status);
     const updated = await prisma.contentItem.update({
       where: { id: item.id },
       data: { status: "approved", scheduledFor: null },
     });
-    return json({ item: updated, cancelled: true });
+    await syncCampaignLifecycle(updated.campaignId);
+    return json({
+      item: updated,
+      cancelled: true,
+      atProvider: cancelled.atProvider,
+      message: cancelled.atProvider ? "Cancelled here and in SocialFlow.ai. Nothing was published." : "Schedule cancelled. Nothing was sent.",
+    });
   }
 
   if (!parsed.data.scheduledFor) return apiError("scheduledFor is required.", 400);
@@ -48,5 +57,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     where: { id: item.id },
     data: { status: "scheduled", scheduledFor: when },
   });
+  await syncCampaignLifecycle(updated.campaignId);
   return json({ item: updated });
 }

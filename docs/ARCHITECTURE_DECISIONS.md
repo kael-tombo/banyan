@@ -1,0 +1,173 @@
+# Architecture Decision Records
+
+Decisions taken at the start of the MVP brief, 2026-11-01. Each was confirmed by the product owner.
+
+---
+
+## ADR-001 — Keep the TypeScript backend instead of rewriting in FastAPI
+
+**Status:** Accepted (product owner, 2026-11-01)
+
+**Context.** The brief lists FastAPI + Celery as mandatory, and also says "Preserve working existing
+functionality" and "Do not replace working existing functionality without justification". The repository is a
+working Next.js 15 + Prisma application: 41 API routes, 25 models, an agent orchestrator, 354 passing unit tests and
+a 42-check end-to-end suite.
+
+**Decision.** Keep Next.js route handlers and Prisma as the backend. Run the same image as two Compose services
+(`web` for UI + API, `worker` for jobs) so the API and the worker scale and restart independently.
+
+**Consequences.**
+- The MVP reaches a working, tested state without a multi-week rewrite of verified code.
+- Python is not introduced. AI workflows stay behind the existing provider-neutral `AIProvider`.
+- The brief's service list (`frontend`, `api`, `worker`, `postgres`, `redis`) maps to `web` (frontend + api in one
+  Next.js process), `worker`, `postgres`, `redis`. Splitting `web` is possible later without code changes.
+- Revisit if a Python-only capability (a specific ML library) becomes necessary.
+
+## ADR-002 — Redis-backed job queue in TypeScript instead of Celery
+
+**Status:** Accepted
+
+**Context.** The brief mandates Redis and background jobs (Celery). ADR-001 keeps the stack TypeScript, so Celery
+does not apply. The current worker polls `POST /api/worker/tick` every 60 s, and the rate limiter is an in-process
+`Map` that resets on restart and is not shared across instances.
+
+**Decision.** Add Redis to Compose. Use it for (1) a durable job queue consumed by the `worker` service (publication
+attempts, status sync, analysis and generation jobs) and (2) a shared rate-limit store. Idempotency remains enforced
+in Postgres (unique keys), so a lost or duplicated Redis message can never double-publish or double-charge.
+
+**Consequences.** Postgres stays the source of truth; Redis holds only transient work and counters. The existing
+retry rules in `src/lib/publishing/publish.ts` are reused, not reimplemented.
+
+## ADR-003 — SocialFlow.ai via contract + export mode; remove Postiz
+
+**Status:** Accepted
+
+**Context.** The brief makes SocialFlow.ai the only distribution provider and forbids Postiz (no integration, no
+fallback). The SocialFlow.ai audit ([SOCIALFLOW_INTEGRATION_AUDIT.md](SOCIALFLOW_INTEGRATION_AUDIT.md)) found no
+verifiable API: the product's own repository is a browser-only release with an unbuildable backend. Postiz is
+currently Banyan's only automated publishing path.
+
+**Decision.**
+1. Define the contract Banyan needs from SocialFlow.ai and implement `SocialFlowAdapter` against it, with mocked
+   contract tests. Keep it disabled until a live smoke test passes against a real SocialFlow.ai deployment.
+2. Make export mode (channel-formatted package → founder executes → records the live URL) the MVP's live
+   distribution path, clearly labelled as manual.
+3. Remove the Postiz adapter, its connection UI and every Postiz claim in the product and on the landing page.
+
+**Consequences.**
+- Banyan cannot publish automatically until SocialFlow.ai ships the contract's core operations (C1, C2, C3, C5, C7).
+- The brief's primary activation metric (first publication **through SocialFlow.ai**) is measurable but will read
+  zero until then. Banyan reports it honestly, alongside "first publication (any path)".
+- No code outside the distribution module changes when SocialFlow.ai becomes available.
+
+## ADR-004 — The "Ultimate autonomous engineering" brief maps onto this codebase
+
+**Date:** 2026-11-01 · **Status:** Accepted (confirmed by the founder when the brief arrived)
+
+**Context.** A second brief restates the MVP journey and again names FastAPI, Celery, Alembic and a `docs/audit/…` / `docs/backlog/…` layout as mandatory. It also says "do not build a new system when an existing working implementation can be reused". The founder was asked and chose to keep the TypeScript backend.
+
+**Decision.** ADR-001 and ADR-002 stand. Each mandated tool maps to its existing equivalent:
+
+| Brief says | This codebase | Why it satisfies the requirement |
+|---|---|---|
+| FastAPI | Next.js route handlers (`src/app/api/**/route.ts`) + services in `src/lib` | Same modular-monolith API, zod-validated inputs, one deployable |
+| SQLAlchemy + Alembic | Prisma + Prisma Migrate (`prisma/migrations`) | Versioned, forward-only migrations applied by the `migrate` service |
+| Celery | BullMQ on Redis (`src/lib/queue`, `worker/index.ts`) | Retries with backoff, job ids, scheduler, failed-job inspection |
+| pytest | Vitest unit/contract tests + `scripts/e2e-acceptance.sh` against Docker | Same acceptance-driven gate |
+| `docs/audit`, `docs/backlog`, … | Existing equivalents in `docs/` (PROJECT_AUDIT, MVP_GAP_ANALYSIS, USER_STORIES, user-stories.json, USER_STORY_DEPENDENCIES, SPRINT_PLAN, IMPLEMENTATION_ROADMAP, DOCKER_DEPLOYMENT, DEVELOPMENT_PROGRESS) | The brief allows adapting filenames when equivalents exist |
+
+The brief's TASK-000…088 are covered by the 77-story backlog (`docs/USER_STORIES.md`). New items it adds (for example credit expiry notifications) become stories there, not a parallel backlog.
+
+**Consequences.** No rewrite. Work continues down the existing critical path. A Python service is reconsidered only if a dependency forces it, which none does today.
+
+## ADR-005 — Multi-product: an Organization layer above Workspace, where a workspace is a product
+
+**Date:** 2026-11-01 · **Status:** Accepted (founder's "God mode" multi-product brief)
+
+**Context.** The brief makes Banyan a multi-product OS: one founder, one organization, many independently marketed
+products. STRATEGY.md had listed multi-product as out of the MVP; the founder's brief supersedes that. Every
+product-scoped table already carries `workspaceId` and every route filters by it, but a request always resolves to the
+user's *first* membership.
+
+**Decision.**
+1. Add `Organization` and `OrganizationMember` (OWNER, ADMIN, MEMBER, BILLING_MANAGER) above `Workspace`.
+2. **A product is a `Workspace` row.** Keep the table name, add `organizationId`, `productType` and `status`; call it
+   "product" in UI and API. No rename of 31 models.
+3. **Active product** = a cookie preference, re-validated on every request (product membership, or org
+   OWNER/ADMIN). `requireWorkspace()` keeps its signature, so existing routes become product-aware unchanged.
+4. Credits move up to the organization later (BOS-061), with `workspaceId` kept on every entry for attribution.
+5. Keep cuid primary keys instead of the brief's UUIDs: both are random, non-guessable IDs, and converting is a
+   rewrite with no security gain.
+6. New infrastructure only when its epic starts (MinIO for media, pgvector for knowledge).
+
+**Consequences.** All existing isolation guarantees carry over, and multi-product ships as a thin, testable layer.
+The single-product MVP promise is unchanged: it is one product's cycle. Phase 0 details:
+[docs/architecture/MULTI_PRODUCT_PHASE0.md](architecture/MULTI_PRODUCT_PHASE0.md).
+
+## ADR-006 — OpenCode as the agent runtime, Banyan as the control plane
+
+**Date:** 2026-11-03 · **Status:** Accepted; R2 (research through the embedded runtime) built 2026-11-07, pinned to `@opencode/sdk` 2.2.6. Reaffirmed over running agents through `central-brain-agent-platform`; see docs/architecture/AGENT_ORCHESTRATION.md
+
+**Context.** Each Banyan agent task is one model call. Research, writing and critique improve with tool use and
+delegation, and OpenCode V2 (`@opencode/sdk` 2.2.5) offers an embeddable host with sessions, subagents as durable child
+sessions, ordered permission rules and typed plugin tools. A spike on Node 24 showed a strategist delegating to two
+writer subagents through workspace-bound Banyan tools, child sessions inheriting workspace metadata, and a denied
+tool never offered to the model, even when the prompt asked for it.
+
+**Decision.**
+1. Banyan stays the orchestrator and system of record (goals, task graph, approvals, policy, credits, tenancy, time,
+   side effects). OpenCode runs the inner loop of a task, embedded in the worker. No OpenCode server, goal loop or
+   schedule.
+2. Agents get read, propose and ask tools only. Publishing, scheduling, approving, connecting, policy and spending are
+   never registered as tools.
+3. One plugin instance per workspace (keyed on session metadata), tools without a workspace argument, and every tool
+   re-checking the workspace.
+4. SocialFlow Lite stays a model-free publisher behind Banyan's publishing core.
+5. `AgentRuntime` interface with `direct` (today's behaviour, fallback) and `opencode` implementations.
+
+**Consequences.** The worker moves to Node 24 (the SDK uses `await using`). The SDK is pinned and isolated behind the
+seam because its API is days old. Production agents need direct provider keys (OpenCode Go is internal-use only).
+Full design and roadmap: [docs/architecture/AGENT_ORCHESTRATION.md](architecture/AGENT_ORCHESTRATION.md).
+
+## ADR-007 — Model governance for the agentic runtime: one ledger, one quota, validated tiers
+
+**Date:** 2026-11-04 · **Status:** Accepted; implemented in the config/pure layer, consumed by R2
+
+**Context.** ADR-006 embeds OpenCode as the agent runtime but left three governance seams undefined. Each would
+quietly break a documented promise once real runs exist:
+
+1. `MODEL_MAX_CALLS_PER_DAY` counts single-shot calls in the router, while one agentic run is a tree of model
+   calls (steps × subagents) — runs would bypass the workspace quota or burn it unpredictably.
+2. `AGENT_RUNTIME` / `AGENT_MODEL_*` were read ad hoc, not through the zod env boundary (philosophy #7), so a bad
+   tier value failed mid-run instead of at boot.
+3. A run's cost spans several tier models, some without known prices — a partial sum recorded as a total violates
+   "costs are never guessed" (`ModelCall.estCostMicros`), and critic independence ("a different family from the
+   writer") was a warning only.
+
+**Decision.**
+
+1. **One run = one quota unit = one ledger row.** An agentic run is gated by the same per-workspace daily quota,
+   checked *before* the session starts (`checkRunQuota`, `src/lib/model/agent-run.ts`). On completion the runtime
+   writes a single `ModelCall` row with the session tree's aggregate usage (`recordAgentRun`). Because runs land
+   in the same ledger as live calls, the existing count covers them; no second counter exists. Spend *inside* a
+   run is bounded by the roster's `steps` caps (today) and the per-run token budget (R4) — not by the daily quota.
+2. **Tiers validate at the boundary.** `AGENT_RUNTIME` and `AGENT_MODEL_STRONG/FAST/CRITIC` join the env schema;
+   a non-empty model value must look like `provider/model`. A missing strong model fails startup only when
+   `AGENT_RUNTIME=opencode`, so builds and direct-runtime deployments stay green.
+3. **Run pricing is honest.** `priceRunUsage()` sums known prices only; `recordAgentRun()` writes a non-zero cost
+   only when *every* model in the run is priced — otherwise tokens with cost 0 and a structured warning
+   (`agent_run_cost_incomplete`) naming the unpriced models. A partial sum is never presented as a total.
+4. **Critic independence is enforced in production.** A critic from the same model family as the writers or
+   the strategist is a configuration error when `NODE_ENV=production` and a warning in development
+   (`modelTiers` in `src/lib/agents/runtime/roster.ts`, called at boot from `env.ts`). *Amended 2026-11-06: this
+   originally compared exact model names, which let two models from one vendor pass, and nothing called it. The
+   same check refuses OpenCode's hosted inference in production, which its terms limit to internal use.*
+5. **Runtime selection is explicit.** `resolveRuntimeSelection()` (`src/lib/agents/runtime/select.ts`) encodes
+   ADR-006's fallback rule: until the embedded runtime exists (R2), `AGENT_RUNTIME=opencode` resolves to
+   `direct` *with a labelled reason* — never silently, never a crash.
+6. The development-only "OpenCode brain" (`scripts/opencode-brain.mjs`, V1 HTTP text-in/text-out gateway) is
+   **not** the ADR-006 runtime; it retires when R2 ships.
+
+**Consequences.** The daily quota stays meaningful for founders ("500 model actions a day" counts runs too); the
+usage ledger's invariant holds (a non-zero cost is a true total); tier misconfiguration fails at boot with a
+readable message; and R2 consumes tested pure modules instead of inventing governance mid-implementation.

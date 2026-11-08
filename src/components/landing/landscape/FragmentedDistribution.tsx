@@ -56,7 +56,7 @@ const SCATTERED: { card: Card; className: string }[] = [
 export function FragmentedDistribution() {
   return (
     <div
-      className="relative overflow-hidden rounded-[20px] border border-[#E6E8EA] bg-[#F7F8F8] p-4 md:h-[560px] md:p-0"
+      className="relative overflow-hidden rounded-[20px] border border-bark/10 bg-canvas p-4 md:h-[560px] md:p-0"
       aria-label="Six separate posts written for six channels in one week, with no shared plan and no tracked result"
       role="img"
     >

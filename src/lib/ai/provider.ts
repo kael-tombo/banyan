@@ -15,6 +15,8 @@ export type UsageMeta = {
   label: string;
   promptTokens?: number;
   completionTokens?: number;
+  /** List cost in USD when the gateway reports it (e.g. OpenCode's usage.opencode.list_cost). */
+  reportedCostUsd?: number;
 };
 
 export type GenResult = { text: string; usage: UsageMeta };
@@ -51,6 +53,7 @@ export class OpenAICompatProvider implements AIProvider {
         headers: {
           "content-type": "application/json",
           authorization: `Bearer ${apiKey}`,
+          ...gatewayHeaders(baseUrl),
           ...parseExtraHeaders(env.OPENAI_EXTRA_HEADERS),
         },
         body: JSON.stringify({
@@ -72,7 +75,7 @@ export class OpenAICompatProvider implements AIProvider {
     }
     const data = res.json as {
       choices?: { message?: { content?: string } }[];
-      usage?: { prompt_tokens?: number; completion_tokens?: number };
+      usage?: { prompt_tokens?: number; completion_tokens?: number; cost?: number; opencode?: { list_cost?: number } };
     };
     const text = data.choices?.[0]?.message?.content;
     if (!text) throw new AIError("Model provider returned an empty completion.");
@@ -85,9 +88,35 @@ export class OpenAICompatProvider implements AIProvider {
         label: `Live model: ${model}`,
         promptTokens: data.usage?.prompt_tokens,
         completionTokens: data.usage?.completion_tokens,
+        reportedCostUsd: reportedCost(data.usage),
       },
     };
   }
+}
+
+/**
+ * Headers a known gateway asks for. OpenCode's inference API (Go plans in
+ * particular) rejects requests without a per-conversation `x-opencode-session`
+ * and asks clients to name themselves in the user agent. Every Banyan
+ * completion is a single-turn conversation, so each call gets a fresh id.
+ */
+export function gatewayHeaders(baseUrl: string): Record<string, string> {
+  let host = "";
+  try {
+    host = new URL(baseUrl).hostname;
+  } catch {
+    return {};
+  }
+  if (host !== "opencode.ai" && !host.endsWith(".opencode.ai")) return {};
+  return { "user-agent": "banyan/0.1", "x-opencode-session": `banyan-${crypto.randomUUID()}` };
+}
+
+/** A positive, finite cost the gateway put in the usage block, preferring the list price over a subscription's zero. */
+export function reportedCost(usage: { cost?: number; opencode?: { list_cost?: number } } | undefined): number | undefined {
+  for (const v of [usage?.opencode?.list_cost, usage?.cost]) {
+    if (typeof v === "number" && Number.isFinite(v) && v > 0) return v;
+  }
+  return undefined;
 }
 
 async function fetchJSONWithTimeout(
@@ -113,6 +142,195 @@ async function fetchJSONWithTimeout(
     }
     throw new AIError(`Model provider request failed: ${(err as Error).message}`, true);
   }
+}
+
+// --- Experimental local brain: a running OpenCode server (dev only) ---
+
+/**
+ * Uses a local `opencode serve` instance as a temporary brain while no API key
+ * is configured. Each completion opens a throwaway OpenCode session with every
+ * tool disabled (text in, text out), then deletes it. OpenCode retries failed
+ * upstream calls indefinitely, so a hard timeout aborts the session and the
+ * router degrades to the labeled template fallback instead of hanging.
+ *
+ * Not the ADR-006 agent runtime — this is the V1 HTTP gateway for single-shot
+ * calls; the embedded V2 runtime (roadmap R2) replaces it.
+ */
+// The wildcard denies everything, including tools a future OpenCode or a developer's own MCP servers
+// add. The names stay as a second layer for any version that does not honour the wildcard.
+const OPENCODE_DISABLED_TOOLS = {
+  "*": false,
+  ...Object.fromEntries(
+    [
+      "bash", "edit", "write", "read", "glob", "grep", "list", "patch", "multiedit", "webfetch",
+      "websearch", "codesearch", "task", "todowrite", "todoread", "skill", "lsp", "question",
+    ].map((t) => [t, false])
+  ),
+};
+
+export class OpenCodeSessionProvider implements AIProvider {
+  readonly name = "opencode-session";
+
+  constructor(
+    private baseUrl: string,
+    private password: string,
+    private model: string,
+    private timeoutMs: number,
+    private fetchImpl: typeof fetch = fetch,
+    private statusPollMs = 1_500
+  ) {}
+
+  private headers(): Record<string, string> {
+    const h: Record<string, string> = { "content-type": "application/json" };
+    if (this.password) h.authorization = `Basic ${Buffer.from(`opencode:${this.password}`).toString("base64")}`;
+    return h;
+  }
+
+  private url(path: string): string {
+    return `${this.baseUrl.replace(/\/$/, "")}${path}`;
+  }
+
+  async complete(req: { system: string; user: string; maxTokens: number; temperature?: number }): Promise<GenResult> {
+    const [providerID, ...rest] = this.model.split("/");
+    const modelID = rest.join("/");
+    if (!providerID || !modelID) throw new AIError(`OPENCODE_MODEL must look like "provider/model", got "${this.model}".`);
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    let sessionId: string | null = null;
+    try {
+      const created = await this.fetchImpl(this.url("/session"), {
+        method: "POST",
+        headers: this.headers(),
+        body: JSON.stringify({ title: "banyan-brain" }),
+        signal: controller.signal,
+      });
+      if (!created.ok) {
+        throw new AIError(`OpenCode refused to open a session (${created.status}).`, created.status >= 500);
+      }
+      sessionId = ((await created.json()) as { id?: string }).id ?? null;
+      if (!sessionId) throw new AIError("OpenCode returned no session id.");
+
+      const sid = sessionId;
+      const send = this.fetchImpl(this.url(`/session/${sid}/message`), {
+        method: "POST",
+        headers: this.headers(),
+        body: JSON.stringify({
+          model: { providerID, modelID },
+          system: req.system,
+          tools: OPENCODE_DISABLED_TOOLS,
+          parts: [{ type: "text", text: req.user }],
+        }),
+        signal: controller.signal,
+      });
+      send.catch(() => null); // may lose the race below and reject after abort
+      // OpenCode keeps retrying upstream failures and holds the request open;
+      // its session status says why. Fail fast on a non-transient reason.
+      let watching = true;
+      const stuck = (async (): Promise<never> => {
+        while (watching) {
+          await new Promise((r) => setTimeout(r, this.statusPollMs));
+          if (!watching) break;
+          const status = await this.fetchImpl(this.url("/session/status"), { headers: this.headers(), signal: controller.signal })
+            .then((r) => (r.ok ? r.json() : null))
+            .catch(() => null) as Record<string, { type?: string; attempt?: number; message?: string; action?: unknown }> | null;
+          const mine = status?.[sid];
+          if (mine?.type === "retry" && (mine.action || (mine.attempt ?? 0) >= 3)) {
+            throw new AIError(`OpenCode cannot reach the model: ${mine.message ?? "upstream keeps failing"}`.slice(0, 400));
+          }
+        }
+        return new Promise<never>(() => {});
+      })();
+      const res = await Promise.race([send, stuck]).finally(() => {
+        watching = false;
+      });
+      const bodyText = await res.text();
+      if (!res.ok) throw new AIError(`OpenCode returned ${res.status}: ${bodyText.slice(0, 300)}`, res.status >= 500);
+
+      const data = JSON.parse(bodyText) as {
+        info?: { error?: { name?: string; data?: { message?: string } }; tokens?: { input?: number; output?: number } };
+        parts?: { type?: string; text?: string }[];
+      };
+      if (data.info?.error) {
+        const e = data.info.error;
+        throw new AIError(`OpenCode model error: ${e.data?.message ?? e.name ?? "unknown"}`.slice(0, 400));
+      }
+      const text = (data.parts ?? [])
+        .filter((p) => p.type === "text" && typeof p.text === "string")
+        .map((p) => p.text)
+        .join("")
+        .trim();
+      if (!text) throw new AIError("OpenCode returned an empty completion.");
+      return {
+        text,
+        usage: {
+          provider: this.name,
+          model: this.model,
+          isFallback: false,
+          label: `Experimental brain (OpenCode): ${this.model}`,
+          promptTokens: data.info?.tokens?.input,
+          completionTokens: data.info?.tokens?.output,
+        },
+      };
+    } catch (err) {
+      if (err instanceof AIError) throw err;
+      if (err instanceof Error && err.name === "AbortError") {
+        throw new AIError(`OpenCode did not answer within ${Math.round(this.timeoutMs / 1000)}s (check its key or free quota).`);
+      }
+      throw new AIError(`OpenCode request failed: ${(err as Error).message}`);
+    } finally {
+      clearTimeout(timer);
+      controller.abort();
+      if (sessionId) {
+        // Stop any upstream retry loop and drop the throwaway session.
+        const sid = sessionId;
+        void this.fetchImpl(this.url(`/session/${sid}/abort`), { method: "POST", headers: this.headers() })
+          .catch(() => null)
+          .then(() => this.fetchImpl(this.url(`/session/${sid}`), { method: "DELETE", headers: this.headers() }))
+          .catch(() => null);
+      }
+    }
+  }
+}
+
+/** True when the OpenCode brain may serve calls: configured, no API key, never in production. */
+export function openCodeBrainEnabled(): boolean {
+  return (
+    !env.OPENAI_API_KEY &&
+    (env.AI_PROVIDER === "opencode" || env.AI_PROVIDER === "") &&
+    !!env.OPENCODE_URL &&
+    env.NODE_ENV !== "production"
+  );
+}
+
+/**
+ * OpenCode's hosted inference (Go, Zen) is limited by its terms to "your own internal use, and not on
+ * behalf of or for the benefit of any third party". A production deployment serves customers, so this
+ * route stays off there and generation degrades to the labeled template.
+ */
+export function hostedInferenceBlocked(): boolean {
+  if (env.NODE_ENV !== "production" || !env.OPENAI_API_KEY) return false;
+  try {
+    const host = new URL(env.OPENAI_BASE_URL).hostname;
+    return host === "opencode.ai" || host.endsWith(".opencode.ai");
+  } catch {
+    return false;
+  }
+}
+
+/** The managed provider is selected: requested (or auto), with a key, and allowed here. */
+function managedProviderSelected(): boolean {
+  return (env.AI_PROVIDER === "openai" || env.AI_PROVIDER === "") && !!env.OPENAI_API_KEY && !hostedInferenceBlocked();
+}
+
+/**
+ * What serves live generation right now, for capability/status surfaces. Uses the same
+ * rules as getAIProvider, so status can never claim a live model while templates serve.
+ */
+export function describeLiveModel(): { live: boolean; model: string; via: "managed" | "opencode" | "none" } {
+  if (managedProviderSelected()) return { live: true, model: env.OPENAI_MODEL, via: "managed" };
+  if (openCodeBrainEnabled()) return { live: true, model: env.OPENCODE_MODEL, via: "opencode" };
+  return { live: false, model: "banyan-template-1", via: "none" };
 }
 
 // --- Local development fallback (clearly labeled, never passed off as live) ---
@@ -175,12 +393,28 @@ export function parseExtraHeaders(raw: string): Record<string, string> {
 }
 
 export function getAIProvider(): { provider: AIProvider; usage: UsageMeta } {
-  const wantsOpenai = (env.AI_PROVIDER === "openai" || env.AI_PROVIDER === "") && env.OPENAI_API_KEY;
-  if (wantsOpenai) {
+  if (managedProviderSelected()) {
     const provider = new OpenAICompatProvider(env.OPENAI_API_KEY, env.OPENAI_BASE_URL, env.OPENAI_MODEL);
     return {
       provider,
       usage: { provider: provider.name, model: env.OPENAI_MODEL, isFallback: false, label: `Live model: ${env.OPENAI_MODEL}` },
+    };
+  }
+  if (openCodeBrainEnabled()) {
+    const provider = new OpenCodeSessionProvider(
+      env.OPENCODE_URL,
+      env.OPENCODE_PASSWORD,
+      env.OPENCODE_MODEL,
+      env.OPENCODE_TIMEOUT_MS
+    );
+    return {
+      provider,
+      usage: {
+        provider: provider.name,
+        model: env.OPENCODE_MODEL,
+        isFallback: false,
+        label: `Experimental brain (OpenCode): ${env.OPENCODE_MODEL}`,
+      },
     };
   }
   const provider = new TemplateFallbackProvider();
@@ -190,7 +424,9 @@ export function getAIProvider(): { provider: AIProvider; usage: UsageMeta } {
       provider: provider.name,
       model: "banyan-template-1",
       isFallback: true,
-      label: "Development fallback (no model credentials configured)",
+      label: hostedInferenceBlocked()
+        ? "Template fallback: OpenCode's hosted inference is for internal use only, so it is off in production. Configure a direct provider key."
+        : "Development fallback (no model credentials configured)",
     },
   };
 }
@@ -226,6 +462,7 @@ export async function completeValidated<T>(args: {
           system: args.system,
           user: args.user,
           maxTokens: args.maxTokens,
+          temperature: args.temperature,
         });
         usage = res.usage;
         const data = args.schema.parse(res.text); // throws ZodError on invalid output

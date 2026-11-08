@@ -18,6 +18,7 @@
   --color-ivory: #f7f4ec;        /* app canvas: warm bone paper */
   --color-ivory-deep: #eee9dd;   /* sunken paper: wells, quiet bands */
   --color-paper: #ffffff;        /* landing paper: pure white canvas */
+  --color-canvas: #f6f7f5;       /* app canvas: near-white with a leaf cast; white cards sit on it */
   --color-mist: #f2f6f1;         /* tinted landing band: light through leaves */
   --color-forest: #23523f;       /* the green of the leaf itself */
   --color-forest-deep: #0e2a21;  /* canopy ink: headings, brand moments */
@@ -110,9 +111,10 @@ body {
   background: var(--color-rail);
 }
 
-/* App canvas: flat bone paper. The content carries the color. */
+/* App canvas: near-white, so white cards read as sheets and the content
+   carries the color. Matches the white landing and sign-in pages. */
 .app-canvas {
-  background: var(--color-ivory);
+  background: var(--color-canvas);
 }
 
 /* Interior icons share one stroke, whatever size a call site asks for. */
@@ -241,6 +243,10 @@ section[id] {
   transform: none;
 }
 @media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+}
+/* Without scripting nothing would ever reveal it (crawlers, link previews, a failed bundle): show it as is. */
+@media (scripting: none) {
   .reveal { opacity: 1; transform: none; transition: none; }
 }
 
@@ -977,6 +983,18 @@ section[id] {
   0%, 100% { transform: translateY(0); opacity: var(--dl-rest, 0.6); }
   50% { transform: translateY(-6px); opacity: calc(var(--dl-rest, 0.6) + 0.3); }
 }
+
+/* Panel: the landscape framed beside the auth form. Sized to its frame, not
+   the viewport, and set back so the approval card in front reads first. */
+.dl[data-variant="panel"] .dl-columns {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  padding-inline: 24px;
+  max-width: none;
+}
+.dl[data-variant="panel"] .dl-col { display: block; opacity: 0.42; }
+.dl[data-variant="panel"] .dl-col[data-index="3"] { display: none; }
+.dl[data-variant="panel"] .dl-col[data-index="1"] { opacity: 0.3; }
 
 @media (prefers-reduced-motion: reduce) {
   /* The landscape stays, composed and still, with its streams staggered. */

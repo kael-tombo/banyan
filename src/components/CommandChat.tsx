@@ -33,7 +33,8 @@ const SUGGESTIONS = [
   "What can you not do yet?",
 ];
 
-export default function CommandChat({ initialMessages }: { initialMessages: ChatMessageDTO[] }) {
+/** `compact` fits a side column: shorter log, suggestions as a list, no key hints. */
+export default function CommandChat({ initialMessages, compact = false }: { initialMessages: ChatMessageDTO[]; compact?: boolean }) {
   const [messages, setMessages] = useState<ChatMessageDTO[]>(initialMessages);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -93,12 +94,12 @@ export default function CommandChat({ initialMessages }: { initialMessages: Chat
   const empty = messages.length === 0;
 
   return (
-    <Card id="command-chat">
+    <Card id="command-chat" className={compact ? "flex h-full flex-col" : ""}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-base font-medium text-charcoal">
           <BanyanMark size={20} className="rounded-sm" /> Ask Banyan
         </h2>
-        <p className="text-[13px] text-muted">Reads your records, proposes, never publishes on its own</p>
+        <p className={`text-[13px] text-muted ${compact ? "w-full" : ""}`}>{compact ? "Answers from your records. It never publishes." : "Reads your records, proposes, never publishes on its own"}</p>
       </div>
 
       <div
@@ -106,21 +107,23 @@ export default function CommandChat({ initialMessages }: { initialMessages: Chat
         role="log"
         aria-live="polite"
         aria-label="Conversation with Banyan"
-        className="app-light-scroll mt-4 flex h-80 flex-col gap-3 overflow-y-auto rounded-lg border border-bark/[0.08] bg-ivory/70 p-4"
+        className={`app-light-scroll mt-4 flex flex-col gap-3 overflow-y-auto rounded-lg border border-bark/[0.08] bg-ivory/70 ${compact ? "min-h-56 flex-1 p-3" : "h-80 p-4"}`}
       >
         {empty && !busy ? (
-          <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-            <MessageCircle size={20} className="text-muted" aria-hidden="true" />
-            <p className="max-w-sm text-[13px] leading-5 text-charcoal-soft">
-              Ask about your goal, your funnel or what to do next. Answers come from your workspace records.
-            </p>
-            <div className="flex flex-wrap justify-center gap-2" aria-label="Suggested first questions">
+          <div className={`flex h-full flex-col gap-4 ${compact ? "justify-end" : "items-center justify-center text-center"}`}>
+            {!compact && <MessageCircle size={20} className="text-muted" aria-hidden="true" />}
+            {!compact && (
+              <p className="max-w-sm text-[13px] leading-5 text-charcoal-soft">
+                Ask about your goal, your funnel or what to do next. Answers come from your workspace records.
+              </p>
+            )}
+            <div className={compact ? "flex flex-col gap-1.5" : "flex flex-wrap justify-center gap-2"} aria-label="Suggested first questions">
               {SUGGESTIONS.map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => send(s)}
-                  className="h-8 rounded-lg border border-bark/15 bg-white px-3 text-[13px] text-charcoal transition-colors hover:border-bark/30"
+                  className={`rounded-lg border border-bark/15 bg-white px-3 text-[13px] text-charcoal transition-colors hover:border-bark/30 ${compact ? "py-2 text-left leading-5" : "h-8"}`}
                 >
                   {s}
                 </button>
@@ -191,7 +194,7 @@ export default function CommandChat({ initialMessages }: { initialMessages: Chat
           className="resize-none"
         />
         <div className="mt-2 flex items-center justify-between gap-3">
-          <p className="text-xs text-muted">
+          <p className={`text-xs text-muted ${compact ? "invisible" : ""}`}>
             <kbd className="font-mono">Enter</kbd> sends · <kbd className="font-mono">Shift Enter</kbd> new line ·{" "}
             <span className="num font-mono">
               {input.length.toLocaleString()}/{MAX_LEN.toLocaleString()}

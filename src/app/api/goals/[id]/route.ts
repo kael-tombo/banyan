@@ -12,6 +12,8 @@ const patchSchema = z.object({
   constraints: z.string().trim().max(500).optional(),
   deadline: z.string().datetime({ offset: true }).nullable().optional(),
   metricTarget: z.number().nullable().optional(),
+  // R4: credits this goal's drafts may hold or spend; null removes the budget.
+  creditBudget: z.number().int().min(0).max(100_000).nullable().optional(),
 });
 
 async function loadGoal(id: string, workspaceId: string) {
@@ -43,6 +45,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const parsed = await readJson(req, patchSchema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
   const data = parsed.data;
+  // A budget limits spending, so setting it takes the same role as starting or pausing work.
+  if (data.creditBudget !== undefined) {
+    const cannot = requireRole(ctx.membership.role, "control");
+    if (cannot) return apiError(cannot, 403);
+  }
 
   const update: Record<string, unknown> = {};
   if (data.status) {
@@ -62,12 +69,27 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (data.constraints !== undefined) update.constraints = data.constraints;
   if (data.deadline !== undefined) update.deadline = data.deadline ? new Date(data.deadline) : null;
   if (data.metricTarget !== undefined) update.metricTarget = data.metricTarget;
+  if (data.creditBudget !== undefined) update.creditBudget = data.creditBudget;
 
   const updated = await prisma.goal.update({ where: { id }, data: update });
+  // Raising or removing the budget lets the drafts it blocked try again; they hold a credit afresh,
+  // so a budget that is still too small blocks them again with nothing started.
+  if (data.creditBudget !== undefined && (data.creditBudget == null || goal.creditBudget == null || data.creditBudget > goal.creditBudget)) {
+    await prisma.agentTask.updateMany({
+      where: { goalId: id, type: "content_draft", status: "blocked", lastError: { contains: "credit budget" } },
+      data: { status: "ready", lastError: null, leasedUntil: null },
+    });
+  }
   await recordActivity({
     workspaceId: ctx.workspace.id,
     type: "goal",
-    summary: data.status ? `Goal "${goal.objective}" moved to ${data.status.replace(/_/g, " ")}.` : `Goal "${goal.objective}" updated.`,
+    summary: data.status
+      ? `Goal "${goal.objective}" moved to ${data.status.replace(/_/g, " ")}.`
+      : data.creditBudget !== undefined
+        ? data.creditBudget == null
+          ? `Goal "${goal.objective}": draft credit budget removed.`
+          : `Goal "${goal.objective}": drafts may use up to ${data.creditBudget} credit${data.creditBudget === 1 ? "" : "s"}.`
+        : `Goal "${goal.objective}" updated.`,
     meta: { goalId: id },
   });
   return json({ goal: updated });

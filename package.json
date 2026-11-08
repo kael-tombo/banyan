@@ -8,36 +8,54 @@
     "build": "prisma generate && tsx scripts/migrate-if-configured.ts && next build",
     "start": "next start",
     "worker": "tsx worker/index.ts",
+    "brain:opencode": "node scripts/opencode-brain.mjs",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "setup": "npm run db:deploy && npm run db:seed"
+    "setup": "npm run db:deploy && npm run db:seed",
+    "build:worker": "esbuild worker/index.ts --bundle --platform=node --target=node24 --format=cjs --packages=external --tsconfig=tsconfig.json --outfile=dist/worker.js",
+    "worker:prod": "node dist/worker.js",
+    "smoke:socialflow": "tsx --env-file-if-exists=.env scripts/smoke-socialflow.ts",
+    "eval:onboarding": "tsx --env-file-if-exists=.env scripts/eval-onboarding.ts",
+    "eval:drafts": "tsx --env-file-if-exists=.env scripts/eval-drafts.ts",
+    "report:activation": "tsx --env-file-if-exists=.env scripts/report-activation.ts",
+    "credits:grant": "tsx --env-file-if-exists=.env scripts/credits-grant.ts",
+    "db:backup": "sh scripts/backup.sh",
+    "db:restore": "sh scripts/restore.sh"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
+    "@opencode/sdk": "2.2.6",
     "@prisma/client": "^6.10.0",
     "bcryptjs": "^3.0.2",
+    "bullmq": "^5.81.5",
     "dotenv": "^16.5.0",
+    "effect": "4.1.0",
+    "ioredis": "^5.11.1",
     "lucide-react": "^0.525.0",
     "next": "^15.5.0",
+    "nodemailer": "^10.3.1",
     "prisma": "^6.10.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "zod": "^3.25.76"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.11",
     "@types/node": "^24.0.0",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
+    "esbuild": "^0.28.2",
     "tailwindcss": "^4.1.11",
     "tsx": "^4.19.2",
     "typescript": "^5.8.3",
+    "vite": "^8.3.5",
     "vitest": "^5.0.5"
   },
   "allowScripts": {

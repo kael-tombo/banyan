@@ -115,10 +115,10 @@ export function DistributionLandscape({
   variant = "hero",
   className = "",
 }: {
-  variant?: "hero" | "closing";
+  variant?: "hero" | "closing" | "panel";
   className?: string;
 }) {
-  const columns = variant === "hero" ? HERO_COLUMNS : CLOSING_COLUMNS;
+  const columns = variant === "closing" ? CLOSING_COLUMNS : HERO_COLUMNS;
   return (
     <div className={`dl pointer-events-none absolute inset-0 overflow-hidden ${className}`} data-variant={variant} aria-hidden="true">
       <InformationNetwork />
@@ -129,8 +129,16 @@ export function DistributionLandscape({
         ))}
       </div>
 
-      <PlatformRail platforms={RAIL_LEFT} side="left" />
-      <PlatformRail platforms={RAIL_RIGHT} side="right" />
+      {variant !== "panel" && (
+
+        <>
+
+          <PlatformRail platforms={RAIL_LEFT} side="left" />
+          <PlatformRail platforms={RAIL_RIGHT} side="right" />
+
+        </>
+
+      )}
 
       {/* Soft white edges: the landscape continues past what you can see. */}
       <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-white to-white/0" />

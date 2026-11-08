@@ -1,3 +1,7 @@
+import { readGenerationMeta } from "@/lib/content/generation-meta";
+import { bannedTerms, checkDraft, parseFlags } from "@/lib/content/checks";
+import { loadClaimEvidence } from "@/lib/content/claim-evidence";
+import { cycleName, isChannel, postLabel } from "@/lib/formats";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
@@ -25,18 +29,32 @@ export default async function ContentEditorPage({ params }: { params: Promise<{ 
     prisma.productProfile.findUnique({ where: { workspaceId: ctx.workspace.id } }),
   ]);
 
-  const gen = JSON.parse(item.generationMeta || "{}") as { provider?: string; model?: string; isFallback?: boolean; label?: string; action?: string; generatedAt?: string };
+  const gen = readGenerationMeta(item.generationMeta);
   // Tracked link for this content if it exists
   const link = await prisma.trackedLink.findFirst({ where: { workspaceId: ctx.workspace.id, contentItemId: item.id } });
   const timezone = profile?.timezone ?? "UTC";
+  // US-044: checked against the current text, so an edit clears its own flag.
+  let avoid = "";
+  try {
+    avoid = (JSON.parse(profile?.brandVoice || "{}") as { avoid?: string }).avoid ?? "";
+  } catch {
+    avoid = "";
+  }
+  const evidenceFor = await loadClaimEvidence(ctx.workspace.id);
+  const flags = isChannel(item.channel)
+    ? checkDraft({ channel: item.channel, format: item.format, body: item.body, banned: bannedTerms(avoid), evidence: evidenceFor(item.campaignId, item.sourceRef) })
+    : [];
 
   // ————— Studio computations (pure, from recorded data) —————
   const videoExtras = JSON.parse(item.videoExtras || "{}");
   const timeline = buildVideoTimeline(videoExtras);
-  const claims = claimLint(item.body);
+  // One claim list for the checklist and the editor: the phrase lint plus every claim the evidence does not back (US-054),
+  // so the checklist can never say "nothing detected" while approval is held over a claim.
+  const unsupported = flags.flatMap((f) => (f.code === "unsupported_claim" ? [{ phrase: f.phrase, why: "unsupported " + f.kind.replace(/_/g, " ") }] : []));
+  const claims = [...claimLint(item.body), ...unsupported].filter((c, i, all) => all.findIndex((o) => o.phrase.toLowerCase() === c.phrase.toLowerCase()) === i);
   const review = reviewChecklist({
     status: item.status,
-    genMeta: gen.provider ? gen : null,
+    genMeta: gen.provider ? { provider: gen.provider, model: gen.model ?? undefined, isFallback: gen.isFallback } : null,
     sourceRef: item.sourceRef,
     campaignEvidence: item.campaign?.evidence || null,
     claims,
@@ -46,16 +64,19 @@ export default async function ContentEditorPage({ params }: { params: Promise<{ 
   return (
     <>
       <PageHeader
-        title={item.title}
-        description={`${item.channel === "shortvideo" ? "Short-form video" : item.channel === "x" ? "X" : "LinkedIn"} · ${item.format}${item.campaign ? ` · campaign: ${item.campaign.name}` : ""}`}
+        eyebrow={item.status === "ready_for_review" ? "Review this post" : "Post"}
+        title={postLabel(item).name}
+        description={item.campaign?.goalId ? `For the cycle “${cycleName(item.campaign.name)}”. Read it as your audience would, edit anything, then decide on the right.` : `${item.campaign ? `Campaign: ${cycleName(item.campaign.name)}. ` : ""}Edit anything, then decide on the right.`}
         actions={isChannelStatus(item.status) ? <StatusBadge status={item.status} /> : null}
       />
       {/* Generation metadata honesty line */}
       <div className="mb-5 flex flex-wrap items-center gap-2 text-xs text-charcoal-soft">
         <Badge variant={gen.isFallback ? "clay" : gen.provider ? "forest" : "warm"}>
           {gen.isFallback
-            ? "Dev fallback template — not a live model response"
-            : gen.label || gen.provider || "Not generated yet"}
+            ? "Template draft — not written by a model"
+            : gen.model
+              ? `Written by ${gen.model}`
+              : gen.label || gen.provider || "Not generated yet"}
         </Badge>
         {gen.generatedAt && <span>generated {new Date(gen.generatedAt).toLocaleString()}</span>}
         {!gen.provider && <span>Never generated yet — draft as written or generate below.</span>}
@@ -76,6 +97,9 @@ export default async function ContentEditorPage({ params }: { params: Promise<{ 
           rejectionReason: item.rejectionReason,
           sourceRef: item.sourceRef,
           videoExtras,
+          angle: item.angle,
+          // Live checks on the current text, plus what the critic agent recorded on the draft it reviewed.
+          flags: [...flags.map((f) => f.message), ...parseFlags(item.checks).filter((f) => f.code === "critic").map((f) => f.message)],
         }}
         revisions={revisions.map((r) => ({ id: r.id, title: r.title, body: r.body.slice(0, 200), note: r.note, authorType: r.authorType, createdAt: r.createdAt.toISOString() }))}
         publications={publications.map((p) => ({

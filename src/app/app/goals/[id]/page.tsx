@@ -10,7 +10,13 @@ import {
 import { AlertTriangle, FileCheck2, FlaskConical, Lightbulb, ShieldCheck } from "lucide-react";
 import GoalLive from "./goal-live";
 import GateActions from "./gate-actions";
+import AnswerQuestion from "./answer-question";
+import { openQuestion } from "@/lib/agents/questions";
 import ProvenanceBadge from "./provenance-badge";
+import CreditBudget from "./credit-budget";
+import { creditsUsedBy } from "@/lib/credits/service";
+import { goalDraftPrefix } from "@/lib/credits/draft-charge";
+import { canControlWorkflow } from "@/lib/permissions";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +38,7 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
     include: { task: { select: { title: true, type: true } } },
   });
   const campaigns = await prisma.campaign.findMany({ where: { goalId: id }, select: { id: true, name: true, status: true } });
+  const creditsUsed = await creditsUsedBy(ctx.workspace.id, goalDraftPrefix(goal.id));
 
   // The loop's kept learning + its live stage counts — all from recorded rows.
   const [gatePasses, goalExperiments] = await Promise.all([
@@ -242,13 +249,30 @@ export default async function GoalDetailPage({ params }: { params: Promise<{ id:
                     <span className="truncate">{t.title}</span>
                     <StatusBadge status={t.status} />
                   </div>
-                  {t.lastError && <p className="mt-0.5 text-xs text-clay">{t.lastError}</p>}
+                  {(() => {
+                    const open = t.status === "blocked" ? openQuestion(t.output) : null;
+                    if (!open) return t.lastError && <p className="mt-0.5 text-xs text-clay">{t.lastError}</p>;
+                    return (
+                      <div className="mt-1.5">
+                        <p className="text-xs text-charcoal-soft">The agent needs one answer from you before it continues:</p>
+                        <p className="mt-0.5 text-sm text-charcoal">{open.question}</p>
+                        <AnswerQuestion taskId={t.id} />
+                      </div>
+                    );
+                  })()}
                 </li>
               ))}
             </ul>
           )}
         </Card>
       </div>
+
+      <Card className="mt-6" id="credit-budget">
+        <h2 className="font-medium text-charcoal">Credit budget for drafts</h2>
+        <div className="mt-2">
+          <CreditBudget goalId={goal.id} budget={goal.creditBudget} used={creditsUsed} canEdit={canControlWorkflow(ctx.membership.role)} />
+        </div>
+      </Card>
 
       {/* Execution plan: task graph */}
       <Card className="mt-6" id="tasks">

@@ -180,6 +180,7 @@ const EVIDENCE_LABELS: Record<string, string> = {
   factId: "View fact",
   publicationId: "View publication",
   recommendationId: "View opportunity",
+  strategyId: "View strategy",
 };
 
 const EVIDENCE_HREFS: Record<string, (id: string) => string> = {
@@ -193,6 +194,7 @@ const EVIDENCE_HREFS: Record<string, (id: string) => string> = {
   factId: () => `/app/context`,
   publicationId: () => `/app/publishing`,
   recommendationId: () => `/app/opportunities`,
+  strategyId: () => `/app/strategy`,
 };
 
 /**
@@ -222,6 +224,7 @@ export function resolveActivityEvidence(metaJson: string): ActivityEvidenceLink 
     "planId",
     "factId",
     "recommendationId",
+    "strategyId",
   ];
   for (const key of order) {
     const value = meta[key];
@@ -265,14 +268,14 @@ export const CONNECTION_CATALOG: CatalogEntry[] = [
   {
     key: "publishing",
     name: "Publishing",
-    provider: "Postiz",
+    provider: "SocialFlow.ai",
     category: "Distribution",
-    status: "available",
+    status: "not_available",
     whatYouGet: "Publish approved content to connected social channels; read back post status and confirmations.",
     useCases: "Ship approved posts without leaving the approval gate; keep a provider-confirmed publication record.",
-    howToday: "Connect a Postiz API key on the Publishing page. Manual recording with a live URL is always available.",
+    howToday: "SocialFlow.ai has no API Banyan can verify yet. Today: export approved posts, publish them yourself, and record the live URL.",
     href: "/app/publishing",
-    cta: "Connect Postiz",
+    cta: "See export mode",
   },
   {
     key: "analytics",

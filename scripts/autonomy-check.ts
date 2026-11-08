@@ -1,0 +1,165 @@
+/**
+ * Supervised autonomy against a real database: a throwaway workspace with a
+ * supervised policy, four drafts, one supervision pass, then every decision
+ * checked. Deletes everything it created.
+ *
+ *   npx tsx --env-file=.env scripts/autonomy-check.ts
+ */
+import { prisma } from "@/lib/db";
+import { setPolicy, superviseDrafts, autonomyEvents } from "@/lib/autonomy/service";
+import { pendingSpotChecks, recordSpotCheck } from "@/lib/autonomy/spot-checks";
+import { runContinuousCycles, CONTINUOUS_ACTIVITY } from "@/lib/autonomy/continuous-service";
+
+async function main() {
+  let failures = 0;
+  const check = (ok: boolean, label: string, detail = "") => {
+    console.log(`${ok ? "PASS" : "FAIL"}: ${label}${detail ? ` — ${detail}` : ""}`);
+    if (!ok) failures++;
+  };
+  const stamp = Date.now();
+  const user = await prisma.user.create({ data: { email: `autonomy-${stamp}@check.local`, name: "Autonomy Check" } });
+  const ws = await prisma.workspace.create({ data: { organization: { create: { name: "autonomy-check", slug: `autonomy-check-${Date.now()}` } }, name: "autonomy-check", slug: `ac-${stamp}`, timeZone: "Europe/Paris" } });
+  try {
+    await prisma.membership.create({ data: { userId: user.id, workspaceId: ws.id, role: "owner" } });
+    const campaign = await prisma.campaign.create({
+      data: { workspaceId: ws.id, name: "Check", objective: "signups", targetAudience: "founders", keyMessage: "k", cta: "Try it", successMetric: "signups" },
+    });
+    // LinkedIn has published through a provider before, so the first-post rule does not apply to it.
+    const earlier = await prisma.contentItem.create({ data: { workspaceId: ws.id, channel: "linkedin", format: "post", title: "Earlier", body: "earlier", status: "published" } });
+    await prisma.publication.create({ data: { contentItemId: earlier.id, provider: "socialflow", status: "published", publishedAt: new Date(), idempotencyKey: `ac-${stamp}-earlier` } });
+
+    const draft = (channel: string, title: string, isFallback = false) =>
+      prisma.contentItem.create({
+        data: {
+          workspaceId: ws.id, campaignId: campaign.id, channel, format: "post", title, body: `${title} body`, status: "ready_for_review",
+          checks: "[]", generationMeta: JSON.stringify({ provider: isFallback ? "template-fallback" : "model", isFallback }),
+        },
+      });
+    const clean = await draft("linkedin", "Clean LinkedIn post");
+    const fallback = await draft("linkedin", "Template LinkedIn post", true);
+    const video = await draft("shortvideo", "Video script");
+    const x = await draft("x", "X post");
+
+    // Off by default: nothing happens.
+    const off = await superviseDrafts(ws.id, campaign.id);
+    check(off.approved === 0 && off.escalated === 0, "approve-each policy does nothing");
+
+    const policy = await setPolicy(ws.id, user, { level: "supervised", channels: ["linkedin"], maxPerDay: 2, quietHours: null, blackoutDates: [], autoPublish: true, escalateTopics: [] });
+    check(policy.version === 1 && policy.setById === user.id, "policy v1 recorded with the founder who set it");
+
+    // Paused agents do nothing even when supervised.
+    await prisma.workspace.update({ where: { id: ws.id }, data: { agentsPausedAt: new Date() } });
+    const paused = await superviseDrafts(ws.id, campaign.id);
+    check(paused.approved === 0 && paused.escalated === 0, "paused agents do nothing");
+    await prisma.workspace.update({ where: { id: ws.id }, data: { agentsPausedAt: null } });
+
+    const r = await superviseDrafts(ws.id, campaign.id);
+    check(r.approved === 1 && r.escalated === 3, "one approved, three escalated", JSON.stringify(r));
+
+    const after = Object.fromEntries((await prisma.contentItem.findMany({ where: { id: { in: [clean.id, fallback.id, video.id, x.id] } } })).map((i) => [i.id, i]));
+    check(after[clean.id].status === "approved" && after[clean.id].approvedById === user.id, "the clean draft is approved, attributed to the founder");
+    for (const [id, name] of [[fallback.id, "template draft"], [video.id, "video"], [x.id, "X (not an autopilot channel)"]] as const) {
+      check(after[id].status === "ready_for_review" && !after[id].approvedById, `the ${name} still waits for review`);
+    }
+
+    const events = await autonomyEvents(ws.id, new Date(stamp - 60_000));
+    const byItem = (id: string) => events.filter((e) => e.contentItemId === id).map((e) => e.decision);
+    check(byItem(clean.id).includes("auto_approved"), "approval is logged");
+    check(byItem(clean.id).includes("not_scheduled"), "no verified connection: logged as approved but not scheduled");
+    const reason = (id: string) => events.find((e) => e.contentItemId === id && e.decision === "escalated")?.reasons.join(" ") ?? "";
+    check(/template fallback/.test(reason(fallback.id)), "the template draft says why", reason(fallback.id));
+    check(/always published by you/.test(reason(video.id)), "the video says why", reason(video.id));
+    check(/not one of your autopilot channels/.test(reason(x.id)) && /first post on X/.test(reason(x.id)), "the X post gives both reasons", reason(x.id));
+
+    const again = await superviseDrafts(ws.id, campaign.id);
+    check(again.approved === 0, "a second pass does not approve anything twice");
+
+    // Escalation triggers beyond the draft checks: a topic the founder listed, then a failed publish.
+    await setPolicy(ws.id, user, { level: "supervised", channels: ["linkedin"], maxPerDay: 2, quietHours: null, blackoutDates: [], autoPublish: false, escalateTopics: ["pricing"] });
+    const priced = await draft("linkedin", "New Pricing for teams");
+    const plain = await draft("linkedin", "Offline mode shipped");
+    const t = await superviseDrafts(ws.id, campaign.id);
+    const status = async (id: string) => (await prisma.contentItem.findUniqueOrThrow({ where: { id } })).status;
+    check((await status(priced.id)) === "ready_for_review" && (await status(plain.id)) === "approved", "a draft on a listed topic waits; a routine one is approved", JSON.stringify(t));
+    const topicReason = (await autonomyEvents(ws.id, new Date(stamp - 60_000))).find((e) => e.contentItemId === priced.id && e.decision === "escalated")?.reasons.join(" ") ?? "";
+    check(/“pricing”/.test(topicReason), "the topic draft names the topic", topicReason);
+
+    const broken = await prisma.contentItem.create({ data: { workspaceId: ws.id, channel: "linkedin", format: "post", title: "Broken", body: "b", status: "failed" } });
+    await prisma.publication.create({ data: { contentItemId: broken.id, provider: "socialflow", status: "failed", idempotencyKey: `ac-${stamp}-broken` } });
+    const afterFailure = await draft("linkedin", "Another routine post");
+    await superviseDrafts(ws.id, campaign.id);
+    check((await status(afterFailure.id)) === "ready_for_review", "after a failed publish on the channel, drafts wait for the founder");
+
+    // Spot checks: the first LinkedIn approval was picked, the second (one in three) was not.
+    const pending = await pendingSpotChecks(ws.id);
+    check(pending.some((p) => p.contentItemId === clean.id) && !pending.some((p) => p.contentItemId === plain.id), "the first policy approval waits for a spot check; the next one does not", pending.map((p) => p.title).join(", "));
+    const notPicked = await recordSpotCheck(ws.id, user, plain.id, "as_written");
+    check(!notPicked.ok && notPicked.status === 404, "a verdict on a draft that was not picked is refused");
+    const stop = await recordSpotCheck(ws.id, user, clean.id, "stop");
+    const stoppedItem = await prisma.contentItem.findUniqueOrThrow({ where: { id: clean.id } });
+    check(stop.ok && stop.stopped && stoppedItem.status === "draft" && !stoppedItem.approvedById, "'shouldn't go out' stops it and withdraws the approval", stop.ok ? stop.message : stop.message);
+    check(!(await pendingSpotChecks(ws.id)).some((p) => p.contentItemId === clean.id), "a judged draft leaves the spot-check list");
+    const again2 = await recordSpotCheck(ws.id, user, clean.id, "as_written");
+    check(!again2.ok, "a draft is judged once");
+  } finally {
+    await prisma.organization.delete({ where: { id: ws.organizationId } }); // cascades to the product
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+  await continuousScenario(check);
+  console.log(failures === 0 ? "\nAll checks passed." : `\n${failures} check(s) failed.`);
+  process.exitCode = failures ? 1 : 0;
+}
+
+main().finally(() => prisma.$disconnect());
+
+/**
+ * R5: continuous cycles on a real database. A cycle ends with a high-confidence recommendation; the sweep
+ * starts exactly one next cycle with the policy's budget; a second sweep starts nothing; with the streak at
+ * the policy's limit the sweep stops and tells the founder once.
+ */
+async function continuousScenario(check: (ok: boolean, label: string, detail?: string) => void) {
+  const stamp = Date.now();
+  const user = await prisma.user.create({ data: { email: `continuous-${stamp}@check.local`, name: "Continuous Check" } });
+  const ws = await prisma.workspace.create({ data: { organization: { create: { name: "continuous-check", slug: `continuous-check-${stamp}` } }, name: "continuous-check", slug: `cc-${stamp}` } });
+  try {
+    await prisma.membership.create({ data: { userId: user.id, workspaceId: ws.id, role: "owner" } });
+    const day = 86_400_000;
+    const ended = await prisma.goal.create({
+      data: { workspaceId: ws.id, objective: "Get 20 signups", successMetric: "signups", status: "active", createdAt: new Date(Date.now() - 15 * day), deadline: new Date(Date.now() - day) },
+    });
+    const rec = await prisma.recommendation.create({ data: { workspaceId: ws.id, goalId: ended.id, title: "Post on Tuesdays", rationale: "Tuesday posts drew twice the clicks.", confidence: "high", status: "open" } });
+
+    // Supervised without continuous: the sweep leaves the cycle alone.
+    await setPolicy(ws.id, user, { level: "supervised", channels: ["linkedin"], maxPerDay: 1, quietHours: null, blackoutDates: [], autoPublish: false });
+    await runContinuousCycles();
+    check((await prisma.goal.count({ where: { workspaceId: ws.id } })) === 1, "without a continuous mandate, no cycle starts on its own");
+
+    await setPolicy(ws.id, user, { level: "supervised", channels: ["linkedin"], maxPerDay: 1, quietHours: null, blackoutDates: [], autoPublish: false, continuous: { cycleBudget: 8, maxUnattended: 1 } });
+    await Promise.all([runContinuousCycles(), runContinuousCycles()]); // two sweeps at once
+    const next = await prisma.goal.findMany({ where: { workspaceId: ws.id, source: "continuous" } });
+    check(next.length === 1, "two concurrent sweeps start exactly one next cycle", `${next.length} started`);
+    check(next[0]?.creditBudget === 8 && /Post on Tuesdays/.test(next[0]?.constraints ?? ""), "the next cycle carries the policy's budget and the one change");
+    check((await prisma.recommendation.findUniqueOrThrow({ where: { id: rec.id } })).status === "acted_upon", "the recommendation is marked acted upon");
+    await runContinuousCycles();
+    check((await prisma.goal.count({ where: { workspaceId: ws.id } })) === 2, "a later sweep starts nothing while the new cycle runs");
+
+    // End the unattended cycle with a new recommendation: the streak (1) is at the policy's limit (1).
+    await prisma.goal.update({ where: { id: next[0]!.id }, data: { status: "active", deadline: new Date(Date.now() - 1000) } });
+    await prisma.recommendation.create({ data: { workspaceId: ws.id, goalId: next[0]!.id, title: "Shorter posts", rationale: "Short posts did better.", confidence: "high", status: "open" } });
+    await runContinuousCycles();
+    await runContinuousCycles();
+    const events = await prisma.activityEvent.findMany({ where: { workspaceId: ws.id, type: CONTINUOUS_ACTIVITY } });
+    const told = events.filter((e) => JSON.parse(e.meta).kind === "stopped");
+    check((await prisma.goal.count({ where: { workspaceId: ws.id } })) === 2, "at the unattended limit, no further cycle starts");
+    check(told.length === 1 && /in a row/.test(told[0]!.summary), "the founder is told once why it stopped", told.map((t) => t.summary).join(" | "));
+
+    // Pausing agents stops everything.
+    await prisma.workspace.update({ where: { id: ws.id }, data: { agentsPausedAt: new Date() } });
+    await setPolicy(ws.id, user, { level: "supervised", channels: ["linkedin"], maxPerDay: 1, quietHours: null, blackoutDates: [], autoPublish: false, continuous: { cycleBudget: 8, maxUnattended: 5 } });
+    await runContinuousCycles();
+    check((await prisma.goal.count({ where: { workspaceId: ws.id } })) === 2, "paused agents start no cycle, even with room in the streak");
+  } finally {
+    await prisma.organization.delete({ where: { id: ws.organizationId } });
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+}

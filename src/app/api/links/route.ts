@@ -1,3 +1,4 @@
+import { requireRole } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, json, requireWorkspace, guardRate, readJson } from "@/lib/api-utils";
 import { createTrackedLink } from "@/lib/analytics/links";
@@ -26,10 +27,12 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const csrf = assertSameOrigin(req);
   if (csrf) return csrf;
-  const limited = guardRate(req, "links", 30, 60_000);
+  const limited = await guardRate(req, "links", 30, 60_000);
   if (limited) return limited;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
+  const forbidden = requireRole(ctx.membership.role, "write");
+  if (forbidden) return apiError(forbidden, 403);
   const parsed = await readJson(req, createSchema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
 

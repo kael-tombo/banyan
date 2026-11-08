@@ -42,7 +42,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const csrf = assertSameOrigin(req);
   if (csrf) return csrf;
-  const limited = guardRate(req, "chat-send", 15, 60_000);
+  const limited = await guardRate(req, "chat-send", 15, 60_000);
   if (limited) return limited;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
 export async function DELETE(req: NextRequest) {
   const csrf = assertSameOrigin(req);
   if (csrf) return csrf;
-  const limited = guardRate(req, "chat-clear", 3, 60_000);
+  const limited = await guardRate(req, "chat-clear", 3, 60_000);
   if (limited) return limited;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);

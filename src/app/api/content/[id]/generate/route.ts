@@ -1,3 +1,7 @@
+import { generationMetaJson } from "@/lib/content/generation-meta";
+import { requireRole } from "@/lib/permissions";
+import { assertCampaignAllowsGeneration, LifecycleError } from "@/lib/campaign/lifecycle-service";
+import { routedProvider } from "@/lib/model/router";
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, guardRate, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { generateContent } from "@/lib/ai/generate";
@@ -22,14 +26,22 @@ async function load(id: string, workspaceId: string) {
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const csrf = assertSameOrigin(req);
   if (csrf) return csrf;
-  const limited = guardRate(req, "ai-generate", 20, 60_000);
+  const limited = await guardRate(req, "ai-generate", 20, 60_000);
   if (limited) return limited;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
+  const forbidden = requireRole(ctx.membership.role, "write");
+  if (forbidden) return apiError(forbidden, 403);
 
   const { id } = await params;
   const item = await load(id, ctx.workspace.id);
   if (!item) return apiError("Content not found.", 404);
+  try {
+    await assertCampaignAllowsGeneration(ctx.workspace.id, item.campaignId);
+  } catch (err) {
+    if (err instanceof LifecycleError) return apiError(err.message, err.status);
+    throw err;
+  }
 
   // Preserve user edits: generation applies only from draft/rejected states.
   if (!canTransitionContent(item.status, "ready_for_review") || ["published", "archived", "scheduled", "approved", "ready_for_review"].includes(item.status)) {
@@ -76,6 +88,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const result = await generateContent({
       channel,
       format,
+      provider: routedProvider({ workspaceId: ctx.workspace.id, purpose: "content_draft" }),
       learning: priorLearningLines(experiments, 4),
       campaign: item.campaign
         ? {
@@ -110,13 +123,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         format,
         body: result.body,
         videoExtras: result.videoExtras ? JSON.stringify(result.videoExtras) : item.videoExtras,
-        generationMeta: JSON.stringify({
-          provider: result.provider,
-          model: result.label,
-          isFallback: result.isFallback,
-          action: parsed.data.action,
-          generatedAt: new Date().toISOString(),
-        }),
+        generationMeta: generationMetaJson(result, { action: parsed.data.action }),
       },
     });
 

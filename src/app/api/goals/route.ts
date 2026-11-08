@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, guardRate, json, requireWorkspace, readJson } from "@/lib/api-utils";
+import { approvalState } from "@/lib/product/profile-review";
 import { recordActivity } from "@/lib/activity";
 import { requireRole } from "@/lib/permissions";
 import { canTransitionGoal } from "@/lib/state-machines";
@@ -19,6 +20,9 @@ const createSchema = z.object({
   metricTarget: z.number().int().min(0).max(1_000_000).nullable().optional(),
   deadlineDays: z.number().int().min(1).max(365).optional(),
   channels: z.array(z.enum(["x", "linkedin", "shortvideo"])).min(1).max(3).optional(),
+  // The objective exactly as the founder wrote it in the cycle intake; wins over extraction,
+  // which would otherwise fold the angle into the title.
+  objective: z.string().trim().min(5).max(300).optional(),
 });
 
 const GOAL_PARSE_SCHEMA = z.object({
@@ -56,7 +60,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const csrf = assertSameOrigin(req);
   if (csrf) return csrf;
-  const limited = guardRate(req, "goals-create", 10, 60_000);
+  const limited = await guardRate(req, "goals-create", 10, 60_000);
   if (limited) return limited;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
@@ -66,6 +70,11 @@ export async function POST(req: NextRequest) {
   const parsed = await readJson(req, createSchema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
   const raw = parsed.data.rawInput;
+
+  // US-023: strategy work never starts on an unreviewed website analysis.
+  const profile = await prisma.productProfile.findUnique({ where: { workspaceId: ctx.workspace.id }, select: { fieldSources: true, approvedAt: true } });
+  const approval = approvalState(profile);
+  if (approval.needsApproval) return json({ error: approval.reason, code: "profile_not_approved" }, 409);
 
   // 1. Deterministic heuristic parse (always runs; used as fallback and sanity check).
   const heuristic = parseGoalInput(raw);
@@ -134,7 +143,7 @@ export async function POST(req: NextRequest) {
   const goal = await prisma.goal.create({
     data: {
       workspaceId: ctx.workspace.id,
-      objective: extracted.objective.slice(0, 300),
+      objective: (parsed.data.objective || extracted.objective).slice(0, 300),
       description: parsed.data.description ?? "",
       successMetric,
       metricTarget,

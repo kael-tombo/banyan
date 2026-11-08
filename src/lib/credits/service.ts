@@ -1,0 +1,175 @@
+import { Prisma } from "@prisma/client";
+import { prisma } from "@/lib/db";
+import { budgetUsed, deltas, insufficientMessage, STARTER_GRANT, validAmount, type Balance, type CreditKind } from "./ledger";
+
+/**
+ * Credit operations — US-055, US-056, US-062.
+ *
+ * Every operation runs in a transaction that first locks the workspace's
+ * CreditAccount row (SELECT … FOR UPDATE), so a balance check and the
+ * reservation that depends on it cannot interleave with another request:
+ * two 8-credit reservations against 10 credits, exactly one succeeds.
+ * Entries are written once per idempotency key; repeating an operation
+ * returns the original entry instead of charging again.
+ */
+
+export class InsufficientCreditsError extends Error {
+  constructor(public needed: number, public available: number) {
+    super(insufficientMessage(needed, available));
+  }
+}
+
+/** A cycle's credit budget would be exceeded (R4). Nothing was written. */
+export class BudgetExceededError extends Error {
+  constructor(public limit: number, public used: number) {
+    super(`This cycle has used ${used} of its ${limit}-credit budget.`);
+  }
+}
+
+/** A budget is every reservation whose key starts with this prefix. */
+export type CreditBudget = { keyPrefix: string; limit: number };
+
+type Tx = Prisma.TransactionClient;
+
+async function lockAccount(tx: Tx, workspaceId: string): Promise<Balance> {
+  await tx.creditAccount.upsert({ where: { workspaceId }, create: { workspaceId }, update: {} });
+  const rows = await tx.$queryRaw<{ available: number; reserved: number }[]>`
+    SELECT "available", "reserved" FROM "CreditAccount" WHERE "workspaceId" = ${workspaceId} FOR UPDATE`;
+  let balance = { available: Number(rows[0]?.available ?? 0), reserved: Number(rows[0]?.reserved ?? 0) };
+  // The starter grant is written once — and, since a founder can create many products (ADR-005),
+  // only for the first product of each organization; otherwise every new product would mint free
+  // credits. The organization row is locked so two products cannot both claim it. (BOS-061 moves
+  // the whole balance to the organization.)
+  const starter = await tx.creditEntry.findUnique({ where: { workspaceId_idempotencyKey: { workspaceId, idempotencyKey: "starter-grant" } } });
+  if (!starter) {
+    const ws = await tx.workspace.findUnique({ where: { id: workspaceId }, select: { organizationId: true } });
+    if (ws) await tx.$queryRaw`SELECT "id" FROM "Organization" WHERE "id" = ${ws.organizationId} FOR UPDATE`;
+    const orgAlreadyGranted = ws
+      ? await tx.creditEntry.findFirst({ where: { idempotencyKey: "starter-grant", workspace: { organizationId: ws.organizationId } }, select: { id: true } })
+      : null;
+    if (!orgAlreadyGranted) balance = await apply(tx, workspaceId, balance, "grant", STARTER_GRANT, "starter-grant", { note: "Starter credits" });
+  }
+  return balance;
+}
+
+async function apply(
+  tx: Tx,
+  workspaceId: string,
+  balance: Balance,
+  kind: CreditKind,
+  amount: number,
+  idempotencyKey: string,
+  extra: { reservationKey?: string; campaignId?: string | null; note?: string } = {},
+): Promise<Balance> {
+  if (!validAmount(kind, amount)) throw new Error(`Invalid ${kind} amount ${amount}`);
+  await tx.creditEntry.create({
+    data: { workspaceId, kind, amount, idempotencyKey, reservationKey: extra.reservationKey ?? null, campaignId: extra.campaignId ?? null, note: extra.note ?? "" },
+  });
+  const d = deltas(kind, amount);
+  const next = { available: balance.available + d.available, reserved: balance.reserved + d.reserved };
+  await tx.creditAccount.update({ where: { workspaceId }, data: next });
+  return next;
+}
+
+function locked<T>(workspaceId: string, fn: (tx: Tx, balance: Balance) => Promise<T>): Promise<T> {
+  return prisma.$transaction(async (tx) => fn(tx, await lockAccount(tx, workspaceId)), { timeout: 15_000 });
+}
+
+export async function getBalance(workspaceId: string): Promise<Balance> {
+  return locked(workspaceId, async (_tx, balance) => balance);
+}
+
+export async function grantCredits(workspaceId: string, amount: number, key: string, note: string) {
+  return locked(workspaceId, async (tx, balance) => {
+    const existing = await tx.creditEntry.findUnique({ where: { workspaceId_idempotencyKey: { workspaceId, idempotencyKey: key } } });
+    if (existing) return balance;
+    return apply(tx, workspaceId, balance, "grant", amount, key, { note });
+  });
+}
+
+/**
+ * Hold credits before billable work starts. Refused, with nothing written,
+ * when the balance is short. Repeating with the same key returns the
+ * existing reservation.
+ */
+export async function reserveCredits(
+  workspaceId: string,
+  amount: number,
+  key: string,
+  extra: { campaignId?: string | null; note?: string; budget?: CreditBudget } = {},
+) {
+  return locked(workspaceId, async (tx, balance) => {
+    const existing = await tx.creditEntry.findUnique({ where: { workspaceId_idempotencyKey: { workspaceId, idempotencyKey: key } } });
+    if (existing) return { reused: true, balance };
+    if (balance.available < amount) throw new InsufficientCreditsError(amount, balance.available);
+    if (extra.budget) {
+      // Under the same account lock as the balance check, so two holds at once cannot both slip under the budget.
+      const used = budgetUsed(await tx.creditEntry.findMany({ where: { workspaceId, reservationKey: { startsWith: extra.budget.keyPrefix }, kind: { in: ["reserve", "release"] } }, select: { kind: true, amount: true } }));
+      if (used + amount > extra.budget.limit) throw new BudgetExceededError(extra.budget.limit, used);
+    }
+    return { reused: false, balance: await apply(tx, workspaceId, balance, "reserve", amount, key, { campaignId: extra.campaignId, note: extra.note, reservationKey: key }) };
+  });
+}
+
+/**
+ * Close a reservation: spend `actual` of it and return the rest. Safe to
+ * repeat: each part is written once per reservation.
+ */
+export async function finalizeReservation(workspaceId: string, reservationKey: string, actual: number) {
+  return locked(workspaceId, async (tx, balance) => {
+    const entries = await tx.creditEntry.findMany({ where: { workspaceId, reservationKey } });
+    const reserve = entries.find((e) => e.kind === "reserve");
+    if (!reserve) return balance;
+    const closed = entries.filter((e) => e.kind === "settle" || e.kind === "release").reduce((s, e) => s + e.amount, 0);
+    let remaining = reserve.amount - closed;
+    let next = balance;
+    const spend = Math.min(Math.max(0, actual), remaining);
+    if (spend > 0 && !entries.some((e) => e.kind === "settle")) {
+      next = await apply(tx, workspaceId, next, "settle", spend, `${reservationKey}:settle`, { reservationKey, campaignId: reserve.campaignId, note: reserve.note });
+      remaining -= spend;
+    }
+    if (remaining > 0 && !entries.some((e) => e.kind === "release")) {
+      next = await apply(tx, workspaceId, next, "release", remaining, `${reservationKey}:release`, { reservationKey, campaignId: reserve.campaignId, note: "Unused credits returned" });
+    }
+    return next;
+  });
+}
+
+/** A hold older than this, never settled or released, belongs to a run that died (blocker 09). */
+export const STALE_RESERVATION_MS = 60 * 60_000;
+
+/**
+ * Return holds left behind by a run that crashed between reserving and
+ * finalizing (worker killed, deploy mid-run). The whole hold goes back: when
+ * Banyan cannot tell what the run produced, the founder is not charged.
+ * Safe to repeat and to run beside live work (finalize writes each part once).
+ */
+export async function releaseStaleReservations(now = new Date(), olderThanMs = STALE_RESERVATION_MS): Promise<{ released: number }> {
+  // Only holds that are still open: no settle and no release written for them.
+  const open = await prisma.$queryRaw<{ workspaceId: string; reservationKey: string }[]>`
+    SELECT r."workspaceId", r."reservationKey" FROM "CreditEntry" r
+    WHERE r."kind" = 'reserve' AND r."reservationKey" IS NOT NULL
+      AND r."createdAt" < ${new Date(now.getTime() - olderThanMs)}
+      AND NOT EXISTS (
+        SELECT 1 FROM "CreditEntry" c
+        WHERE c."workspaceId" = r."workspaceId" AND c."reservationKey" = r."reservationKey" AND c."kind" IN ('settle', 'release')
+      )
+    ORDER BY r."createdAt" ASC
+    LIMIT 200`;
+  for (const r of open) await finalizeReservation(r.workspaceId, r.reservationKey, 0);
+  return { released: open.length };
+}
+
+/** Give back spent credits (for example after a provider-side failure). */
+export async function refundCredits(workspaceId: string, amount: number, key: string, extra: { campaignId?: string | null; note: string }) {
+  return locked(workspaceId, async (tx, balance) => {
+    const existing = await tx.creditEntry.findUnique({ where: { workspaceId_idempotencyKey: { workspaceId, idempotencyKey: key } } });
+    if (existing) return balance;
+    return apply(tx, workspaceId, balance, "refund", amount, key, extra);
+  });
+}
+
+/** Credits a budget has used so far, for display. */
+export async function creditsUsedBy(workspaceId: string, keyPrefix: string): Promise<number> {
+  return budgetUsed(await prisma.creditEntry.findMany({ where: { workspaceId, reservationKey: { startsWith: keyPrefix }, kind: { in: ["reserve", "release"] } }, select: { kind: true, amount: true } }));
+}

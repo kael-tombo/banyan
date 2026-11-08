@@ -4,8 +4,9 @@ import { useState, FormEvent, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Badge, Button, Card, EmptyState, ErrorNote, Field, Input, Select, StatusBadge, Textarea, Loading } from "@/components/ui";
 import { CHANNEL_META, CHANNEL_FORMATS, isChannel } from "@/lib/formats";
+import { PublicationState } from "@/components/PublicationState";
 import { ADAPTATION_TARGETS, adaptationLimit, type TimelineSegment, type ReviewCheck } from "@/lib/video-script";
-import { CalendarClock, Save, Sparkles, Send, Ban, CheckCircle2, ExternalLink, Clock, Eye, Film, Layers, ShieldCheck } from "lucide-react";
+import { CalendarClock, Save, Sparkles, Send, Ban, CheckCircle2, Clock, Eye, ExternalLink, Film, Layers, ShieldCheck } from "lucide-react";
 
 type VideoExtras = { hook?: string; script?: string; scenes?: { scene: string; visual: string }[]; onScreenText?: string; caption?: string; cta?: string };
 
@@ -13,11 +14,19 @@ type ItemShape = {
   id: string; title: string; body: string; channel: string; format: string; status: string;
   campaignId: string | null; scheduledFor: string | null; approvedAt: string | null; rejectionReason: string | null;
   sourceRef: string | null; videoExtras: VideoExtras;
+  /** US-044: the strategy angle this draft serves, and pre-review flags on the current text. */
+  angle?: string | null; flags?: string[];
 };
 
 type PubShape = {
   id: string; status: string; provider: string; manual: boolean; externalId: string | null; externalUrl: string | null;
   attempts: number; lastError: string | null; scheduledFor: string | null; publishedAt: string | null; createdAt: string;
+};
+
+/** The platform's own composer, for posting by hand. */
+const COMPOSE_URL: Record<string, string | undefined> = {
+  linkedin: "https://www.linkedin.com/feed/?shareActive=true",
+  x: "https://x.com/compose/post",
 };
 
 export function ContentEditor({
@@ -51,9 +60,14 @@ export function ContentEditor({
   const [scheduleAt, setScheduleAt] = useState("");
   const [manualUrl, setManualUrl] = useState("");
   const [handoffNote, setHandoffNote] = useState<string | null>(null);
+  const [trackedLink, setTrackedLink] = useState<string | null>(null);
+  const canAutoPublish = item.channel !== "shortvideo" && connections.some((c) => c.status !== "error");
   const [tone, setTone] = useState("");
   const [adaptTexts, setAdaptTexts] = useState<Record<string, string>>(adaptations);
   const [adaptDirty, setAdaptDirty] = useState(false);
+  // US-054: claims the server refused to approve without the approver vouching for them.
+  const [claimGate, setClaimGate] = useState<{ key: string; phrase: string; why: string }[] | null>(null);
+  const [vouched, setVouched] = useState<string[]>([]);
 
   const isChannelNow = isChannel(channel);
 
@@ -114,7 +128,34 @@ export function ContentEditor({
   }
 
   async function review(action: string, reason?: string) {
+    if (action === "approve") return approve([]);
     await post(`/api/content/${item.id}/review`, reason ? { action, reason } : { action }, action);
+  }
+
+  async function approve(vouchedClaims: string[]) {
+    if (dirty) {
+      setError("You have unsaved edits. Save them first — generation and review never silently overwrite your work.");
+      return;
+    }
+    setBusy("approve"); setError(null); setNotice(null);
+    try {
+      const res = await fetch(`/api/content/${item.id}/review`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "approve", vouchedClaims }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 409 && Array.isArray(data.unsupportedClaims)) {
+        setClaimGate(data.unsupportedClaims);
+        setVouched((v) => v.filter((k) => data.unsupportedClaims.some((c: { key: string }) => c.key === k)));
+        return;
+      }
+      if (!res.ok) throw new Error(data.error || "Action failed.");
+      setClaimGate(null); setVouched([]);
+      router.refresh();
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
   }
 
   async function sched() {
@@ -137,18 +178,30 @@ export function ContentEditor({
     setManualUrl("");
   }
 
-  async function copyHandoff() {
-    setBusy("handoff"); setError(null); setHandoffNote(null);
+  /** Export mode (US-034): copy the ready-to-publish package, or download it. */
+  async function exportPost(as: "copy" | "download") {
+    setBusy("export"); setError(null); setHandoffNote(null);
     try {
-      const res = await fetch(`/api/content/${item.id}/handoff`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not build the handoff.");
-      await navigator.clipboard.writeText(data.text);
-      setHandoffNote(
-        data.approved
-          ? "Handoff copied. Execute it in SocialFlow.ai (or natively), then record the live URL below."
-          : `Handoff copied as a PREVIEW — this item is "${data.itemStatus}", not approved. Approval is required before publishing anywhere.`
-      );
+      const res = await fetch(`/api/content/${item.id}/export${as === "download" ? "?format=md" : ""}`, { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Could not export this post.");
+      }
+      if (as === "download") {
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `banyan-${item.channel}-${item.id}.md`;
+        a.click();
+        URL.revokeObjectURL(url);
+        setHandoffNote("Downloaded. Publish it yourself, then record the live URL below.");
+      } else {
+        const data = await res.json();
+        setTrackedLink(data.package?.trackedLink ?? null);
+        await navigator.clipboard.writeText(data.text);
+        setHandoffNote("Copied. Publish it yourself, then record the live URL below.");
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -187,7 +240,7 @@ export function ContentEditor({
   void canEdit;
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
       {/* Editor column */}
       <div className="flex flex-col gap-4">
         <Card>
@@ -261,9 +314,13 @@ export function ContentEditor({
             <Field label="Body" hint={charHint ?? undefined}>
               <Textarea disabled={locked} value={body} onChange={(e) => { setBody(e.target.value); setDirty(true); }} rows={Math.max(6, Math.min(20, Math.ceil(body.length / 90)))} />
             </Field>
-            <Field label="Source material (optional)" hint="Link the external page or note this draft is based on.">
-              <Input disabled={locked} value={sourceRef} onChange={(e) => { setSourceRef(e.target.value); setDirty(true); }} maxLength={500} placeholder="https://…" />
-            </Field>
+            {sourceRef.startsWith("task:") ? (
+              <p className="text-[12px] text-muted">Written by Banyan from this cycle&apos;s approved plan. The task is linked in the audit trail.</p>
+            ) : (
+              <Field label="Source material (optional)" hint="Link the external page or note this draft is based on.">
+                <Input disabled={locked} value={sourceRef} onChange={(e) => { setSourceRef(e.target.value); setDirty(true); }} maxLength={500} placeholder="https://…" />
+              </Field>
+            )}
 
             <ErrorNote>{error}</ErrorNote>
             {notice && <div role="status" className="rounded-md border border-forest/20 bg-forest/5 px-3 py-2 text-sm text-forest-deep">{notice}</div>}
@@ -358,6 +415,75 @@ export function ContentEditor({
 
       {/* Workflow column */}
       <div className="flex flex-col gap-4">
+        {/* The decision first: it's what the founder came here to do. */}
+        <Card>
+          <h2 className="mb-3 flex items-center gap-2 font-serif text-lg text-forest-deep"><Eye size={16} className="text-forest" aria-hidden="true" /> Your decision</h2>
+          <div className="flex flex-col gap-2 text-sm">
+            <div className="flex items-center gap-2"><span className="text-charcoal-soft">Status:</span><StatusBadge status={item.status} /></div>
+            {item.angle && <p className="text-xs text-charcoal-soft"><span className="font-medium text-charcoal">Strategy angle:</span> {item.angle}</p>}
+            {item.flags && item.flags.length > 0 && (
+              <div role="status" className="rounded-md border border-fig/30 bg-fig/[0.06] px-2.5 py-2 text-xs leading-5 text-charcoal">
+                <p className="font-medium">Check before approving</p>
+                <ul className="mt-1 list-disc pl-4 text-charcoal-soft">
+                  {item.flags.map((f) => <li key={f}>{f}</li>)}
+                </ul>
+              </div>
+            )}
+            {claimGate && claimGate.length > 0 && item.status === "ready_for_review" && (
+              <div role="alert" className="rounded-md border border-clay/30 bg-clay/[0.05] px-2.5 py-2 text-xs leading-5 text-charcoal">
+                <p className="font-medium">Unsupported claims: approval is on hold</p>
+                <p className="mt-0.5 text-charcoal-soft">Nothing in your profile, facts or campaign evidence backs these. Edit them out, add the source (the source reference field counts), or vouch for each one.</p>
+                <ul className="mt-1.5 space-y-1">
+                  {claimGate.map((c) => (
+                    <li key={c.key}>
+                      <label className="flex items-start gap-2">
+                        <input type="checkbox" className="mt-0.5" checked={vouched.includes(c.key)} onChange={(e) => setVouched((v) => (e.target.checked ? [...v, c.key] : v.filter((k) => k !== c.key)))} />
+                        <span><span className="font-medium text-charcoal">“{c.phrase}”</span> <span className="text-charcoal-soft">({c.why}) — I can back this up</span></span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-2 flex gap-2">
+                  <Button size="sm" variant="primary" onClick={() => approve(vouched)} disabled={!!busy || claimGate.some((c) => !vouched.includes(c.key))}>
+                    Approve, vouching for {claimGate.length === 1 ? "this claim" : "these claims"}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => { setClaimGate(null); setVouched([]); }}>Cancel</Button>
+                </div>
+              </div>
+            )}
+            {item.approvedAt && <p className="text-xs text-moss">Approved at {new Date(item.approvedAt).toLocaleString()} — approval recorded server-side with the approver's identity.</p>}
+            {item.rejectionReason && <p className="rounded-md bg-clay/5 px-2 py-1 text-xs text-clay">Rejected: {item.rejectionReason}</p>}
+
+            {!locked && (
+              <div className="flex flex-wrap gap-2">
+                {item.status === "draft" && (
+                  <Button size="sm" onClick={() => review("submit")} disabled={!!busy || !body.trim()}>
+                    <Send size={13} aria-hidden="true" /> Submit for review
+                  </Button>
+                )}
+                {item.status === "ready_for_review" && (
+                  <>
+                    {!claimGate?.length && <Button size="sm" variant="primary" onClick={() => review("approve")} disabled={!!busy}>
+                      <CheckCircle2 size={13} aria-hidden="true" /> Approve
+                    </Button>}
+                    <Button size="sm" variant="danger" onClick={() => {
+                      const reason = prompt("Rejection reason (required):");
+                      if (reason && reason.trim().length >= 3) review("reject", reason);
+                    }} disabled={!!busy}>
+                      <Ban size={13} aria-hidden="true" /> Reject
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => review("back_to_draft")} disabled={!!busy}>Back to draft</Button>
+                  </>
+                )}
+                {item.status === "rejected" && (
+                  <Button size="sm" onClick={() => review("back_to_draft")} disabled={!!busy}>Return to draft</Button>
+                )}
+              </div>
+            )}
+            <p className="text-xs text-charcoal-soft">Approval is enforced by the publishing pipeline: unapproved content cannot reach any external platform, whatever the UI shows.</p>
+          </div>
+        </Card>
+
         {/* Agent-style review checklist — derived state, labeled honestly */}
         <Card>
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -392,46 +518,57 @@ export function ContentEditor({
         </Card>
 
         <Card>
-          <h2 className="mb-3 flex items-center gap-2 font-medium text-charcoal"><Eye size={15} className="text-clay" aria-hidden="true" /> Review &amp; approval</h2>
-          <div className="flex flex-col gap-2 text-sm">
-            <div className="flex items-center gap-2"><span className="text-charcoal-soft">Status:</span><StatusBadge status={item.status} /></div>
-            {item.approvedAt && <p className="text-xs text-moss">Approved at {new Date(item.approvedAt).toLocaleString()} — approval recorded server-side with the approver's identity.</p>}
-            {item.rejectionReason && <p className="rounded-md bg-clay/5 px-2 py-1 text-xs text-clay">Rejected: {item.rejectionReason}</p>}
-
-            {!locked && (
-              <div className="flex flex-wrap gap-2">
-                {item.status === "draft" && (
-                  <Button size="sm" onClick={() => review("submit")} disabled={!!busy || !body.trim()}>
-                    <Send size={13} aria-hidden="true" /> Submit for review
-                  </Button>
-                )}
-                {item.status === "ready_for_review" && (
-                  <>
-                    <Button size="sm" variant="primary" onClick={() => review("approve")} disabled={!!busy}>
-                      <CheckCircle2 size={13} aria-hidden="true" /> Approve
-                    </Button>
-                    <Button size="sm" variant="danger" onClick={() => {
-                      const reason = prompt("Rejection reason (required):");
-                      if (reason && reason.trim().length >= 3) review("reject", reason);
-                    }} disabled={!!busy}>
-                      <Ban size={13} aria-hidden="true" /> Reject
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={() => review("back_to_draft")} disabled={!!busy}>Back to draft</Button>
-                  </>
-                )}
-                {item.status === "rejected" && (
-                  <Button size="sm" onClick={() => review("back_to_draft")} disabled={!!busy}>Return to draft</Button>
-                )}
-              </div>
-            )}
-            <p className="text-xs text-charcoal-soft">Approval is enforced by the publishing pipeline: unapproved content cannot reach any external platform, whatever the UI shows.</p>
-          </div>
-        </Card>
-
-        <Card>
-          <h2 className="mb-3 flex items-center gap-2 font-medium text-charcoal"><Clock size={15} className="text-moss" aria-hidden="true" /> Schedule &amp; publish</h2>
+          <h2 className="mb-3 flex items-center gap-2 font-medium text-charcoal"><Clock size={15} className="text-moss" aria-hidden="true" /> {canAutoPublish ? "Schedule & publish" : "Post it"}</h2>
           <div className="flex flex-col gap-3 text-sm">
-            {item.status === "approved" && (
+            {["draft", "ready_for_review", "rejected"].includes(item.status) && (
+              <p className="text-xs text-charcoal-soft">Publishing unlocks once you approve this post.</p>
+            )}
+
+            {/* No connection for this channel: posting by hand is the path, so it leads, step by step. */}
+            {!canAutoPublish && ["approved", "scheduled"].includes(item.status) && (
+              <ol className="flex flex-col gap-3">
+                <li className="flex gap-2.5">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-forest text-[11px] font-semibold text-ivory">1</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-medium text-charcoal">Copy the post</p>
+                    <p className="text-[12px] leading-5 text-muted">It comes with a tracked link, so Banyan can count the clicks it brings.</p>
+                    <div className="mt-1.5 flex flex-wrap gap-2">
+                      <Button size="sm" onClick={() => exportPost("copy")} disabled={!!busy}>Copy post</Button>
+                      <Button size="sm" variant="ghost" onClick={() => exportPost("download")} disabled={!!busy}>Download .md</Button>
+                    </div>
+                    {handoffNote && <p className="mt-1 text-[12px] text-forest">{handoffNote}</p>}
+                    {trackedLink && <p className="mt-1 break-all font-mono text-[11px] text-charcoal-soft">Tracked link: {trackedLink}</p>}
+                  </div>
+                </li>
+                <li className="flex gap-2.5">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-forest text-[11px] font-semibold text-ivory">2</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-medium text-charcoal">{item.channel === "shortvideo" ? "Record it and post it" : `Publish it on ${item.channel === "x" ? "X" : "LinkedIn"}`}</p>
+                    {COMPOSE_URL[item.channel] ? (
+                      <a href={COMPOSE_URL[item.channel]} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-[13px] font-medium text-forest hover:underline">
+                        Open {item.channel === "x" ? "X" : "LinkedIn"} to post <ExternalLink size={12} aria-hidden="true" />
+                      </a>
+                    ) : (
+                      <p className="text-[12px] leading-5 text-muted">Banyan wrote the script; recording and uploading are yours, on whichever platform you use.</p>
+                    )}
+                  </div>
+                </li>
+                <li className="flex gap-2.5">
+                  <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-forest text-[11px] font-semibold text-ivory">3</span>
+                  <form onSubmit={recordManual} className="min-w-0 flex-1">
+                    <label htmlFor="manual-url" className="text-[13px] font-medium text-charcoal">Paste the live link</label>
+                    <div className="mt-1.5 flex flex-col gap-2">
+                      <Input id="manual-url" placeholder={item.channel === "x" ? "https://x.com/you/status/…" : item.channel === "linkedin" ? "https://www.linkedin.com/posts/…" : "https://…"} value={manualUrl} onChange={(e) => setManualUrl(e.target.value)} inputMode="url" />
+                      <Button size="sm" type="submit" disabled={!!busy || !manualUrl.trim()}>Mark as posted</Button>
+                    </div>
+                    <p className="mt-1 text-[12px] leading-5 text-muted">Recorded as posted by you, never as confirmed by a platform.</p>
+                  </form>
+                </li>
+              </ol>
+            )}
+
+            {/* With a connection: Banyan publishes, the founder picks when. */}
+            {canAutoPublish && item.status === "approved" && (
               <div className="flex flex-col gap-2">
                 <Field label={'Schedule for (UTC — workspace: ${timezone})'.replace("${timezone}", timezone)}>
                   <Input type="datetime-local" value={scheduleAt} onChange={(e) => setScheduleAt(e.target.value)} aria-label="Schedule time" />
@@ -440,39 +577,43 @@ export function ContentEditor({
                 <Button size="sm" variant="primary" onClick={publishNow} disabled={!!busy}>Publish now</Button>
               </div>
             )}
-            {item.status === "scheduled" && (
+            {item.status === "scheduled" && canAutoPublish && (
               <div className="flex flex-col gap-2">
-                <p className="text-xs text-charcoal-soft">Scheduled for {item.scheduledFor ? new Date(item.scheduledFor).toLocaleString() : "?"}. The publishing worker attempts delivery then; until then its state is pending.</p>
+                {publications.some((p) => p.status === "scheduled" && p.externalId) ? (
+                  <p className="text-xs text-charcoal-soft">
+                    SocialFlow.ai has this post but has not confirmed it is live. Banyan checks again {item.scheduledFor ? `at ${new Date(item.scheduledFor).toLocaleString()}` : "shortly"} and marks it published only when SocialFlow.ai confirms. Cancelling also cancels it in SocialFlow.ai.
+                  </p>
+                ) : (
+                  <p className="text-xs text-charcoal-soft">Scheduled for {item.scheduledFor ? new Date(item.scheduledFor).toLocaleString() : "?"}. The publishing worker attempts delivery then; until then its state is pending.</p>
+                )}
                 <Button size="sm" variant="secondary" onClick={cancelSchedule} disabled={!!busy}>Cancel schedule</Button>
               </div>
             )}
             {item.status === "failed" && (
               <div className="flex flex-col gap-2">
-                <p className="text-xs text-clay">The previous attempt failed. Check the publication log.</p>
-                <Button size="sm" onClick={publishNow} disabled={!!busy}>Retry publish now</Button>
+                <p className="text-xs text-clay">The previous attempt failed. Check the publication log below.</p>
+                {canAutoPublish && <Button size="sm" onClick={publishNow} disabled={!!busy}>Retry publish now</Button>}
               </div>
             )}
-            {["draft", "ready_for_review", "rejected"].includes(item.status) && (
-              <p className="text-xs text-charcoal-soft">Publishing controls unlock once the item is approved.</p>
+            {item.status === "published" && <p className="text-xs text-moss">Posted. Its live link and clicks are in the log below.</p>}
+
+            {canAutoPublish && ["approved", "scheduled", "failed"].includes(item.status) && (
+              <details>
+                <summary className="cursor-pointer text-xs font-medium text-charcoal">Or post it yourself and record the link</summary>
+                <div className="mt-2 flex flex-col gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="secondary" onClick={() => exportPost("copy")} disabled={!!busy}>Copy post</Button>
+                    <Button size="sm" variant="ghost" onClick={() => exportPost("download")} disabled={!!busy}>Download .md</Button>
+                  </div>
+                  {trackedLink && <p className="break-all font-mono text-xs text-charcoal-soft">Tracked link: {trackedLink}</p>}
+                  {handoffNote && <p className="text-xs text-charcoal-soft">{handoffNote}</p>}
+                  <form onSubmit={recordManual} className="flex flex-col gap-2">
+                    <Input placeholder="Live link after you post it" value={manualUrl} onChange={(e) => setManualUrl(e.target.value)} aria-label="Live URL" />
+                    <Button size="sm" variant="secondary" type="submit" disabled={!!busy || !manualUrl.trim()}>Mark as posted</Button>
+                  </form>
+                </div>
+              </details>
             )}
-            <details>
-              <summary className="cursor-pointer text-xs font-medium text-charcoal">SocialFlow.ai handoff (manual execution)</summary>
-              <div className="mt-2 flex flex-col gap-2">
-                <p className="text-xs text-charcoal-soft">
-                  SocialFlow.ai has no verifiable API yet (socialflow.ai is a parked domain, checked October 2026) — Banyan does not fake one. This copies a channel-formatted package: execute it in SocialFlow.ai or any native tool, then record the live URL below. That recording is what marks the content published.
-                </p>
-                <Button size="sm" variant="secondary" onClick={copyHandoff} disabled={!!busy}>Copy handoff for SocialFlow.ai</Button>
-                {handoffNote && <p className="text-xs text-charcoal-soft">{handoffNote}</p>}
-              </div>
-            </details>
-            <details>
-              <summary className="cursor-pointer text-xs font-medium text-charcoal">Record a manual publication</summary>
-              <form onSubmit={recordManual} className="mt-2 flex flex-col gap-2">
-                <Input placeholder="live post URL after you publish it yourself" value={manualUrl} onChange={(e) => setManualUrl(e.target.value)} aria-label="Live URL" />
-                <Button size="sm" variant="secondary" type="submit" disabled={!!busy}>Record live URL</Button>
-                <p className="text-xs text-charcoal-soft">Recorded distinctly as manual — a user-confirmed publication, never fabricated by the system.</p>
-              </form>
-            </details>
           </div>
         </Card>
 
@@ -485,16 +626,10 @@ export function ContentEditor({
             <ul className="space-y-2 text-sm">
               {publications.map((p) => (
                 <li key={p.id} className="rounded-md border border-bark/10 bg-ivory p-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <StatusBadge status={p.status} />
-                    <span className="text-xs text-charcoal-soft">{p.provider}{p.manual ? " (manual)" : ""} · {p.attempts} attempt(s)</span>
+                  <div className="flex items-start justify-between gap-2">
+                    <PublicationState publication={p} />
+                    <span className="shrink-0 text-xs text-charcoal-soft">{p.provider}{p.manual ? " (manual)" : ""} · {p.attempts} attempt(s)</span>
                   </div>
-                  {p.externalUrl && (
-                    <a href={p.externalUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-xs text-forest hover:text-forest-deep">
-                      <ExternalLink size={12} aria-hidden="true" /> live post
-                    </a>
-                  )}
-                  {p.lastError && <p className="mt-1 text-xs text-clay">{p.lastError}</p>}
                   {p.createdAt && <p className="mt-1 text-xs text-bark/50">attempted {new Date(p.createdAt).toLocaleString()}</p>}
                 </li>
               ))}
@@ -565,7 +700,7 @@ export function ContentEditor({
               <dd className="text-charcoal-soft">
                 {provenance.campaignEvidence
                   ? `Campaign evidence: ${provenance.campaignEvidence.slice(0, 90)}`
-                  : item.sourceRef
+                  : item.sourceRef && !item.sourceRef.startsWith("task:")
                     ? `Source link: ${item.sourceRef.slice(0, 90)}`
                     : "None linked."}
               </dd>

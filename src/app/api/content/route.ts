@@ -1,3 +1,5 @@
+import { requireRole } from "@/lib/permissions";
+import { assertCampaignAllowsGeneration, LifecycleError } from "@/lib/campaign/lifecycle-service";
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { recordActivity } from "@/lib/activity";
@@ -37,6 +39,8 @@ export async function POST(req: NextRequest) {
   if (csrf) return csrf;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
+  const forbidden = requireRole(ctx.membership.role, "write");
+  if (forbidden) return apiError(forbidden, 403);
 
   const parsed = await readJson(req, createSchema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
@@ -45,6 +49,12 @@ export async function POST(req: NextRequest) {
     return apiError(`Format "${parsed.data.format}" is not valid for channel "${parsed.data.channel}".`, 400);
   }
 
+  try {
+    await assertCampaignAllowsGeneration(ctx.workspace.id, parsed.data.campaignId);
+  } catch (err) {
+    if (err instanceof LifecycleError) return apiError(err.message, err.status);
+    throw err;
+  }
   if (parsed.data.campaignId) {
     const campaign = await prisma.campaign.findFirst({ where: { id: parsed.data.campaignId, workspaceId: ctx.workspace.id } });
     if (!campaign) return apiError("Campaign not found in this workspace.", 404);

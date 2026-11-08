@@ -1,3 +1,4 @@
+import { postLabel } from "@/lib/formats";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { prisma } from "@/lib/db";
@@ -31,7 +32,7 @@ export default async function CalendarPage() {
       where: { contentItem: { workspaceId: ctx.workspace.id }, status: { in: ["scheduled", "attempting", "failed", "blocked"] } },
       orderBy: { createdAt: "desc" },
       take: 20,
-      include: { contentItem: { select: { id: true, title: true } } },
+      include: { contentItem: { select: { id: true, title: true, channel: true, format: true } } },
     }),
     prisma.productProfile.findUnique({ where: { workspaceId: ctx.workspace.id } }),
   ]);
@@ -100,7 +101,7 @@ export default async function CalendarPage() {
             {publications.map((p) => (
               <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
                 <Link href={`/app/content/${p.contentItem.id}`} className="truncate text-charcoal hover:text-forest">
-                  {p.contentItem.title}
+                  {postLabel(p.contentItem).name}
                 </Link>
                 <span className="flex items-center gap-2">
                   <Badge variant="charcoal">{p.provider}</Badge>

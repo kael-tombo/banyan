@@ -22,9 +22,11 @@ it produces, and its **Recommendations**.
 
 One central runtime (`src/lib/agents/orchestrator.ts`) advances every workflow:
 
-1. **Crash recovery** — running tasks hold a 5-minute lease; expired leases are
-   requeued and their runs are recorded as such. Handlers adopt prior partial
-   work (via stored outputs and unique dedupe keys) instead of duplicating it.
+1. **Crash recovery** — running tasks hold a 5-minute lease, renewed while the
+   handler works; expired leases are requeued and their runs are recorded as such.
+   Handlers adopt prior partial work (via stored outputs and unique dedupe keys)
+   instead of duplicating it. An outcome applies only if the attempt still owns the
+   task, so a late result cannot overwrite a cancel or a takeover.
 2. **Dependency resolution** — pending tasks are promoted when all
    dependencies completed. Observer tasks (`measure`, `evaluate`,
    `recommend`) are also promoted when dependencies ended *blocked* — their
@@ -68,13 +70,21 @@ providers — the runtime never sees vendor types or credentials.
   subscription.
 - **User-provided keys** are an explicitly disabled future feature
   (`USER_MODEL_KEYS_ENABLED`); the resolver slot exists and is documented.
-- **Quotas**: live calls are counted per workspace per UTC day against
-  `MODEL_MAX_CALLS_PER_DAY` (default 500). When the quota is hit, workflows
-  continue with the labeled template fallback — never silently degraded.
+- **Quotas**: successful live calls are counted per workspace per UTC day against
+  `MODEL_MAX_CALLS_PER_DAY` (default 500); a failed call uses none. When the quota
+  is hit, workflows continue with the labeled template fallback — never silently
+  degraded.
+- **Retries**: a transient provider failure gets one more try on the spot, unless the
+  first was already slow. Only then does the labeled template serve.
 - **Usage ledger**: every call — live, fallback, or failed — is recorded in
   `ModelCall` with tokens, latency, and estimated cost in micro-USD (zero for
   models without a known price; costs are never guessed). Inspect it via
   `GET /api/usage` or the Settings page.
+- **Agentic run metering (ADR-007)**: one agent run consumes one unit of the
+  same daily quota (checked before the session starts) and records one ledger
+  row with the session tree's aggregate usage. A run's cost is a true total or
+  0 when any model it used has no known price — a partial sum is never
+  recorded as the total.
 - **Extensibility**: adding a hosted or local provider means adding one
   resolver entry; no workflow code changes.
 
@@ -151,6 +161,22 @@ a completed experiment without a conclusion is a data point, not learning, and
 is excluded. No learning is copied into a second table, so correcting an
 experiment immediately changes what the next plan reads. Memory is per
 workspace; there is no cross-workspace learning.
+
+## Autonomy levels
+
+| Level | What Banyan does alone | Status |
+| --- | --- | --- |
+| 1 · Approved execution | Approving the profile starts the strategist; approving the strategy starts the creator (`src/lib/agents/autopilot.ts`). Nothing is approved or published without you. | Built |
+| 2 · Supervised | Within a founder-set policy, routine drafts are approved and scheduled; everything else escalates with its reason (`src/lib/autonomy/`, `/app/autonomy`). | Built; scheduling path awaits a verified provider |
+| 3 · Autonomous operations | Continuous cycles under budget, sampling and incident review | Out of scope (STRATEGY.md §12) |
+
+**Level 2 rules.** The policy (`Workspace.autonomyPolicy`, versioned) names the channels Banyan may run, posts per channel per day, quiet hours and blackout dates in the workspace time zone, and whether approved posts are also scheduled. Only an owner or member changes it (`PUT /api/autonomy`); the system never calls `setPolicy`.
+
+**Always escalated, whatever the policy says:** an unsupported claim, a banned term, an over-limit body, a template-fallback draft, the first post on a channel, any short-form video, and any channel outside the policy. Paused agents do nothing.
+
+**Accountability.** An auto-approval approves exactly the revision that was checked (a concurrent edit wins), and is attributed to the founder whose policy allowed it. Every decision is an `autonomy` activity row with its reasons and policy version. That row feeds the decision log and the weekly digest on `/app/autonomy`. Scheduling picks the next slot that respects the daily cap, quiet hours, blackouts and a 3-hour gap between posts on a channel; with no verified connection the post stays approved and is logged as not scheduled.
+
+**Verify:** `npx tsx --env-file=.env scripts/autonomy-check.ts` runs a supervision pass in a throwaway workspace against the real database (14 checks). Unit tests: `tests/autonomy-policy.test.ts`.
 
 ## Permissions and safety
 

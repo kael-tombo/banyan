@@ -1,0 +1,30 @@
+# HTTPS for Banyan and SocialFlow Lite (docker-compose.prod.yml). Caddy obtains and renews certificates itself.
+{
+	email {$ACME_EMAIL}
+}
+
+(security) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+}
+
+{$APP_DOMAIN} {
+	import security
+	encode zstd gzip
+	reverse_proxy web:3000
+}
+
+# SocialFlow Lite's API has no rate limiting and is meant to sit behind Banyan, which reaches it privately.
+# Publicly it serves only what a founder's browser needs: the connect page, the OAuth callbacks, and health.
+{$SFL_DOMAIN} {
+	import security
+	@browser path /connect/* /oauth/linkedin/callback /oauth/x/callback /healthz
+	handle @browser {
+		reverse_proxy socialflow:8080
+	}
+	handle {
+		respond "Not found" 404
+	}
+}

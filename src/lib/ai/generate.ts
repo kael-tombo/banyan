@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { completeValidated, AIError, extractJSON } from "@/lib/ai/provider";
+import { completeValidated, AIError, extractJSON, type AIProvider } from "@/lib/ai/provider";
 import { CHANNEL_META, isChannel, isFormatFor, type Channel } from "@/lib/formats";
 
 export const videoExtrasSchema = z.object({
@@ -15,7 +15,7 @@ export type VideoExtras = z.infer<typeof videoExtrasSchema>;
 
 /** The subset of generation context needed to build a grounded video skeleton. */
 type VideoContext = {
-  profile: { name: string; description: string; valueProp: string; audience: string; positioning?: string };
+  profile: { name: string; description: string; valueProp: string; audience: string; positioning?: string; problem?: string; audiencePain?: string; proof?: string[] };
   brandVoice: { cta?: string };
   campaign?: { cta?: string } | null;
 };
@@ -29,17 +29,14 @@ function firstSentence(text: string): string {
 /** A context-grounded skeleton — never invents claims, metrics or testimonials. */
 function contextVideo(ctx: VideoContext): VideoExtras {
   const product = ctx.profile.name.trim() || "The product";
-  const audience = ctx.profile.audience.trim() || "your audience";
-  const problem = (ctx.profile.valueProp || ctx.profile.description || `${product} in one minute`).trim();
-  const description = ctx.profile.description.trim();
-  const cta = (ctx.brandVoice.cta || ctx.campaign?.cta || `Try ${product}`).trim();
-  const hook = `A quick look at ${product} for ${audience}`.slice(0, 120);
-  const script = [
-    `If you're ${audience}, ${problem}`,
-    description && description !== problem ? description : "",
-    `That is what ${product} is for.`,
-    cta,
-  ].filter(Boolean).join(" ").slice(0, 6000);
+  const t = contextText({ profile: ctx.profile, campaign: ctx.campaign ? { cta: ctx.campaign.cta } as ContentGenRequest["campaign"] : null, brandVoice: ctx.brandVoice });
+  const cta = t.cta.replace(/[.!?]+$/, "");
+  const audience = t.audience;
+  // The first three seconds name the problem in the audience's words, when the founder gave one.
+  const hasPain = Boolean((ctx.profile.audiencePain || ctx.profile.problem || "").trim());
+  const hook = (hasPain ? t.pain : `A quick look at ${product} for ${audience}`).slice(0, 120);
+  const opener = hasPain ? t.pain : `A quick look at ${product}, built for ${audience}.`;
+  const script = [opener, t.built, t.proof, t.cta].filter(Boolean).join(" ").slice(0, 6000);
   const safeScript = script.length >= 20 ? script : `${product} is built for ${audience}. ${cta}`;
   const sentences = safeScript.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
   const scenes = (sentences.length > 1 ? sentences.slice(1, 4) : [safeScript]).map((scene, i) => ({
@@ -136,6 +133,45 @@ export const PLAN_SCHEMA = z.object({
 
 export type DraftPlan = z.infer<typeof PLAN_SCHEMA>;
 
+/** Shorten text to at most `max` characters, cutting at a word boundary and marking the cut. */
+export function clampText(value: unknown, max: number): unknown {
+  if (typeof value !== "string" || value.length <= max) return value;
+  const head = value.slice(0, max - 1);
+  const cut = head.lastIndexOf(" ");
+  return `${(cut > max * 0.6 ? head.slice(0, cut) : head).replace(/[\s,;:.–—-]+$/, "")}…`;
+}
+
+/**
+ * Models sometimes run a field a little past the plan's limits. One long theme
+ * should not throw away an otherwise good plan, so over-long text is shortened
+ * at a word boundary before validation. Structure (counts, channel keys, types)
+ * is still validated strictly.
+ */
+export function clampPlanLengths(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object") return raw;
+  const p = { ...(raw as Record<string, unknown>) };
+  p.positioning = clampText(p.positioning, 500);
+  if (Array.isArray(p.contentThemes)) p.contentThemes = p.contentThemes.map((t) => clampText(t, 120));
+  if (p.initialCampaign && typeof p.initialCampaign === "object") {
+    const c = { ...(p.initialCampaign as Record<string, unknown>) };
+    c.name = clampText(c.name, 80);
+    c.keyMessage = clampText(c.keyMessage, 300);
+    c.cta = clampText(c.cta, 120);
+    p.initialCampaign = c;
+  }
+  if (Array.isArray(p.experiments)) {
+    p.experiments = p.experiments.map((e) => {
+      if (!e || typeof e !== "object") return e;
+      const x = { ...(e as Record<string, unknown>) };
+      x.title = clampText(x.title, 100);
+      x.hypothesis = clampText(x.hypothesis, 400);
+      x.variable = clampText(x.variable, 200);
+      return x;
+    });
+  }
+  return p;
+}
+
 export async function generateDraftPlan(input: {
   productName: string;
   productDescription: string;
@@ -148,6 +184,8 @@ export async function generateDraftPlan(input: {
   goal: string;
   goalTarget?: number | null;
   channels: string[];
+  /** Pass routedProvider(...) so the call is quota-checked and logged. */
+  provider?: AIProvider;
 }): Promise<{ plan: DraftPlan; provider: string; isFallback: boolean; label: string }> {
   const system = [
     "You are Banyan.ai's distribution strategist. You produce honest, evidence-respecting plans.",
@@ -155,6 +193,7 @@ export async function generateDraftPlan(input: {
     "Never fabricate metrics, competitors' results, or market statistics.",
     'Respond with ONLY a JSON object matching: {"positioning": string, "contentThemes": [string x3], "channelFocus": [channel keys], "initialCampaign": {"name", "keyMessage", "cta"}, "experiments": [{"title","hypothesis","variable"}], "assumptions": [string]}',
     'channelFocus keys: "x", "linkedin", "shortvideo".',
+    "Length limits (hard): positioning under 450 characters; each content theme under 110; campaign name under 70; keyMessage under 280; cta under 100; experiment title under 90, hypothesis under 380, variable under 180.",
   ].join("\n");
 
   const user = [
@@ -172,13 +211,14 @@ export async function generateDraftPlan(input: {
 
   try {
     const { data, usage } = await completeValidated<string>({
+      provider: input.provider,
       system,
       user,
       maxTokens: 1200,
       temperature: 0.6,
       schema: z.string(),
     });
-    const plan = PLAN_SCHEMA.parse(extractJSON(data));
+    const plan = PLAN_SCHEMA.parse(clampPlanLengths(extractJSON(data)));
     return { plan, provider: usage.provider, isFallback: usage.isFallback, label: usage.label };
   } catch {
     // Live provider missing, malformed, or failed: fall back to a clearly
@@ -236,6 +276,10 @@ export type ContentGenRequest = {
     valueProp: string;
     audience: string;
     positioning?: string;
+    /** The founder's problem and pain, and proof their site states: used by the no-model fallback. */
+    problem?: string;
+    audiencePain?: string;
+    proof?: string[];
   };
   brandVoice: {
     tone?: string;
@@ -247,6 +291,10 @@ export type ContentGenRequest = {
   /** Concluded-experiment lines from priorLearningLines — the loop's memory. */
   learning?: string[];
   instruction?: string; // for improve-hook / shorten / change-tone / adapt operations
+  /** The approved strategy's messaging angle this draft serves (US-044). */
+  angle?: string;
+  /** Pass routedProvider(...) so the call is quota-checked and logged. */
+  provider?: AIProvider;
 };
 
 function clipAtWord(text: string, limit: number): string {
@@ -257,46 +305,96 @@ function clipAtWord(text: string, limit: number): string {
 }
 
 /**
- * A context-grounded post for the no-credentials fallback. It uses only the
- * founder-provided profile and campaign fields (plus recorded campaign
- * evidence, when present) — never invented testimonials, metrics or traction.
+ * A context-grounded post for the no-model fallback, written like a founder
+ * would: the pain in the audience's words, what the product does about it,
+ * one piece of proof the founder's site states (if any), and the call to
+ * action. It uses only the founder's profile and recorded campaign evidence:
+ * never invented testimonials, metrics or traction, and never the planner's
+ * hypotheses (they are assumptions, not something to stand behind).
  */
 export function buildContextPost(req: ContentGenRequest): string {
-  const product = req.profile.name.trim() || "Our product";
-  const audience = req.profile.audience.trim() || "the people we build for";
-  const value = req.profile.valueProp.trim() || req.profile.description.trim() || `${product} for ${audience}`;
-  const description = req.profile.description.trim();
-  const keyMessage = req.campaign?.keyMessage?.trim() || description;
-  const evidence = req.campaign?.evidence?.trim();
-  const cta = (req.brandVoice.cta || req.campaign?.cta || `Try ${product}`).trim();
-  const lead = `${audience}: ${value}`;
-
+  const t = contextText(req);
+  const unique = (parts: string[]) => parts.filter((p, i, all) => Boolean(p) && all.indexOf(p) === i);
   if (req.channel === "x" && req.format === "single") {
-    const suffix = `\n\n${clipAtWord(cta, 80)}`;
-    const hook = clipAtWord(lead, Math.max(40, 280 - suffix.length));
-    return `${hook}${suffix}`.slice(0, 280);
+    const close = ` ${t.cta}`;
+    const body = unique([t.pain, t.built]).join(" ");
+    return (clipAtWord(body, Math.max(60, 280 - close.length)) + close).slice(0, 280);
   }
-
   if (req.channel === "x" && req.format === "thread") {
-    const posts = [
-      lead,
-      keyMessage && keyMessage !== value ? keyMessage : "",
-      evidence ? `What we can stand behind: ${evidence}` : "",
-      cta,
-    ].filter(Boolean);
+    const posts = unique([t.pain, t.built, t.keyMessage, t.proof, t.cta]);
     return posts.map((post, i) => `${i + 1}/ ${clipAtWord(post, 250)}`).join("\n\n").slice(0, 10_000);
   }
-
-  const lines = [
-    lead,
-    keyMessage && keyMessage !== value ? keyMessage : "",
-    evidence ? `What we can stand behind: ${evidence}` : "",
-    `If that is the problem you are working on, ${cta}.`,
-  ].filter(Boolean);
-  return clipAtWord(lines.join("\n\n"), 3000);
+  // Paragraphs stay paragraphs: clip only if the post runs over the limit.
+  const post = unique([t.pain, t.built, t.keyMessage, t.proof, t.cta]).join("\n\n");
+  return post.length <= 3000 ? post : clipAtWord(post, 3000);
 }
 
-export async function generateContent(req: ContentGenRequest): Promise<{ body: string; videoExtras?: VideoExtras; provider: string; isFallback: boolean; label: string }> {
+function asSentence(x: string): string {
+  const v = x.replace(/\s+/g, " ").trim();
+  if (!v) return "";
+  return /[.!?…]$/.test(v) ? v : `${v}.`;
+}
+
+/** "The highest-rated system…" → "the highest-rated system…"; "Cal.com …" or "API …" stays. */
+function lcFirst(x: string): string {
+  return /^[A-Z][a-z]+\b/.test(x) && !/^[A-Z][a-z]*[A-Z.]/.test(x) ? x[0].toLowerCase() + x.slice(1) : x;
+}
+
+/** Planner output that is an assumption, not something a post may assert. */
+function isHypothesis(x: string): boolean {
+  return /\bhypothes|\bunvalidated\b|\bassumption\b/i.test(x);
+}
+
+/** The pieces a fallback post (or video script) is built from, cleaned for reading. */
+export function contextText(req: Pick<ContentGenRequest, "profile" | "campaign" | "brandVoice">) {
+  const product = req.profile.name.trim() || "our product";
+  // "small businesses; small teams & startups; larger teams" → "small businesses".
+  const audience = (req.profile.audience || "").split(/;|\n/)[0].trim() || "the people we build for";
+  const value = (req.profile.valueProp || req.profile.description || "").trim();
+  const painRaw = (req.profile.audiencePain || req.profile.problem || "").trim();
+  const keyMessageRaw = req.campaign?.keyMessage?.trim() ?? "";
+  const evidenceRaw = req.campaign?.evidence?.trim() ?? "";
+  const proofRaw = req.profile.proof?.find((p) => p.trim().length > 0)?.trim() ?? "";
+  const cta = asSentence((req.brandVoice.cta || req.campaign?.cta || `Try ${product}`).trim());
+  const valueClause = lcFirst(value).replace(/[.!?]+$/, "");
+  return {
+    product,
+    audience,
+    pain: painRaw ? asSentence(painRaw) : asSentence(`For ${audience}, the same problem keeps coming up`),
+    built: valueClause ? asSentence(`That's why we built ${product}: ${valueClause}`) : asSentence(`That's why we built ${product}`),
+    keyMessage: keyMessageRaw && !isHypothesis(keyMessageRaw) && keyMessageRaw !== value ? asSentence(keyMessageRaw) : "",
+    // Recorded campaign evidence first, then the proof the founder's own site states.
+    proof: evidenceRaw && !isHypothesis(evidenceRaw) ? asSentence(evidenceRaw) : proofRaw ? asSentence(proofRaw) : "",
+    cta,
+  };
+}
+
+/**
+ * How each format opens and is built. Formats for the same campaign are
+ * drafted separately, so each one gets a different opening move; that keeps
+ * an X thread and a LinkedIn post from starting with the same sentence.
+ */
+export const FORMAT_GUIDE: Partial<Record<Channel, Record<string, string>>> = {
+  x: {
+    single: "one post under 260 characters. Open with the sharpest version of the problem; end with the call to action.",
+    thread: "4 to 6 posts separated by a blank line, each under 260 characters, numbered 1/, 2/ … Post 1 is a short, blunt claim or question about the problem (no product name in post 1). Middle posts show how it works, one fact each. The last post is the call to action.",
+    discussion: "one post under 260 characters that asks the audience a genuine question about the problem. Mention the product only briefly, if at all.",
+    update: "one post under 260 characters stating what is new and who it is for, then the call to action.",
+  },
+  linkedin: {
+    insight: "120 to 220 words. Open with an observation from the founder's side of the problem, not a question and not the product name. Short paragraphs, no hashtags beyond two at the end.",
+    founder_story: "150 to 250 words in the first person. Open with a concrete moment (a place, a day, a customer conversation that the facts support), then why the product exists, then the call to action.",
+    build_update: "120 to 200 words. Open with what was built or changed; explain the decision behind it; end with the call to action.",
+    problem_solution: "120 to 220 words. Open with a concrete scene of the audience living the problem (who, where, what goes wrong), then the cost of it, then how the product solves it using the facts, then the call to action. Short paragraphs; at most two hashtags at the end.",
+    announcement: "100 to 180 words. Open with the news in one sentence, then who it is for and what it does, then the call to action.",
+  },
+  shortvideo: {
+    hook_script: "a hook spoken in the first 3 seconds that names the problem in the audience's words, then a 30-45 second script.",
+    storyboard: "4 to 6 scenes, each with what is said and what is shown.",
+  },
+};
+
+export async function generateContent(req: ContentGenRequest): Promise<{ body: string; videoExtras?: VideoExtras; provider: string; model: string; isFallback: boolean; label: string }> {
   if (!isFormatFor(req.channel, req.format)) {
     throw new AIError(`Format "${req.format}" is not valid for channel "${req.channel}".`);
   }
@@ -307,7 +405,11 @@ export async function generateContent(req: ContentGenRequest): Promise<{ body: s
     "- Use ONLY the facts provided. Do not invent testimonials, metrics, traction, or research.",
     "- Respect any topics to avoid.",
     "- Write in the requested language.",
-    "- Never claim results that were not given to you.",
+    "- Never claim results that were not given to you. Use no numbers, prices or amounts unless they appear in the facts.",
+    "- Do not write URLs, @handles or placeholders such as [link] or [name]. Banyan attaches the tracked link itself.",
+    "- Name the product at least once.",
+    "- A scene may illustrate the problem, but do not state facts about customers, their behaviour or results that are not in the facts (no \"customers actually…\", \"most teams…\", \"users told us…\").",
+    `- Format: ${FORMAT_GUIDE[req.channel]?.[req.format] ?? "write natively for this channel and format."}`,
     req.channel === "shortvideo"
       ? 'Respond with ONLY JSON: {"hook": string (first 3 seconds line), "script": string (full spoken script), "scenes": [{"scene": string, "visual": string}], "onScreenText": string, "caption": string, "cta": string}. On-screen text is the text overlay. Caption is the accompanying post caption.'
       : "Respond with ONLY the post text. No meta commentary, no titles, no markdown headings.",
@@ -332,11 +434,13 @@ export async function generateContent(req: ContentGenRequest): Promise<{ body: s
           ...req.learning.map((line) => `- ${line}`),
         ]
       : []),
+    req.angle ? `Messaging angle this post serves (from the approved strategy): ${req.angle}` : "",
     `Channel: ${meta.label}; format: ${req.format}`,
     req.instruction ? `Special instruction: ${req.instruction}` : "",
   ].filter(Boolean).join("\n");
 
   const { data, usage } = await completeValidated<string>({
+    provider: req.provider,
     system,
     user: context,
     maxTokens: req.channel === "shortvideo" ? 1600 : 800,
@@ -360,6 +464,7 @@ export async function generateContent(req: ContentGenRequest): Promise<{ body: s
       body: normalized.extras.script,
       videoExtras: normalized.extras,
       provider: usage.provider,
+      model: usage.model,
       isFallback: usage.isFallback || normalized.mode === "template",
       label,
     };
@@ -371,6 +476,7 @@ export async function generateContent(req: ContentGenRequest): Promise<{ body: s
     return {
       body: buildContextPost(req),
       provider: usage.provider,
+      model: usage.model,
       isFallback: true,
       label: isTemplate
         ? "Development fallback: context-built post from your profile and campaign (no model credentials). Edit before use."
@@ -385,7 +491,7 @@ export async function generateContent(req: ContentGenRequest): Promise<{ body: s
   } else if (body.length > limit * (req.channel === "x" ? 4 : 1)) {
     body = body.slice(0, limit * (req.channel === "x" ? 10 : 1));
   }
-  return { body, provider: usage.provider, isFallback: usage.isFallback, label: usage.label };
+  return { body, provider: usage.provider, model: usage.model, isFallback: usage.isFallback, label: usage.label };
 }
 
 /** JSON-safety wrapper used by plan generation. */

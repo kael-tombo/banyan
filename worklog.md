@@ -597,3 +597,114 @@ built the smallest honest version of that cycle over the existing goal runtime.
 - Known limitation: the context-built fallback is grounded and usable, but it is
   still a deterministic skeleton; a live model produces stronger voice. Real
   publishing still needs a verified Postiz connection.
+
+---
+
+## 2026-11-04 — Model governance before R2 (ADR-007)
+
+**Starting point.** A review of the vision/philosophy against the OpenCode brain and
+model architecture found the ADR-006 design well-aligned but three governance seams
+undefined — each would quietly break a documented promise once real agent runs exist.
+Drafted as [ADR-007](docs/ARCHITECTURE_DECISIONS.md) and implemented in the
+config/pure layer, so R2 consumes tested modules instead of inventing governance
+mid-build. No behaviour change for the direct path.
+
+### One run = one quota unit = one ledger row
+
+`MODEL_MAX_CALLS_PER_DAY` counted single-shot calls only, while one agentic run is a
+tree of model calls. Now a run is gated by the same per-workspace daily quota,
+checked *before* the session starts (`checkRunQuota`), and on completion recorded as
+a single live `ModelCall` row with the session tree's aggregate usage
+(`recordAgentRun`, `src/lib/model/router.ts`). Because runs land in the same ledger,
+the existing count covers them — no second counter. The pure math
+(`evaluateRunQuota`, `priceRunUsage`, `RUN_QUOTA_UNITS`) lives in
+`src/lib/model/agent-run.ts`; the router's private count became the exported
+`countLiveModelActionsToday`, one definition for both paths.
+
+### Honest run pricing
+
+A run spans several tier models, some unpriced. `priceRunUsage` sums known prices
+only, and a non-zero `estCostMicros` is always a true total: when any model in the
+run lacks a price, the row records tokens with cost 0 and a structured warning
+(`agent_run_cost_incomplete`) names the unpriced models. A partial sum is never
+presented as a total. `modelPriceKnown()` exported from `src/lib/model/quota.ts`.
+
+### Tiers validate at the boundary
+
+`AGENT_RUNTIME` (`direct` | `opencode`, default `direct`) and
+`AGENT_MODEL_STRONG/FAST/CRITIC` joined the zod env schema (philosophy #7): a
+non-empty value must look like `provider/model`, and a missing strong model fails
+startup only when `AGENT_RUNTIME=opencode` — builds and direct deployments stay
+green. Documented in `.env.example`. In production, `modelTiers` now **refuses** a
+critic that names the writers' model (it was a warning only); development keeps the
+warning. `resolveRuntimeSelection()` (`src/lib/agents/runtime/select.ts`) encodes
+ADR-006's fallback rule: until R2 builds the embedded runtime, `opencode` resolves
+to `direct` with a labelled reason — never silently, never a crash.
+
+### Disambiguation
+
+The dev-only "OpenCode brain" (`scripts/opencode-brain.mjs`,
+`OpenCodeSessionProvider`) now states in both places that it is a V1 text-in/text-out
+gateway, **not** the ADR-006 runtime, and retires when R2 ships.
+
+### Verification
+
+- `npm run typecheck` clean; **848/848 unit tests** (74 files), including 23 new:
+  `tests/agent-run-ledger.test.ts` (pricing + run-quota math),
+  `tests/runtime-select.test.ts` (every selection branch), `tests/env.test.ts`
+  (7 new tier-validation cases), `tests/agent-runtime-roster.test.ts` (production
+  critic rule).
+- Docs kept in step: ADR-007, `AGENT_ORCHESTRATION.md` §5/§8/roadmap,
+  `AGENTIC_RUNTIME.md` (run metering bullet), `CHANGELOG.md`.
+- Known limitation: `recordAgentRun`/`checkRunQuota` have no caller yet — they are
+  R2's contract, unit-tested at the pure layer; the DB wrappers follow the router's
+  existing "the ledger must never break the workflow" pattern.
+
+---
+
+## 2026-11-06 — Fixes from the architecture review
+
+**Starting point.** A review of the OpenCode brain found bugs on today's single-call path and
+promises in ADR-007 that nothing enforced.
+
+### The live path
+
+- **Retries.** `routeComplete` caught every provider error and moved straight to the template,
+  so the retry in `completeValidated` never ran for routed calls. The router now retries a
+  transient failure once, unless the first try was already slow (30 s), so a request is not held
+  for two full timeouts. Every try is a ledger row.
+- **Quota.** The count ignored `ok`, so failed calls used up the allowance.
+- **Status.** With `AI_PROVIDER=opencode` and a key set, selection served templates while
+  `describeLiveModel` reported a live model. Both now share one rule.
+
+### Tasks
+
+`executeTask` held a fixed 5-minute lease and finished with an unconditional update. A handler
+slower than the lease was requeued and could run twice, and a late result overwrote a founder's
+cancel. It now renews the lease while the handler runs, and every outcome applies only if
+`status = running` and `attempts` still match. Otherwise the `TaskRun` is marked `superseded`.
+No handler changes its own task's status, so nothing legitimate is fenced off.
+
+### Governance
+
+`modelTiers` compared whole model names, so `anthropic/haiku` against `anthropic/opus` passed, and
+an empty critic falling back to the strategist's model passed too. It now compares families, against
+both the writers and the strategist, and refuses hosted OpenCode in production. `env.ts` calls it at
+boot; before this, nothing did, so ADR-007's "fails at boot" was not true.
+
+For `OPENAI_BASE_URL` on opencode.ai in production, Banyan degrades to the labeled template instead of
+refusing to boot, because crashing a whole deployment over the model route is worse than a labeled
+template, and the label says why.
+
+### Verification
+
+- `npm run typecheck` clean. New: `tests/model-router.test.ts` (the router had none),
+  `tests/provider-selection.test.ts`, `tests/orchestrator-fencing.test.ts`.
+- Not run: nothing here has run against a real database or a real model. The fencing tests use a
+  mock that applies the where clause; the router tests mock the ledger.
+
+### Still open
+
+- Agent runs (R2) have not started. A separate platform (`central-brain-agent-platform`) addresses
+  the design's other blockers, and adopting it would supersede ADR-006. That decision is open.
+- The session provider is still here, pending the decision on whether to keep it as a backup.

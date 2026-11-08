@@ -1,3 +1,4 @@
+import { isLifecycle, LIFECYCLE_LABEL } from "@/lib/campaign/lifecycle";
 import { prisma } from "@/lib/db";
 import { requireWorkspaceServer } from "@/lib/workspace";
 import { LinkButton, PageHeader, EmptyState, StatusBadge, Badge } from "@/components/ui";
@@ -44,7 +45,9 @@ export default async function CampaignsPage({ searchParams }: { searchParams: Pr
                 <h2 className="font-semibold text-forest-deep">{c.name}</h2>
                 <div className="flex items-center gap-2">
                   <Badge variant="charcoal">{c._count.items} item{c._count.items === 1 ? "" : "s"}</Badge>
-                  <StatusBadge status={c.status} />
+                  <Badge variant={c.lifecycle === "partially_failed" || c.lifecycle === "failed" ? "clay" : c.lifecycle === "paused" ? "warm" : "sage"}>
+                    {isLifecycle(c.lifecycle) ? LIFECYCLE_LABEL[c.lifecycle] : c.status}
+                  </Badge>
                 </div>
               </div>
               <p className="mt-2 max-w-2xl text-sm text-charcoal-soft">{c.keyMessage}</p>

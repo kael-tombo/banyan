@@ -154,3 +154,81 @@ describe("environment validation", () => {
     expect(mod.env.APP_SECRET).toBe("0".repeat(64)); // APP_SECRET placeholder still applies
   });
 });
+
+/**
+ * ADR-007: the agentic runtime's tier configuration validates at the same
+ * boundary as every other setting — a malformed model ref fails at boot with
+ * a readable message, and AGENT_RUNTIME=opencode requires its strong tier
+ * (except on build machines, which never run agents). Every case pins all
+ * four AGENT_* variables so a local .env can never change the outcome.
+ */
+describe("agent runtime environment validation (ADR-007)", () => {
+  const AGENT_DEFAULTS = { AGENT_RUNTIME: "direct", AGENT_MODEL_STRONG: "", AGENT_MODEL_FAST: "", AGENT_MODEL_CRITIC: "" };
+  const agentEnv = (overrides: Record<string, string>) =>
+    withEnv({ WORKER_SECRET: "prod-secret-9f8a7b", ...AGENT_DEFAULTS, ...overrides });
+
+  it("defaults to the direct runtime with empty tiers", async () => {
+    agentEnv({});
+    const mod = await import("@/lib/env");
+    expect(mod.env.AGENT_RUNTIME).toBe("direct");
+    expect(mod.env.AGENT_MODEL_STRONG).toBe("");
+    expect(mod.env.AGENT_MODEL_FAST).toBe("");
+    expect(mod.env.AGENT_MODEL_CRITIC).toBe("");
+  });
+
+  it("rejects a malformed model tier in any environment", async () => {
+    agentEnv({ AGENT_MODEL_CRITIC: "no-slash" });
+    await expect(import("@/lib/env")).rejects.toThrow(/AGENT_MODEL_CRITIC/);
+  });
+
+  it("accepts provider/model tier values", async () => {
+    agentEnv({ AGENT_MODEL_STRONG: "anthropic/claude-sonnet-5-5", AGENT_MODEL_FAST: "anthropic/claude-haiku-5-5" });
+    const mod = await import("@/lib/env");
+    expect(mod.env.AGENT_MODEL_STRONG).toBe("anthropic/claude-sonnet-5-5");
+    expect(mod.env.AGENT_MODEL_FAST).toBe("anthropic/claude-haiku-5-5");
+  });
+
+  it("refuses AGENT_RUNTIME=opencode without a strong model at runtime", async () => {
+    agentEnv({ AGENT_RUNTIME: "opencode", AGENT_MODEL_STRONG: "" });
+    await expect(import("@/lib/env")).rejects.toThrow(/AGENT_MODEL_STRONG/);
+  });
+
+  it("accepts AGENT_RUNTIME=opencode with a direct provider and an independent critic", async () => {
+    agentEnv({ AGENT_RUNTIME: "opencode", AGENT_MODEL_STRONG: "anthropic/claude-sonnet-5-5", AGENT_MODEL_CRITIC: "openai/gpt-critic" });
+    const mod = await import("@/lib/env");
+    expect(mod.env.AGENT_RUNTIME).toBe("opencode");
+  });
+
+  it("accepts OpenCode Go for agents in development, where it is allowed", async () => {
+    agentEnv({ NODE_ENV: "development", AGENT_RUNTIME: "opencode", AGENT_MODEL_STRONG: "opencode-go/glm-5.3-flash" });
+    const mod = await import("@/lib/env");
+    expect(mod.env.AGENT_MODEL_STRONG).toBe("opencode-go/glm-5.3-flash");
+  });
+
+  it("fails at boot on OpenCode Go in production, not mid-run", async () => {
+    agentEnv({ AGENT_RUNTIME: "opencode", AGENT_MODEL_STRONG: "opencode-go/glm-5.3-flash", AGENT_MODEL_CRITIC: "openai/gpt-critic" });
+    await expect(import("@/lib/env")).rejects.toThrow(/internal use/);
+  });
+
+  it("fails at boot on a critic from the same family in production", async () => {
+    agentEnv({ AGENT_RUNTIME: "opencode", AGENT_MODEL_STRONG: "anthropic/claude-sonnet-5-5", AGENT_MODEL_CRITIC: "anthropic/claude-opus-5-5" });
+    await expect(import("@/lib/env")).rejects.toThrow(/different model family/);
+  });
+
+  it("leaves tiers alone when the opencode runtime is not selected", async () => {
+    agentEnv({ AGENT_RUNTIME: "direct", AGENT_MODEL_STRONG: "opencode-go/glm-5.3-flash" });
+    const mod = await import("@/lib/env");
+    expect(mod.env.AGENT_RUNTIME).toBe("direct");
+  });
+
+  it("build phase tolerates AGENT_RUNTIME=opencode without tiers (build machines never run agents)", async () => {
+    agentEnv({ WORKER_SECRET: "banyan-worker-dev-secret", NEXT_PHASE: "phase-production-build", AGENT_RUNTIME: "opencode" });
+    const mod = await import("@/lib/env");
+    expect(mod.env.AGENT_RUNTIME).toBe("opencode");
+  });
+
+  it("rejects an unknown AGENT_RUNTIME value", async () => {
+    agentEnv({ AGENT_RUNTIME: "swarm" });
+    await expect(import("@/lib/env")).rejects.toThrow(/AGENT_RUNTIME/);
+  });
+});

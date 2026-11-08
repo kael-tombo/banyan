@@ -1,3 +1,4 @@
+import { requireRole } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, json, requireWorkspace, readJson } from "@/lib/api-utils";
 import { NextRequest } from "next/server";
@@ -25,6 +26,8 @@ export async function POST(req: NextRequest) {
   if (csrf) return csrf;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
+  const forbidden = requireRole(ctx.membership.role, "write");
+  if (forbidden) return apiError(forbidden, 403);
   const parsed = await readJson(req, createSchema);
   if (!parsed.ok) return apiError(parsed.message, parsed.status);
   const insight = await prisma.audienceInsight.create({

@@ -1,44 +1,28 @@
 import { env } from "@/lib/env";
-import { processDueSchedule } from "@/lib/publishing/publish";
-import { advanceWorkspace } from "@/lib/agents/orchestrator";
-import { prisma } from "@/lib/db";
+import { runMaintenanceSweep } from "@/lib/maintenance";
+import { tickAuthorized } from "@/lib/worker-auth";
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * Background worker tick endpoint. Protected by WORKER_SECRET.
- * Triggered by `npm run worker` (in-process loop) or by your scheduler of
- * choice (cron, Railway job, GitHub Action) POSTing here.
+ * Maintenance tick endpoint. Protected by WORKER_SECRET (or CRON_SECRET for Vercel Cron).
  *
- * Two duties, in order:
- *  1. Attempt every due scheduled publication (bounded provider retry logic
- *     lives in the publishing workflow).
- *  2. Advance agent workflows for workspaces with active goals — recovering
- *     crashed leases, retrying transient failures and running the next safe
- *     batch of tasks. This is what makes workflows resume unattended.
+ * With Docker Compose the worker runs the same sweep itself as a repeatable
+ * queue job, so this endpoint is only needed when there is no queue: the
+ * worker's HTTP fallback (`REDIS_URL` unset) or an external scheduler (cron,
+ * a platform job) POSTing here. On Vercel, where no worker runs, Vercel Cron
+ * calls it with GET. See src/lib/maintenance.ts for what it does.
  */
-export async function POST(req: NextRequest) {
-  const auth = req.headers.get("authorization");
-  if (auth !== `Bearer ${env.WORKER_SECRET}`) {
+export const dynamic = "force-dynamic";
+// The sweep can take a while on a busy workspace; 60 s is the most every Vercel plan allows.
+export const maxDuration = 60;
+
+async function tick(req: NextRequest) {
+  if (!tickAuthorized(req.headers.get("authorization"), { workerSecret: env.WORKER_SECRET, cronSecret: process.env.CRON_SECRET })) {
     return NextResponse.json({ error: "Unauthorized worker" }, { status: 401 });
   }
-  const publishResult = await processDueSchedule();
-
-  let workflows: { workspaces: number; completed: number; failed: number; blocked: number } | null = null;
-  try {
-    const memberships = await prisma.membership.findMany({ select: { workspaceId: true }, distinct: ["workspaceId"] });
-    let completed = 0;
-    let failed = 0;
-    let blocked = 0;
-    for (const m of memberships) {
-      const report = await advanceWorkspace(m.workspaceId, { maxTasks: 4 });
-      completed += report.completed;
-      failed += report.failed;
-      blocked += report.blocked;
-    }
-    workflows = { workspaces: memberships.length, completed, failed, blocked };
-  } catch (err) {
-    return NextResponse.json({ ok: true, ...publishResult, workflows: null, workflowError: (err as Error).message });
-  }
-
-  return NextResponse.json({ ok: true, ...publishResult, workflows });
+  const result = await runMaintenanceSweep();
+  return NextResponse.json({ ok: true, ...result });
 }
+
+export const POST = tick;
+export const GET = tick;

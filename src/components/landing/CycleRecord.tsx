@@ -8,7 +8,7 @@ import { PlatformMark, type Platform } from "@/components/landing/landscape/plat
  * Three cycles for the same fictional product as the walkthrough, read top
  * to bottom: each one ends with a verdict and a lesson, and the lesson is
  * carried into the next. Cycle 2 shows the two honest outcomes the product
- * actually records (a blocked publication, a "not enough data" verdict), and
+ * actually records (a post that was never published, a "not enough data" verdict), and
  * cycle 3 is drafted and waiting on a human, so its window has not opened.
  * No performance numbers are shown, because none would be real.
  */
@@ -58,7 +58,7 @@ const CYCLES: Cycle[] = [
       body: "The window closed with too few signups to compare angles, so the cycle says exactly that instead of guessing.",
       tone: "thin",
     },
-    carried: "Reconnect X, and give the next test 21 days",
+    carried: "Publish on X as well, and give the next test 21 days",
   },
   {
     n: 3,
@@ -81,7 +81,7 @@ const CYCLES: Cycle[] = [
 function OutputChip({ output }: { output: Output }) {
   const state: Record<Output["state"], { text: string; cls: string; icon?: ReactNode }> = {
     published: { text: "Published", cls: "text-forest", icon: <Check size={12} aria-hidden="true" /> },
-    blocked: { text: "Blocked · connection expired", cls: "text-clay", icon: <Lock size={12} aria-hidden="true" /> },
+    blocked: { text: "Not published · no live URL recorded", cls: "text-clay", icon: <Lock size={12} aria-hidden="true" /> },
     handoff: { text: "Manual handoff", cls: "text-charcoal-soft" },
     waiting: { text: "Waiting on you", cls: "text-fig-deep" },
   };
@@ -106,12 +106,12 @@ function CycleCard({ cycle }: { cycle: Cycle }) {
       ? "bg-forest-deep text-ivory"
       : cycle.verdict.tone === "thin"
         ? "bg-[#F4F1EA] text-charcoal"
-        : "border border-dashed border-[#D6DADE] bg-white text-charcoal";
+        : "border border-dashed border-bark/20 bg-white text-charcoal";
   const verdictLabelCls =
     cycle.verdict.tone === "measured" ? "text-rail-muted" : cycle.verdict.tone === "thin" ? "text-fig-deep" : "text-muted";
 
   return (
-    <article className="relative grid gap-5 rounded-2xl border border-[#E6E8EA] bg-white p-5 shadow-[0_1px_2px_rgba(17,24,39,0.04)] sm:p-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:gap-6">
+    <article className="relative grid gap-5 rounded-2xl border border-bark/10 bg-white p-5 shadow-[0_1px_2px_rgba(17,24,39,0.04)] sm:p-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:gap-6">
       <div className="min-w-0">
         <header className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <h3 className="text-base font-medium text-forest-deep">Cycle {cycle.n}</h3>
@@ -122,7 +122,7 @@ function CycleCard({ cycle }: { cycle: Cycle }) {
           </span>
         </header>
         <p className="mt-3 font-serif text-[19px] leading-snug text-charcoal">{cycle.question}</p>
-        <ul className="mt-4 border-t border-[#EEF0F2] pt-2.5">
+        <ul className="mt-4 border-t border-bark/[0.07] pt-2.5">
           {cycle.outputs.map((o) => (
             <OutputChip key={o.label} output={o} />
           ))}

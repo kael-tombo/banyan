@@ -3,12 +3,27 @@ import Link from "next/link";
 import { requireWorkspaceServer } from "@/lib/workspace";
 import { PageHeader, Card, Badge } from "@/components/ui";
 import { CHANNEL_META, isChannel } from "@/lib/formats";
+import { Suspense } from "react";
+import { prisma } from "@/lib/db";
+import { settingsProviders } from "@/lib/auth/oauth/server";
+import { isProviderId } from "@/lib/auth/oauth/providers";
+import { SignInMethods, type LinkedAccount } from "./sign-in-methods";
+import { AssistantTokens } from "./assistant-tokens";
+import { listApiTokens } from "@/lib/api-tokens";
+import { env } from "@/lib/env";
+import { EmailPreferences } from "./email-preferences";
+import { parseEmailPrefs } from "@/lib/email/preferences";
+import { emailConfigured } from "@/lib/email/transport";
 
 export const metadata: Metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   const ctx = await requireWorkspaceServer();
   const channels = JSON.parse(ctx.profile?.channels || "[]") as string[];
+  const linked = await prisma.oAuthAccount.findMany({ where: { userId: ctx.user.id }, orderBy: { createdAt: "asc" } });
+  const accounts: LinkedAccount[] = linked.flatMap((a) =>
+    isProviderId(a.provider) ? [{ id: a.id, provider: a.provider, email: a.email, displayName: a.displayName, lastUsedAt: a.lastUsedAt?.toISOString() ?? null }] : [],
+  );
 
   return (
     <>
@@ -70,6 +85,15 @@ export default async function SettingsPage() {
         </Card>
       </div>
 
+      <Suspense>
+        <SignInMethods hasPassword={Boolean(ctx.user.passwordHash)} accounts={accounts} providers={settingsProviders(accounts.map((a) => a.provider))} />
+      </Suspense>
+
+      <Card className="mt-6" id="email">
+        <h2 className="mb-2 font-medium text-charcoal">Email</h2>
+        <EmailPreferences initial={parseEmailPrefs(ctx.user.emailPrefs)} emailConfigured={emailConfigured()} />
+      </Card>
+
       <Card className="mt-6">
         <h2 className="mb-2 font-medium text-charcoal">Selected channels</h2>
         <div className="flex flex-wrap gap-2">
@@ -83,6 +107,14 @@ export default async function SettingsPage() {
             <span className="text-sm text-charcoal-soft">None selected yet — choose channels in Workspace.</span>
           )}
         </div>
+      </Card>
+
+      <Card className="mt-6" id="assistant">
+        <h2 className="mb-2 font-medium text-charcoal">Connect an AI assistant (MCP)</h2>
+        <AssistantTokens
+          mcpUrl={`${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")}/api/mcp`}
+          initial={(await listApiTokens(ctx.workspace.id, ctx.user.id)).map((t) => ({ ...t, createdAt: t.createdAt.toISOString(), lastUsedAt: t.lastUsedAt?.toISOString() ?? null }))}
+        />
       </Card>
 
       <Card className="mt-6">

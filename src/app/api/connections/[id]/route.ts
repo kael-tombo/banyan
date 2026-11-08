@@ -1,6 +1,7 @@
+import { requireRole } from "@/lib/permissions";
 import { prisma } from "@/lib/db";
 import { apiError, assertSameOrigin, json, requireWorkspace } from "@/lib/api-utils";
-import { adapterFor, configFromConnection } from "@/lib/publishing/publish";
+import { providerFor, credentialsFromConnection } from "@/lib/distribution/providers";
 import { recordActivity } from "@/lib/activity";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -9,6 +10,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   if (csrf) return csrf;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
+  const forbidden = requireRole(ctx.membership.role, "manage");
+  if (forbidden) return apiError(forbidden, 403);
   const { id } = await params;
   const connection = await prisma.channelConnection.findFirst({ where: { id, workspaceId: ctx.workspace.id } });
   if (!connection) return apiError("Connection not found.", 404);
@@ -23,12 +26,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (csrf) return csrf;
   const ctx = await requireWorkspace();
   if (!ctx) return apiError("Unauthorized", 401);
+  const forbidden = requireRole(ctx.membership.role, "control");
+  if (forbidden) return apiError(forbidden, 403);
   const { id } = await params;
   const connection = await prisma.channelConnection.findFirst({ where: { id, workspaceId: ctx.workspace.id } });
   if (!connection) return apiError("Connection not found.", 404);
-  const adapter = adapterFor(connection.adapter);
-  if (!adapter) return apiError("Unknown adapter.", 400);
-  const check = await adapter.validateConnection(configFromConnection(connection));
+  const provider = connection.status === "removed" ? null : providerFor(connection.adapter);
+  if (!provider) return apiError(`The "${connection.adapter}" provider is not available on this deployment, so this connection cannot be tested or used.`, 400);
+  const check = await provider.validateCredentials({ workspaceId: ctx.workspace.id, credentials: credentialsFromConnection(connection) });
   const updated = await prisma.channelConnection.update({
     where: { id: connection.id },
     data: { status: check.ok ? "verified" : "error", lastCheckedAt: new Date(), lastError: check.ok ? null : check.detail },

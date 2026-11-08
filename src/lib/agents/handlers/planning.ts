@@ -7,6 +7,11 @@ import type { HandlerResult } from "@/lib/agents/types";
 import type { ParsedGoal } from "@/lib/agents/nl-goal";
 import { parseChannelConstraint } from "@/lib/agents/channels";
 import type { Channel } from "@/lib/formats";
+import { env } from "@/lib/env";
+import { log } from "@/lib/log";
+import { currentRuntimeSelection } from "@/lib/agents/runtime/select";
+import { researchWithAgent, type AgentResearch } from "@/lib/agents/runtime/opencode/research";
+import { planWithAgent, type AgentPlan } from "@/lib/agents/runtime/opencode/planner";
 
 /**
  * Planning-phase handlers: plan drafting (with human approval gate),
@@ -52,16 +57,49 @@ export async function handlePlanDraft(ctx: import("@/lib/agents/types").HandlerC
     contextBlock(biz, { objective: goal.objective, successMetric: goal.successMetric, metricTarget: goal.metricTarget, deadline: goal.deadline, constraints: goal.constraints }),
   ].filter(Boolean).join("\n");
 
-  const { data, label, isFallback } = await routedStructured({
-    workspaceId: ctx.workspaceId,
-    purpose: "plan_draft",
-    system,
-    user,
-    maxTokens: 1400,
-    temperature: 0.5,
-    schema: PLAN_OUTPUT,
-    template: () => templatePlanDraft(goal, biz),
-  });
+  // R4: with AGENT_RUNTIME=opencode on Node 24, the planner agent drafts the plan and may ask the founder
+  // one question. The task then waits as blocked, with the question as the action, until it is answered.
+  const selection = currentRuntimeSelection();
+  let agentNote = "";
+  let agent: AgentPlan<PlanDraft> | null = null;
+  if (selection.runtime === "opencode") {
+    const prior = ctx.task.output?.data as { question?: unknown; answer?: unknown; runId?: unknown } | undefined;
+    const previous =
+      typeof prior?.question === "string" && typeof prior.answer === "string" && typeof prior.runId === "string"
+        ? { question: prior.question, answer: prior.answer, runId: prior.runId }
+        : null;
+    agent = await planWithAgent({ workspaceId: ctx.workspaceId, taskId: ctx.task.id, attempt: ctx.task.attempts, goalAndContext: user, schema: PLAN_OUTPUT, previous }).catch((err: Error) => {
+      log("error", "agent_run_failed", { purpose: "plan_draft", taskId: ctx.task.id, error: err.message.slice(0, 500) }, "worker");
+      return { ok: false as const, reason: `The agent runtime failed: ${err.message.slice(0, 200)}`, stopped: false };
+    });
+    if (agent.ok === "asked") {
+      return {
+        outcome: "blocked",
+        reason: "The planner asked you a question before drafting the plan",
+        actionable: agent.question,
+        output: { summary: "Waiting for your answer to the planner's question.", data: { question: agent.question, runId: agent.runId } },
+      };
+    }
+    if (agent.ok === false) agentNote = ` Agent runtime unavailable, so a single call served this: ${agent.reason}`;
+  } else if (env.AGENT_RUNTIME === "opencode") {
+    agentNote = ` ${selection.reason}`;
+  }
+  const planStopped = agent !== null && agent.ok === false && agent.stopped;
+  const { data, label, isFallback } =
+    agent?.ok === true
+      ? { data: agent.data, label: agent.label, isFallback: false }
+      : planStopped
+        ? { data: templatePlanDraft(goal, biz), label: "Template plan: the planner agent stopped at its limit, so nothing more was spent. Edit before approving.", isFallback: true }
+        : await routedStructured({
+            workspaceId: ctx.workspaceId,
+            purpose: "plan_draft",
+            system,
+            user,
+            maxTokens: 1400,
+            temperature: 0.5,
+            schema: PLAN_OUTPUT,
+            template: () => templatePlanDraft(goal, biz),
+          });
 
   // Supersede any previous plan (e.g. after a rejection + regenerate).
   await prisma.goalPlan.updateMany({ where: { goalId, status: "planned" }, data: { status: "superseded" } });
@@ -98,7 +136,7 @@ export async function handlePlanDraft(ctx: import("@/lib/agents/types").HandlerC
     workspaceId: ctx.workspaceId,
     type: "goal",
     actorType: "ai",
-    summary: `Plan drafted for "${goal.objective}" — awaiting your approval before any execution.`,
+    summary: `Plan drafted for "${goal.objective}" — awaiting your approval before any execution. ${label}.${agentNote}`,
     meta: { goalId: goal.id, planId: plan.id, isFallback },
   });
 
@@ -129,7 +167,7 @@ export function templatePlanDraft(
     missingInfo: [
       "Baseline for the success metric (current value, source, date) — needed to state progress honestly.",
       goal.deadline ? null : "A deadline, so pacing and urgency are real rather than implied.",
-      "Which publishing integration is available (Postiz connection, or manual publication recording).",
+      "Which publishing path is available (SocialFlow.ai once verified, or export mode with manual publication recording).",
     ].filter((s): s is string => !!s),
     risks: [
       "Without an approved plan no consequential action runs — the workflow waits.",
@@ -169,16 +207,39 @@ export async function handleResearch(ctx: import("@/lib/agents/types").HandlerCo
 
   const user = contextBlock(biz, goal ? { objective: goal.objective, successMetric: goal.successMetric, metricTarget: goal.metricTarget, deadline: goal.deadline, constraints: goal.constraints } : null);
 
-  const { data, label, isFallback } = await routedStructured({
-    workspaceId: ctx.workspaceId,
-    purpose: "research",
-    system,
-    user,
-    maxTokens: 900,
-    temperature: 0.6,
-    schema: RESEARCH_OUTPUT,
-    template: () => templateResearchBrief(biz, goal),
-  });
+  // R2: with AGENT_RUNTIME=opencode on Node 24, the researcher agent does this task with tools.
+  // Any failure falls back to the single call below, and the label says so.
+  const selection = currentRuntimeSelection();
+  let agentNote = "";
+  let agent: AgentResearch<ResearchBrief> | null = null;
+  if (selection.runtime === "opencode") {
+    agent = await researchWithAgent({ workspaceId: ctx.workspaceId, taskId: ctx.task.id, attempt: ctx.task.attempts, context: user, schema: RESEARCH_OUTPUT }).catch(
+      (err: Error) => {
+        log("error", "agent_run_failed", { purpose: "research", taskId: ctx.task.id, error: err.message.slice(0, 500) }, "worker");
+        return { ok: false as const, reason: `The agent runtime failed: ${err.message.slice(0, 200)}`, stopped: false };
+      }
+    );
+    const failed = agent.ok ? null : agent.reason;
+    if (failed) agentNote = ` Agent runtime unavailable, so a single call served this: ${failed}`;
+  } else if (env.AGENT_RUNTIME === "opencode") {
+    agentNote = ` ${selection.reason}`;
+  }
+  const stopped = agent !== null && !agent.ok && agent.stopped;
+  const { data, label, isFallback } = agent?.ok
+    ? { data: agent.data, label: agent.label, isFallback: false }
+    : stopped
+      ? // R4: the agent stopped at its budget or deadline. Nothing more is spent; its notes are kept.
+        { data: templateResearchBrief(biz, goal), label: "Template brief: the research agent stopped at its limit, so nothing more was spent. Its notes are kept. Edit before use.", isFallback: true }
+      : await routedStructured({
+        workspaceId: ctx.workspaceId,
+        purpose: "research",
+        system,
+        user,
+        maxTokens: 900,
+        temperature: 0.6,
+        schema: RESEARCH_OUTPUT,
+        template: () => templateResearchBrief(biz, goal),
+      });
 
   // Persist the angles as inspectable business context with hypothesis provenance.
   let persisted = 0;
@@ -208,8 +269,8 @@ export async function handleResearch(ctx: import("@/lib/agents/types").HandlerCo
     workspaceId: ctx.workspaceId,
     type: "task",
     actorType: "ai",
-    summary: `Research brief produced (${data.hypothesisAngles.length} hypothesis angle(s), ${persisted} stored as context) — ${label}.`,
-    meta: { taskId: ctx.task.id, goalId: ctx.task.goalId },
+    summary: `Research brief produced (${data.hypothesisAngles.length} hypothesis angle(s), ${persisted} stored as context${agent?.ok ? `, ${agent.notes} note(s) recorded by the agent` : ""}) — ${label}.${agentNote}`,
+    meta: { taskId: ctx.task.id, goalId: ctx.task.goalId, ...(agent?.ok ? { sessionRef: agent.sessionRef } : {}) },
   });
 
   return {

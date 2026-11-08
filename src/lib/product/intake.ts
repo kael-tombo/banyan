@@ -118,7 +118,8 @@ function productName(candidates: string[], hostname: string): string {
   for (const candidate of candidates) {
     const cleaned = cleanText(candidate, 120);
     if (!cleaned || GENERIC_TITLES.has(cleaned.toLowerCase())) continue;
-    const left = cleaned.split(/\s+[|—–]\s+/)[0].trim();
+    // "Resend · Email for developers", "Acme - CRM", "Acme: CRM" → the product name.
+    const left = cleaned.split(/\s+[|—–·-]\s+|:\s+/)[0].trim();
     return (left || cleaned).slice(0, 120);
   }
   return hostname.replace(/^www\./, "").slice(0, 120);

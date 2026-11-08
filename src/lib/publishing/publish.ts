@@ -1,28 +1,18 @@
+import { holdsPublishing } from "@/lib/campaign/lifecycle";
+import { syncCampaignLifecycle } from "@/lib/campaign/lifecycle-service";
 import { prisma } from "@/lib/db";
 import { isExportableContent } from "@/lib/state-machines";
-import { decryptSecret } from "@/lib/crypto";
-import { ConnectionConfig, PublishingAdapter } from "@/lib/publishing/types";
-import { postizAdapter } from "@/lib/publishing/postiz";
+import { providerFor, credentialsFromConnection, EXPORT_MODE_MESSAGE } from "@/lib/distribution/providers";
 import { shouldRetryPublication, nextRetryDelayMs } from "@/lib/publishing/retry";
 import { recordActivity } from "@/lib/activity";
 import { randomSlug } from "@/lib/crypto";
+import { claimDecision } from "@/lib/publishing/claim";
+import { enqueuePublicationAttempt } from "@/lib/queue/jobs";
+import { checkPriorAttempts, syncAcceptedPost } from "@/lib/publishing/status-sync";
+import { VERIFY_FIRST_MESSAGE, workspacePublishingBlocked } from "@/lib/auth/verification";
 
-export const adapters: Record<string, PublishingAdapter> = {
-  postiz: postizAdapter,
-};
-
-export function adapterFor(provider: string): PublishingAdapter | null {
-  return adapters[provider] ?? null;
-}
-
-export function configFromConnection(connection: { configEncrypted: string }): ConnectionConfig {
-  const parsed = JSON.parse(decryptSecret(connection.configEncrypted) || "{}") as Partial<ConnectionConfig>;
-  return {
-    baseUrl: parsed.baseUrl ?? "",
-    apiKey: parsed.apiKey ?? "",
-    integrationIds: parsed.integrationIds ?? {},
-  };
-}
+/** Connection statuses that can never be used to publish. */
+export const UNUSABLE_CONNECTION_STATUSES = ["error", "removed"];
 
 /**
  * Publish or schedule approved content.
@@ -35,7 +25,7 @@ export function configFromConnection(connection: { configEncrypted: string }): C
  *  - published status is only ever set after real provider confirmation
  *    (or an explicit manual action with a submitted live URL).
  */
-export async function attemptPublication(input: {
+async function attemptPublicationInner(input: {
   contentItemId: string;
   workspaceId: string;
   connectionId: string | null;
@@ -50,8 +40,16 @@ export async function attemptPublication(input: {
   if (!item || item.workspaceId !== input.workspaceId) {
     return { ok: false, status: "blocked", message: "Content not found." };
   }
-  if (!isExportableContent(item)) {
+  // A failed attempt keeps its approval (editing failed content sends it back to
+  // draft), so "Retry publish now" is allowed on approved copy that failed.
+  const retryOfFailed = item.status === "failed" && !!item.approvedById;
+  if (!isExportableContent(item) && !retryOfFailed) {
     return { ok: false, status: "blocked", message: "Content must be approved before publishing." };
+  }
+  // US-011: nothing goes out in the owner's name (manual, scheduled, autopilot or
+  // campaign launch) until the workspace owner's address is confirmed.
+  if (await workspacePublishingBlocked(input.workspaceId)) {
+    return { ok: false, status: "blocked", message: VERIFY_FIRST_MESSAGE };
   }
 
   // Duplicate execution guard: one active publication per content item.
@@ -63,11 +61,33 @@ export async function attemptPublication(input: {
     return { ok: false, status: active.status, message: `A publication is already ${active.status} for this content.`, publicationId: active.id };
   }
 
+  // An earlier attempt SocialFlow accepted may still go out; never post twice.
+  const prior = await checkPriorAttempts(input.workspaceId, item.publications);
+  if (!prior.proceed) {
+    if (prior.adoptPublished) {
+      const url = prior.adoptPublished.url && /^https?:\/\//i.test(prior.adoptPublished.url) ? prior.adoptPublished.url : null;
+      await prisma.publication.update({ where: { id: prior.adoptPublished.publicationId }, data: { status: "published", externalUrl: url, publishedAt: new Date(), lastError: null } });
+      await prisma.contentItem.update({ where: { id: item.id }, data: { status: "published", publishedAt: new Date(), scheduledFor: null } });
+      await recordActivity({
+        workspaceId: input.workspaceId,
+        type: "publication_success",
+        actorType: "system",
+        summary: `"${item.title}" was published by SocialFlow.ai after Banyan stopped waiting; recorded, not posted again.`,
+        meta: { contentItemId: item.id },
+      });
+      return { ok: true, status: "published", message: prior.reason, publicationId: prior.adoptPublished.publicationId };
+    }
+    return { ok: false, status: "blocked", message: prior.reason };
+  }
+
   const connection = input.connectionId
     ? await prisma.channelConnection.findFirst({ where: { id: input.connectionId, workspaceId: input.workspaceId } })
-    : await prisma.channelConnection.findFirst({ where: { workspaceId: input.workspaceId, channel: item.channel, status: { not: "error" } } });
+    : await prisma.channelConnection.findFirst({ where: { workspaceId: input.workspaceId, channel: item.channel, status: { notIn: UNUSABLE_CONNECTION_STATUSES } } });
 
-  const idempotencyKey = `${item.id}:${input.mode}:${input.scheduledFor ? Math.floor(input.scheduledFor.getTime() / 60_000) * 60_000 : "now"}`;
+  // A new attempt after a failed or cancelled one is a new delivery intent, so it gets a new key
+  // (the column is unique, and the provider would otherwise replay the failed or cancelled post).
+  const baseKey = `${item.id}:${input.mode}:${input.scheduledFor ? Math.floor(input.scheduledFor.getTime() / 60_000) * 60_000 : "now"}`;
+  const idempotencyKey = item.publications.length ? `${baseKey}:${item.publications.length}` : baseKey;
   const publication = await prisma.publication.create({
     data: {
       contentItemId: item.id,
@@ -88,6 +108,7 @@ export async function attemptPublication(input: {
       summary: `Content scheduled for ${input.scheduledFor.toISOString()} (pending publishing worker).`,
       meta: { contentItemId: item.id, publicationId: publication.id },
     });
+    await enqueuePublicationAttempt(publication.id, input.scheduledFor);
     return { ok: true, status: "scheduled", message: "Scheduled. The publishing worker will attempt delivery at the scheduled time.", publicationId: publication.id };
   }
 
@@ -97,31 +118,56 @@ export async function attemptPublication(input: {
   return { ok: result.ok, status: result.status, message: result.message, publicationId: publication.id };
 }
 
-export async function executePublication(publicationId: string): Promise<{ ok: boolean; status: string; message: string }> {
+async function executePublicationInner(publicationId: string): Promise<{ ok: boolean; status: string; message: string }> {
   const publication = await prisma.publication.findUnique({
     where: { id: publicationId },
     include: { contentItem: true, connection: true },
   });
-  if (!publication || publication.status === "published") {
+  if (!publication) {
     return { ok: false, status: "skipped", message: "Publication already finalized or missing." };
+  }
+  // Only a scheduled publication that is due, or one created for an immediate
+  // attempt, may be executed. A queued job for a publication that was since
+  // cancelled, published, or rescheduled later is a no-op.
+  const decision = claimDecision(publication);
+  if (!decision.claimable) {
+    return { ok: false, status: "skipped", message: decision.reason };
   }
 
   const item = publication.contentItem;
+  // A paused or cancelled campaign holds its publications (US-048): exit before
+  // claiming, so nothing changes and no attempt is counted.
+  if (item.campaignId) {
+    const campaign = await prisma.campaign.findUnique({ where: { id: item.campaignId }, select: { lifecycle: true } });
+    const held = holdsPublishing(campaign?.lifecycle);
+    if (held) return { ok: false, status: "skipped", message: held };
+  }
   if (!isExportableContent(item)) {
     await prisma.publication.update({
       where: { id: publication.id },
       data: { status: "blocked", lastError: "Content lost approval before the attempt; publishing refused." },
     });
-    await prisma.contentItem.update({ where: { id: item.id }, data: { status: "failed" } }).catch(() => {});
+    // The content keeps its own status (draft, in review…): marking it "failed" would
+    // let a retry ride on an approval that no longer covers the current copy.
     return { ok: false, status: "blocked", message: "Content lost approval before the attempt; publishing refused." };
   }
 
-  await prisma.publication.update({ where: { id: publication.id }, data: { attempts: { increment: 1 }, status: "attempting" } });
+  // Atomic claim: the conditional update succeeds for exactly one caller, so a
+  // queue job and the safety sweep can never both deliver the same post.
+  const claimed = await prisma.publication.updateMany({
+    where: { id: publication.id, status: publication.status, attempts: publication.attempts },
+    data: { attempts: { increment: 1 }, status: "attempting" },
+  });
+  if (claimed.count === 0) {
+    return { ok: false, status: "skipped", message: "Another worker is already attempting this publication." };
+  }
   await recordActivity({ workspaceId: item.workspaceId, type: "publication_attempt", actorType: "system", summary: `Publishing attempt for "${item.title}" via ${publication.provider}.` });
 
-  if (!publication.connection) {
-    const message =
-      "No configured publishing connection for this channel. Configure a Postiz connection in Publishing, or record a manual publication with the live post URL once you have published it yourself.";
+  const provider = publication.connection && !UNUSABLE_CONNECTION_STATUSES.includes(publication.connection.status)
+    ? providerFor(publication.connection.adapter)
+    : null;
+  if (!publication.connection || !provider) {
+    const message = EXPORT_MODE_MESSAGE;
     await prisma.publication.update({
       where: { id: publication.id },
       data: { status: "blocked", lastError: message },
@@ -131,21 +177,19 @@ export async function executePublication(publicationId: string): Promise<{ ok: b
     return { ok: false, status: "blocked", message };
   }
 
-  const adapter = adapterFor(publication.connection.adapter);
-  if (!adapter) {
-    await prisma.publication.update({ where: { id: publication.id }, data: { status: "failed", lastError: `Unknown adapter "${publication.connection.adapter}".` } });
-    await prisma.contentItem.update({ where: { id: item.id }, data: { status: "failed" } });
-    return { ok: false, status: "failed", message: `Unknown adapter "${publication.connection.adapter}".` };
-  }
-
-  const cfg = configFromConnection(publication.connection);
-  const result = await adapter.publish({
-    cfg,
+  // BOS-027: a post SocialFlow already accepted is not sent again; its status
+  // (C7) decides. Only an inconclusive status read falls back to an idempotent replay.
+  const providerCtx = { workspaceId: item.workspaceId, credentials: credentialsFromConnection(publication.connection) };
+  const synced = publication.externalId ? await syncAcceptedPost(provider, providerCtx, publication.externalId) : null;
+  const result = synced ?? (await provider.publish({
+    ctx: providerCtx,
     channel: item.channel,
     text: item.body,
     title: item.title,
+    idempotencyKey: publication.idempotencyKey,
     scheduledFor: publication.scheduledFor,
-  });
+  }));
+  const externalId = result.externalId ?? publication.externalId ?? null;
 
   if (!result.ok) {
     const attemptNumber = publication.attempts; // incremented before the adapter call
@@ -159,9 +203,10 @@ export async function executePublication(publicationId: string): Promise<{ ok: b
       const retryAt = new Date(Date.now() + nextRetryDelayMs(attemptNumber, { retryAfterMs: result.retryAfterMs }));
       await prisma.publication.update({
         where: { id: publication.id },
-        data: { status: "scheduled", scheduledFor: retryAt, lastError: errorMessage },
+        data: { status: "scheduled", scheduledFor: retryAt, lastError: errorMessage, externalId },
       });
       await prisma.contentItem.update({ where: { id: item.id }, data: { status: "scheduled", scheduledFor: retryAt } });
+      await enqueuePublicationAttempt(publication.id, retryAt);
       await recordActivity({
         workspaceId: item.workspaceId,
         type: "publication_retry_scheduled",
@@ -172,13 +217,22 @@ export async function executePublication(publicationId: string): Promise<{ ok: b
       return { ok: false, status: "retry_scheduled", message: `Transient failure — attempt ${attemptNumber + 1} scheduled for ${retryAt.toISOString()}.` };
     }
 
+    // Giving up on a post SocialFlow accepted but never confirmed: cancel it there,
+    // so it cannot go out later behind a retry (checkPriorAttempts guards the rest).
+    let finalError = errorMessage;
+    if (externalId && result.retryable) {
+      const cancel = await provider.cancelScheduled(providerCtx, externalId).catch(() => null);
+      finalError = cancel?.ok
+        ? `${errorMessage} Banyan stopped waiting and cancelled it in SocialFlow.ai, so a retry cannot post it twice.`
+        : `${errorMessage} Banyan stopped waiting; SocialFlow.ai may still publish it, so a retry first checks its outcome.`;
+    }
     await prisma.publication.update({
       where: { id: publication.id },
-      data: { status: "failed", lastError: errorMessage, providerResponse: JSON.stringify(result.raw).slice(0, 4000) },
+      data: { status: "failed", lastError: finalError, externalId, providerResponse: JSON.stringify(result.raw).slice(0, 4000) },
     });
     await prisma.contentItem.update({ where: { id: item.id }, data: { status: "failed" } });
-    await recordActivity({ workspaceId: item.workspaceId, type: "publication_failed", actorType: "system", summary: `Publishing failed for "${item.title}" after ${attemptNumber} attempt(s): ${errorMessage}`, meta: { contentItemId: item.id } });
-    return { ok: false, status: "failed", message: errorMessage };
+    await recordActivity({ workspaceId: item.workspaceId, type: "publication_failed", actorType: "system", summary: `Publishing failed for "${item.title}" after ${attemptNumber} attempt(s): ${finalError}`, meta: { contentItemId: item.id } });
+    return { ok: false, status: "failed", message: finalError };
   }
 
   // Provider confirmed. Only now does content become published.
@@ -186,7 +240,8 @@ export async function executePublication(publicationId: string): Promise<{ ok: b
     where: { id: publication.id },
     data: {
       status: "published",
-      externalId: result.externalId ?? null,
+      externalId,
+      externalUrl: result.externalUrl && /^https?:\/\//i.test(result.externalUrl) ? result.externalUrl : null,
       providerResponse: JSON.stringify(result.raw).slice(0, 8000),
       publishedAt: new Date(),
     },
@@ -210,12 +265,10 @@ export async function executePublication(publicationId: string): Promise<{ ok: b
  * they published themselves. This is a genuine confirmation from a human,
  * recorded distinctly (manual=true) — never fabricated automatically.
  */
-export async function recordManualPublication(input: { contentItemId: string; workspaceId: string; url: string }): Promise<{ ok: boolean; message: string }> {
+async function recordManualPublicationInner(input: { contentItemId: string; workspaceId: string; url: string }): Promise<{ ok: boolean; message: string }> {
   const item = await prisma.contentItem.findUnique({ where: { id: input.contentItemId }, include: { publications: true } });
   if (!item || item.workspaceId !== input.workspaceId) return { ok: false, message: "Content not found." };
-  if (!isExportableContent(item)) return { ok: false, message: "Content must be approved before a manual publication can be recorded." };
   const existing = item.publications.find((p) => p.status === "published");
-  if (existing) return { ok: false, message: "This content is already published." };
 
   let validated: URL;
   try {
@@ -225,24 +278,68 @@ export async function recordManualPublication(input: { contentItemId: string; wo
     return { ok: false, message: "Provide the live post URL (https://...)." };
   }
 
-  await prisma.publication.create({
-    data: {
-      contentItemId: item.id,
-      provider: "manual",
-      status: "published",
-      externalUrl: validated.toString(),
-      providerResponse: JSON.stringify({ recordedManually: true, url: validated.toString() }),
-      publishedAt: new Date(),
-      manual: true,
-      idempotencyKey: `${item.id}:manual:${Date.now()}`,
-    },
-  });
+  // Idempotent (US-034): recording the same live URL again is a no-op success;
+  // a different URL for already-published content is refused.
+  if (existing) {
+    return existing.externalUrl === validated.toString()
+      ? { ok: true, message: "Manual publication already recorded." }
+      : { ok: false, message: "This content is already published." };
+  }
+  if (!isExportableContent(item)) return { ok: false, message: "Content must be approved before a manual publication can be recorded." };
+
+  try {
+    await prisma.publication.create({
+      data: {
+        contentItemId: item.id,
+        provider: "manual",
+        status: "published",
+        externalUrl: validated.toString(),
+        providerResponse: JSON.stringify({ recordedManually: true, url: validated.toString() }),
+        publishedAt: new Date(),
+        manual: true,
+        // One manual publication per item: the unique key makes a concurrent
+        // second recording fail in the database instead of creating a duplicate.
+        idempotencyKey: `${item.id}:manual`,
+      },
+    });
+  } catch (err) {
+    // A concurrent recording won the unique idempotency key: same outcome.
+    if ((err as { code?: string }).code === "P2002") return { ok: true, message: "Manual publication already recorded." };
+    throw err;
+  }
   await prisma.contentItem.update({ where: { id: item.id }, data: { status: "published", publishedAt: new Date() } });
   await recordActivity({ workspaceId: input.workspaceId, type: "publication_success", summary: `Manual publication recorded for "${item.title}" at ${validated.host} (user-confirmed).`, meta: { contentItemId: item.id, manual: true } });
   return { ok: true, message: "Manual publication recorded." };
 }
 
 /** Worker entry point: attempt every due scheduled publication. */
+// ————— Campaign lifecycle (US-046): every publishing outcome re-derives the campaign state —————
+
+async function syncForContent(contentItemId: string | null | undefined) {
+  if (!contentItemId) return;
+  const item = await prisma.contentItem.findUnique({ where: { id: contentItemId }, select: { campaignId: true } }).catch(() => null);
+  await syncCampaignLifecycle(item?.campaignId);
+}
+
+export async function attemptPublication(input: Parameters<typeof attemptPublicationInner>[0]) {
+  const result = await attemptPublicationInner(input);
+  await syncForContent(input.contentItemId);
+  return result;
+}
+
+export async function executePublication(publicationId: string) {
+  const result = await executePublicationInner(publicationId);
+  const pub = await prisma.publication.findUnique({ where: { id: publicationId }, select: { contentItemId: true } }).catch(() => null);
+  await syncForContent(pub?.contentItemId);
+  return result;
+}
+
+export async function recordManualPublication(input: Parameters<typeof recordManualPublicationInner>[0]) {
+  const result = await recordManualPublicationInner(input);
+  await syncForContent(input.contentItemId);
+  return result;
+}
+
 export async function processDueSchedule(now = new Date()): Promise<{ attempted: number; published: number; failed: number }> {
   const due = await prisma.publication.findMany({
     where: { status: "scheduled", scheduledFor: { lte: now } },

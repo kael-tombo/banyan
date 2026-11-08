@@ -62,6 +62,30 @@ req POST /api/auth/signup "$JAR1" "{\"name\":\"E2E Founder\",\"email\":\"$U1\",\
                                        check "$STATUS" 201 "signup works"
 req GET /api/goals "$JAR1";            check "$STATUS" 200 "session cookie grants API access"
 
+# Blocker 04: a new founder's first screen is the first cycle, not an empty dashboard.
+# /app streams behind its loading screen, so Next.js may send the redirect inside the page instead of as a 30x.
+FIRST=$(curl -s -w '
+%{http_code} %{redirect_url}' -b "$JAR1" "$BASE/app")
+case "$FIRST" in
+  *"30"[0-9]*"/onboarding"*|*"NEXT_REDIRECT"*"/onboarding"*|*'http-equiv="refresh"'*"/onboarding"*) ok "a new founder opening the app is sent to the first cycle" ;;
+  *) bad "a new founder opening the app is sent to the first cycle" "got [${FIRST: -300}]" ;;
+esac
+req GET /onboarding "$JAR1";           check "$STATUS" 200 "onboarding page loads"
+                                       contains "$BODY" "Your product and its market, in one read" "onboarding opens on the 360 read"
+
+# US-018 / US-019: onboarding progress across the nine stages.
+req GET /api/onboarding/progress "$JAR1"
+                                       check "$STATUS" 200 "onboarding progress readable"
+contains "$BODY" '"current":"workspace"' "new workspace resumes at the workspace stage"
+req POST /api/onboarding "$JAR1" '{"step":"workspace","data":{"workspaceName":"Acme","businessName":"Acme Labs","industry":"developer tools","businessModel":"saas","timeZone":"Mars/Olympus"}}'
+                                       check "$STATUS" 400 "unknown time zone rejected"
+req POST /api/onboarding "$JAR1" '{"step":"workspace","data":{"workspaceName":"Acme","businessName":"Acme Labs","industry":"developer tools","businessModel":"saas","timeZone":"Africa/Nairobi"}}'
+                                       check "$STATUS" 200 "onboarding: workspace step"
+req POST /api/onboarding/progress "$JAR1" '{"stage":"business","action":"skip"}'
+                                       check "$STATUS" 409 "required stage cannot be skipped"
+req POST /api/onboarding/progress "$JAR1" '{"stage":"connection","action":"skip"}'
+                                       check "$STATUS" 200 "optional stage can be skipped"
+
 req POST /api/onboarding "$JAR1" '{"step":"product","data":{"name":"Acme Launch Tracker","description":"Acme helps indie founders track product launches across communities, newsletters and social channels in one place.","website":"https://example.com/acme","stage":"public_beta","problem":"Founders scatter launch updates across five tools and never learn which channel actually brought users.","valueProp":"One tracker shows every launch, its channel and its conversions in real time."}}'
                                        check "$STATUS" 200 "onboarding: product step"
 req POST /api/onboarding "$JAR1" '{"step":"audience","data":{"audience":"Indie founders shipping their first product","pain":"No idea which distribution channel converts","outcome":"Confident channel decisions with tracked evidence","geography":"Global English-speaking"}}'
@@ -72,6 +96,23 @@ req POST /api/onboarding "$JAR1" '{"step":"channels","data":{"channels":["x","li
                                        check "$STATUS" 200 "onboarding: channels step"
 req POST /api/onboarding "$JAR1" '{"step":"voice","data":{"tone":"plain, founder-to-founder","language":"en"}}'
                                        check "$STATUS" 200 "onboarding: voice step"
+req GET /api/onboarding/progress "$JAR1"
+contains "$BODY" '"requiredComplete":true' "all required onboarding stages done after the steps"
+
+# US-021 / US-025: product website analysis through the worker queue.
+req POST /api/product/analyze "$JAR1" '{"url":"http://169.254.169.254/latest/meta-data"}'
+                                       check "$STATUS" 400 "private address refused before any request"
+req POST /api/product/analyze "$JAR1" '{"url":"example.com"}'
+                                       check "$STATUS" 202 "analysis accepted"
+ANALYSIS_ID=$(printf '%s' "$BODY" | jget '.analysis.id')
+A_STATUS=""; for i in $(seq 1 30); do req GET "/api/product/analyze/$ANALYSIS_ID" "$JAR1"; A_STATUS=$(printf '%s' "$BODY" | jget '.analysis.status'); case "$A_STATUS" in ready|failed) break;; esac; sleep 1; done
+check "$A_STATUS" "ready" "public website analysed by the worker"
+contains "$BODY" '"product_name"' "analysis returns a structured profile"
+req POST /api/product/analyze "$JAR1" '{"url":"https://no-such-site.invalid"}'
+UNREACH_ID=$(printf '%s' "$BODY" | jget '.analysis.id')
+U_STATUS=""; for i in $(seq 1 30); do req GET "/api/product/analyze/$UNREACH_ID" "$JAR1"; U_STATUS=$(printf '%s' "$BODY" | jget '.analysis.status'); case "$U_STATUS" in ready|failed) break;; esac; sleep 1; done
+check "$U_STATUS" "failed" "unreachable website ends in a failed state"
+contains "$BODY" '"code":"unreachable"' "failure carries a reason and a next step"
 
 req GET /api/profile "$JAR1"
 NAME=$(printf '%s' "$BODY" | jget '.profile.name'); SITE=$(printf '%s' "$BODY" | jget '.profile.website')
@@ -109,8 +150,14 @@ req POST "/api/goals/$GOAL_ID/plan/approve" "$JAR1" '{"decision":"approve"}'
 
 # --- 4. Agents produce research -> strategy -> campaign -> content ------------
 drive 16 "$JAR1"
-req GET /api/content "$JAR1"
-CONTENT_COUNT=$(printf '%s' "$BODY" | jget '.items.length')
+# Content tasks run on the worker; on a cold stack they can finish after the
+# last advance, so wait for the drafts instead of checking once.
+for i in $(seq 1 15); do
+  req GET /api/content "$JAR1"
+  CONTENT_COUNT=$(printf '%s' "$BODY" | jget '.items.length')
+  [ -n "$CONTENT_COUNT" ] && [ "$CONTENT_COUNT" -ge 1 ] 2>/dev/null && break
+  sleep 2; drive 1 "$JAR1"
+done
 [ -n "$CONTENT_COUNT" ] && [ "$CONTENT_COUNT" -ge 1 ] 2>/dev/null && ok "content drafted by agents ($CONTENT_COUNT items)" || bad "content drafted" "items=$CONTENT_COUNT body=${BODY:0:200}"
 CONTENT_ID=$(printf '%s' "$BODY" | jget '.items[0].id')
 
@@ -142,8 +189,21 @@ case "$BODY" in
   *) bad "publish without connection blocked honestly" "body=${BODY:0:300}";;
 esac
 
+# US-028: Postiz is removed; no connection can be created for it (or any provider until SocialFlow.ai is verified).
+req POST /api/connections "$JAR1" '{"channel":"x","adapter":"postiz","credentials":{"apiKey":"k"}}'
+                                       check "$STATUS" 400 "removed provider (postiz) cannot be connected"
+
+# US-034 export mode: an approved post exports with its own tracked link.
+req POST "/api/content/$CONTENT_ID/export" "$JAR1" '{}'
+                                       check "$STATUS" 200 "approved post exported (export mode)"
+contains "$BODY" "/t/" "export package carries the post's tracked link"
+
 req POST "/api/content/$CONTENT_ID/publish" "$JAR1" '{"mode":"manual","liveUrl":"https://example.com/banyan-manual-post"}'
                                        check "$STATUS" 200 "manual publication recorded with real URL"
+req POST "/api/content/$CONTENT_ID/publish" "$JAR1" '{"mode":"manual","liveUrl":"https://example.com/banyan-manual-post"}'
+                                       check "$STATUS" 200 "recording the same live URL again is idempotent"
+req POST "/api/content/$CONTENT_ID/export" "$JAR1" '{}'
+                                       check "$STATUS" 409 "published post cannot be exported as a new final package"
 
 # --- 6. Experiments + evidence-aware learning ---------------------------------
 req POST /api/experiments "$JAR1" '{"title":"X thread hook A/B","hypothesis":"Problem-first hooks get more profile clicks than feature-first hooks for founder audiences","channel":"x","variable":"hook order: problem-first vs feature-first","successMetric":"profile clicks per thread"}'
@@ -170,6 +230,173 @@ check "$PERSIST" "$GOAL_ID" "goal and its data persist across sessions"
 # --- 8. Tenant isolation -------------------------------------------------------
 req POST /api/auth/signup "$JAR3" "{\"name\":\"E2E Other\",\"email\":\"$U2\",\"password\":\"e2e-password-2\"}"
                                        check "$STATUS" 201 "second user signs up"
+# JAR3 walks the manual flow step by step; autopilot is covered separately below.
+req POST /api/agent-activity/pause "$JAR3" '{"paused":true}'
+                                       check "$STATUS" 200 "second user pauses agents to drive each step by hand"
+req GET "/api/product/analyze/$ANALYSIS_ID" "$JAR3"
+                                       check "$STATUS" 404 "cross-workspace analysis access denied (404)"
+req POST "/api/product/analyze/$ANALYSIS_ID/research" "$JAR3" '{}'
+                                       check "$STATUS" 404 "cross-workspace market scan refused (404)"
+
+# US-023: a profile drafted from the website needs approval before strategy work.
+req POST /api/product/analyze "$JAR3" '{"url":"example.com"}'
+A3_ID=$(printf '%s' "$BODY" | jget '.analysis.id')
+for i in $(seq 1 30); do req GET "/api/product/analyze/$A3_ID" "$JAR3"; S3=$(printf '%s' "$BODY" | jget '.analysis.status'); case "$S3" in ready|failed) break;; esac; sleep 1; done
+req POST /api/product/profile/apply-analysis "$JAR3" "{\"analysisId\":\"$A3_ID\"}"
+                                       check "$STATUS" 200 "analysis applied to the profile as a draft"
+req POST /api/goals "$JAR3" '{"rawInput":"Get 20 signups from developers in 30 days"}'
+                                       check "$STATUS" 409 "strategy refused until the drafted profile is approved"
+req POST /api/strategies "$JAR3" '{}'
+                                       check "$STATUS" 409 "strategy generation refused while analysis-drafted fields are unapproved"
+# The reader copies the page's own first paragraph as the description (an empty
+# description still blocks approval: unit-tested in tests/profile-review.test.ts).
+req GET /api/profile "$JAR3"
+DESC3=$(printf '%s' "$BODY" | jget '.profile.description')
+[ "${#DESC3}" -ge 10 ] && ok "drafted profile carries the page's own description" || bad "drafted profile carries the page's own description" "got description=[$DESC3]"
+req PATCH /api/profile "$JAR3" '{"name":"Example","description":"A plain example page used for tests.","stage":"building","problem":"Founders need a stable public page to test with.","valueProp":"Always there, always the same.","website":"https://example.com"}'
+                                       check "$STATUS" 200 "founder completes the profile in their own words"
+req POST /api/product/profile/approve "$JAR3" '{}'
+                                       check "$STATUS" 200 "profile approved"
+req POST /api/goals "$JAR3" '{"rawInput":"Get 20 signups from developers in 30 days"}'
+                                       check "$STATUS" 201 "strategy unlocked after approval"
+req PATCH /api/profile "$JAR3" '{"name":"Example","description":"A plain example page used for tests.","stage":"building","problem":"Founders need a stable public page to test with.","valueProp":"Always there, never changes.","website":"https://example.com"}'
+req GET /api/profile "$JAR3"
+contains "$BODY" '"version":2' "editing an approved profile starts version 2"
+contains "$BODY" '"approvedAt":null' "the new version needs approving again"
+
+# US-042: a structured strategy, only from an approved profile.
+# The founder rewrote every analysis field, so the profile is their own words and needs no extra approval.
+req POST /api/strategies "$JAR3" '{}'
+                                       check "$STATUS" 201 "strategy generated from the approved profile"
+SID=$(printf '%s' "$BODY" | jget '.strategy.id')
+contains "$BODY" '"profileVersion":2' "strategy records the profile version it came from"
+contains "$BODY" '"labelled_as":"hypothesis"' "strategy is labelled a hypothesis"
+contains "$BODY" '"source":"first_party"' "KPIs are first-party measurements"
+contains "$BODY" '"scheduling":false' "unverified scheduling is never assumed"
+case "$BODY" in *'"publishing":"socialflow"'*) bad "export mode used while SocialFlow.ai is unverified" "$BODY";; *) ok "export mode used while SocialFlow.ai is unverified";; esac
+contains "$BODY" '"stale":false' "fresh strategy is not stale"
+req POST /api/strategies "$JAR3" '{}'
+                                       check "$STATUS" 201 "regenerating creates the next version"
+contains "$BODY" '"version":2' "second strategy is version 2"
+req GET "/api/strategies/$SID" "$JAR3"
+contains "$BODY" '"status":"superseded"' "previous proposal superseded, not deleted"
+req GET "/api/strategies/$SID" "$JAR1"
+                                       check "$STATUS" 404 "another workspace cannot read the strategy"
+
+# US-043: review, approve, reject, edit.
+req GET /api/strategies "$JAR3"
+S2=$(printf '%s' "$BODY" | jget '.strategy.id')
+req POST "/api/strategies/$S2/reject" "$JAR3" '{"reason":""}'
+                                       check "$STATUS" 400 "rejecting needs a reason"
+req POST "/api/strategies/$S2/approve" "$JAR3" '{}'
+                                       check "$STATUS" 200 "proposed strategy approved"
+contains "$BODY" '"status":"approved"' "strategy is approved"
+req POST "/api/strategies/$S2/approve" "$JAR3" '{}'
+                                       check "$STATUS" 200 "approving twice is idempotent"
+req POST "/api/strategies/$S2/reject" "$JAR3" '{"reason":"Changed my mind"}'
+                                       check "$STATUS" 409 "an approved strategy cannot be rejected"
+req GET "/api/strategies/$S2" "$JAR3"
+EDIT=$(printf '%s' "$BODY" | node -e '
+let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const b=JSON.parse(s).strategy.body;
+const draft={channels:b.channels.map(({channel,priority,rationale,formats,cites})=>({channel,priority,rationale,formats,cites})),messaging_angles:b.messaging_angles,objectives:b.objectives,frequency:b.frequency.map(f=>({...f,posts_per_week:5})),kpis:b.kpis.map(({metric,why})=>({metric,target:20,why})),assumptions:b.assumptions};
+process.stdout.write(JSON.stringify({body:draft}))})')
+req PATCH "/api/strategies/$S2" "$JAR3" "$EDIT"
+                                       check "$STATUS" 201 "edits saved as a new version"
+contains "$BODY" '"method":"edited"' "edited version is marked as edited"
+contains "$BODY" '"status":"proposed"' "edited version needs approval"
+S3=$(printf '%s' "$BODY" | jget '.strategy.id')
+req GET "/api/strategies/$S2" "$JAR3"
+contains "$BODY" '"status":"approved"' "the approved version is untouched by the edit"
+BADEDIT=$(printf '%s' "$EDIT" | sed 's/"cites":\["[^]]*\]/"cites":["F999"]/')
+req PATCH "/api/strategies/$S2" "$JAR3" "$BADEDIT"
+                                       check "$STATUS" 422 "an edit citing a fact that does not exist is refused"
+req POST /api/product/profile/approve "$JAR3" '{}'
+req PATCH /api/profile "$JAR3" '{"name":"Example","description":"A plain example page used for tests, now edited.","stage":"building","problem":"Founders need a stable public page to test with.","valueProp":"Always there, never changes.","website":"https://example.com"}'
+req POST "/api/strategies/$S3/approve" "$JAR3" '{}'
+                                       check "$STATUS" 409 "a strategy from an older profile version cannot be approved"
+contains "$BODY" 'Regenerate' "the refusal says to regenerate"
+req POST "/api/strategies/$S3/approve" "$JAR1" '{}'
+                                       check "$STATUS" 404 "another workspace cannot approve the strategy"
+
+# US-044: drafts are written only from an approved strategy.
+req POST /api/content/from-strategy "$JAR1" '{}'
+                                       check "$STATUS" 409 "no drafts without an approved strategy"
+req POST /api/content/from-strategy "$JAR3" "{\"strategyId\":\"$S3\"}"
+                                       check "$STATUS" 409 "no drafts from a strategy that is not approved"
+req GET /api/credits "$JAR3"
+contains "$BODY" '"available":50' "a new workspace starts with 50 credits"
+req GET "/api/strategies/$S2" "$JAR3"
+EST=$(printf '%s' "$BODY" | jget '.strategy.draftEstimate.total')
+[ -n "$EST" ] && [ "$EST" -gt 0 ] 2>/dev/null && ok "the strategy shows what its drafts will cost ($EST credits)" || bad "the strategy shows what its drafts will cost" "$BODY"
+req POST /api/content/from-strategy "$JAR3" "{\"strategyId\":\"$S2\"}"
+                                       check "$STATUS" 201 "drafts written from the approved strategy"
+NDRAFTS=$(printf '%s' "$BODY" | jget '.created.length')
+# Only model-written drafts are charged; a template draft (no model, or the model failed) is free.
+NFALLBACK=$(printf '%s' "$BODY" | jget '.created.filter(c=>c.isFallback).length')
+SPENT=$(printf '%s' "$BODY" | jget '.credits.spent')
+case "$NDRAFTS" in ''|0) bad "one draft per channel and format" "$BODY";; *) ok "one draft per channel and format ($NDRAFTS)";; esac
+req POST /api/content/from-strategy "$JAR3" "{\"strategyId\":\"$S2\"}"
+                                       check "$STATUS" 200 "writing drafts again creates no duplicates"
+contains "$BODY" '"created":[]' "second run created nothing"
+req GET /api/credits "$JAR3"
+if [ "$NFALLBACK" = "$NDRAFTS" ]; then
+  check "$(printf '%s' "$BODY" | jget '.available')" "50" "template drafts (no model wrote them) are not charged"
+else
+  check "$(printf '%s' "$BODY" | jget '.available')" "$((50 - SPENT))" "only model-written drafts were charged, once"
+fi
+contains "$BODY" '"reserved":0' "nothing stays held after the run"
+req GET /app/approvals "$JAR3"
+contains "$BODY" "Strategy v2" "drafts wait in the approvals queue"
+contains "$BODY" "is ready for review" "the strategy proposal is listed in Approvals with the drafts"
+req GET /app/usage "$JAR3"
+contains "$BODY" "content_draft" "draft generation is recorded in the model-usage ledger"
+
+# US-046: one campaign lifecycle.
+req POST /api/content/from-strategy "$JAR3" "{\"strategyId\":\"$S2\"}"
+SCAMP=$(printf '%s' "$BODY" | jget '.campaignId')
+[ -n "$SCAMP" ] && ok "strategy drafts belong to the strategy campaign" || bad "strategy drafts belong to the strategy campaign" "$BODY"
+req GET "/api/campaigns/$SCAMP" "$JAR3"
+contains "$BODY" '"lifecycle":"content_review"' "campaign lifecycle derived from its content (in review)"
+req POST "/api/campaigns/$SCAMP/lifecycle" "$JAR3" '{"action":"approve"}'
+                                       check "$STATUS" 409 "an invalid lifecycle move is refused"
+req POST "/api/campaigns/$SCAMP/lifecycle" "$JAR3" '{"action":"pause"}'
+                                       check "$STATUS" 200 "campaign paused"
+contains "$BODY" '"lifecycle":"paused"' "lifecycle is paused"
+req POST /api/content/from-strategy "$JAR3" "{\"strategyId\":\"$S2\"}"
+                                       check "$STATUS" 409 "no drafts are written for a paused campaign"
+req POST "/api/campaigns/$SCAMP/lifecycle" "$JAR3" '{"action":"resume"}'
+                                       check "$STATUS" 200 "campaign resumed"
+contains "$BODY" '"lifecycle":"content_review"' "resumed where it was paused"
+
+# US-049/047 + launch path: distribute a strategy campaign in export mode.
+req POST "/api/campaigns/$SCAMP/distribute" "$JAR3" '{}'
+                                       check "$STATUS" 409 "one-click publishing refuses without a verified provider"
+contains "$BODY" '"code":"export_mode"' "the refusal points to export mode"
+req GET "/api/content?campaignId=$SCAMP" "$JAR3"
+DRAFT1=$(printf '%s' "$BODY" | jget '.items[0].id')
+req POST "/api/content/$DRAFT1/review" "$JAR3" '{"action":"approve"}'
+                                       check "$STATUS" 200 "a strategy draft is approved"
+req POST "/api/campaigns/$SCAMP/export" "$JAR3" '{}'
+                                       check "$STATUS" 200 "the posting kit is prepared"
+contains "$BODY" '"count":1' "the kit holds only approved posts"
+contains "$BODY" '/t/' "each kit post carries its tracked link"
+req POST "/api/content/$DRAFT1/publish" "$JAR3" '{"mode":"manual","liveUrl":"https://example.com/live-post-from-kit"}'
+                                       check "$STATUS" 200 "the live link is recorded from the kit"
+req GET "/api/campaigns/$SCAMP" "$JAR3"
+contains "$BODY" '"lifecycle":"content_review"' "campaign stays in review while other drafts wait"
+req GET "/app/campaigns/$SCAMP" "$JAR3"
+contains "$BODY" 'Distribute' "the campaign page shows the distribute panel"
+contains "$BODY" 'example.com/live-post-from-kit' "the live post is linked from the campaign"
+req GET /app "$JAR3"
+contains "$BODY" 'Launch path' "the dashboard shows the launch path"
+req POST "/api/campaigns/$SCAMP/lifecycle" "$JAR1" '{"action":"cancel"}'
+                                       check "$STATUS" 404 "another workspace cannot move the campaign"
+req POST /api/campaigns "$JAR3" '{"name":"Manual launch","objective":"Launch week","targetAudience":"Freelancers","keyMessage":"Get paid without Wi-Fi","cta":"Try it","channels":["x"],"formats":["single"],"successMetric":"signups"}'
+MCAMP=$(printf '%s' "$BODY" | jget '.campaign.id')
+req POST "/api/campaigns/$MCAMP/lifecycle" "$JAR3" '{"action":"submit"}'
+contains "$BODY" '"lifecycle":"pending_approval"' "manual campaign submitted for approval"
+req POST /api/content "$JAR3" "{\"channel\":\"x\",\"format\":\"single\",\"campaignId\":\"$MCAMP\"}"
+                                       check "$STATUS" 409 "content is refused while the campaign waits on approval"
 req GET "/api/goals/$GOAL_ID" "$JAR3"
 check "$STATUS" 404 "cross-workspace goal access denied (404)"
 req GET "/api/content/$CONTENT_ID" "$JAR3"
@@ -182,10 +409,92 @@ out=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$BASE/api/goals" -H "origi
                                        check "$out" 413 "oversized request body rejected (413)"
 req POST /api/goals "$JAR1" '{broken json'; check "$STATUS" 400 "malformed JSON rejected (400)"
 
-req POST /api/connections "$JAR1" '{"channel":"x","adapter":"postiz","label":"ssrf-probe","baseUrl":"http://169.254.169.254/latest/meta-data","apiKey":"probe-key-123","integrationIds":{}}'
-contains "$BODY" "Blocked" "SSRF attempt against cloud metadata blocked"
-CONN_ID=$(printf '%s' "$BODY" | jget '.connection.id')
-if [ -n "$CONN_ID" ]; then req DELETE "/api/connections/$CONN_ID" "$JAR1"; check "$STATUS" 200 "SSRF probe connection cleaned up"; fi
+# SSRF: product URL intake is the outbound fetch of a user-supplied URL (the
+# connection probe it replaces went away with Postiz). Cloud metadata and
+# private addresses must be refused before any request is made.
+req POST /api/product/intake "$JAR1" '{"url":"http://169.254.169.254/latest/meta-data"}'
+contains "$BODY" "only reads public websites" "SSRF attempt against cloud metadata blocked"
+check "$STATUS" 400 "SSRF attempt rejected with 400"
+
+# --- SSO / sign-in providers ----------------------------------------------------
+# hdr PATH JAR — sets STATUS, LOC (Location header) and SETC (state cookie) without following.
+hdr() {
+  local out
+  out=$(curl -s -o /dev/null -D - -w $'\n%{http_code}' "$BASE$1" -b "$2" -c "$2")
+  STATUS=${out##*$'\n'}
+  LOC=$(printf '%s' "$out" | tr -d '\r' | awk 'tolower($1)=="location:"{print $2}' | tail -1)
+  SETC=$(printf '%s' "$out" | tr -d '\r' | grep -i '^set-cookie: banyan_oauth=' | head -1)
+}
+req GET /app/settings "$JAR1";         check "$STATUS" 200 "settings page loads"
+contains "$BODY" "Sign-in methods" "settings lists sign-in methods"
+JARO=/tmp/e2e-jar-oauth.txt; rm -f "$JARO" /tmp/e2e-empty-jar.txt
+req GET /login "$JARO"
+case "$BODY" in
+  *"/api/auth/oauth/github/start"*)
+    ok "configured provider (GitHub) offered on the sign-in page"
+    hdr "/api/auth/oauth/github/start?next=%2Fapp%2Fgoals" "$JARO"
+    check "$STATUS" 302 "provider start redirects to the provider"
+    contains "$LOC" "https://github.com/login/oauth/authorize?" "start goes to GitHub's authorize endpoint"
+    contains "$LOC" "code_challenge_method=S256" "start sends a PKCE challenge"
+    contains "$SETC" "HttpOnly" "state cookie is HttpOnly"
+    hdr "/api/auth/oauth/github/callback?code=fake&state=forged" "$JARO"
+    contains "$LOC" "error=expired" "callback with a forged state is refused"
+    hdr "/api/auth/oauth/github/callback?code=fake&state=x" /tmp/e2e-empty-jar.txt
+    contains "$LOC" "error=expired" "callback without the state cookie is refused"
+    hdr "/api/auth/oauth/github/start" "$JARO"
+    ST=$(printf '%s' "$LOC" | sed -n 's/.*[?&]state=\([^&]*\).*/\1/p')
+    hdr "/api/auth/oauth/github/callback?code=fake&state=$ST" "$JARO"
+    contains "$LOC" "error=token_exchange_failed" "matching state with a fake code fails at the token exchange"
+    hdr "/api/auth/oauth/github/callback?error=access_denied" "$JARO"
+    contains "$LOC" "error=cancelled" "declining at the provider shows a cancelled message"
+    hdr "/api/auth/oauth/github/start?next=https%3A%2F%2Fevil.example" "$JARO"
+    case "$LOC" in *evil.example*) bad "off-site next is never carried" "$LOC";; *) ok "off-site next is never carried";; esac;;
+  *) say "SKIP: no OAuth provider configured (set OAUTH_GITHUB_CLIENT_ID/SECRET to run the provider checks)";;
+esac
+hdr "/api/auth/oauth/myspace/start" "$JARO"
+contains "$LOC" "error=not_configured" "unknown provider refused"
+req POST /api/auth/oauth/complete "$JARO" '{"name":"X user","email":"x@test.invalid"}'
+check "$STATUS" 410 "finishing a provider sign-up needs the sealed pending cookie"
+req DELETE /api/auth/oauth/accounts/anything "$JARO"
+check "$STATUS" 401 "disconnecting a provider requires a session"
+rm -f "$JARO" /tmp/e2e-empty-jar.txt
+
+# --- Autopilot: the agents act on the founder's decisions ------------------------
+JAR4=/tmp/e2e-jar4.txt; rm -f "$JAR4"
+U4="e2e-c-$STAMP@test.banyan.local"
+req POST /api/auth/signup "$JAR4" "{\"name\":\"E2E Autopilot\",\"email\":\"$U4\",\"password\":\"e2e-password-4\"}"
+                                       check "$STATUS" 201 "autopilot founder signs up"
+req PATCH /api/profile "$JAR4" '{"name":"Ledgerline","description":"Invoicing for freelancers that works offline.","stage":"building","problem":"Freelancers lose days of cash flow when they cannot invoice without signal.","valueProp":"Send invoices from anywhere, even offline.","website":"https://example.com"}'
+req POST /api/product/profile/approve "$JAR4" '{}'
+                                       check "$STATUS" 200 "founder approves the profile"
+AUTO_S=""
+for i in $(seq 1 20); do
+  req GET /api/strategies "$JAR4"
+  AUTO_S=$(printf '%s' "$BODY" | jget '.strategy.id')
+  [ -n "$AUTO_S" ] && break; sleep 1
+done
+[ -n "$AUTO_S" ] && ok "the strategist drafts a strategy without being asked" || bad "the strategist drafts a strategy without being asked" "$BODY"
+contains "$BODY" '"status":"proposed"' "the drafted strategy waits on the founder"
+req GET /app/activity "$JAR4"
+contains "$BODY" "Draft the distribution strategy" "the strategist run is recorded as agent work"
+req POST /api/product/profile/approve "$JAR4" '{}'
+req GET /api/strategies "$JAR4"
+NVER=$(printf '%s' "$BODY" | jget '.versions.length')
+check "$NVER" 1 "approving again does not draft a second strategy"
+req POST "/api/strategies/$AUTO_S/approve" "$JAR4" '{}'
+                                       check "$STATUS" 200 "founder approves the strategy"
+AUTO_N=""
+for i in $(seq 1 30); do
+  req GET /api/content "$JAR4"
+  AUTO_N=$(printf '%s' "$BODY" | jget '.items.length')
+  [ -n "$AUTO_N" ] && [ "$AUTO_N" -ge 1 ] 2>/dev/null && break; sleep 1
+done
+[ -n "$AUTO_N" ] && [ "$AUTO_N" -ge 1 ] 2>/dev/null && ok "the creator writes drafts without being asked ($AUTO_N)" || bad "the creator writes drafts without being asked" "items=$AUTO_N"
+contains "$BODY" '"status":"ready_for_review"' "autopilot drafts wait for review"
+req GET /app "$JAR4"
+# "1 draft waits" / "3 drafts wait": a live model may have written only one draft so far.
+contains "$BODY" "on your review" "the launch path says what is waiting on the founder"
+rm -f "$JAR4"
 
 req POST /api/auth/logout "$JAR1";     check "$STATUS" 200 "logout works"
 req GET /api/goals "$JAR1";            check "$STATUS" 401 "session invalidated after logout"
